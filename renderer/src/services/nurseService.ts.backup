@@ -1,0 +1,246 @@
+import { getDb } from '../lib/database-simple';
+import type { Nurse, PatientCareTech, Spectra } from '../types/nurse';
+import type { Patient } from '../types/patient';
+import type { AddStaffMemberFormValues } from '../types/forms';
+import type { LayoutName } from '../types/patient';
+import { NUM_COLS_GRID, NUM_ROWS_GRID } from '../lib/grid-utils';
+import { findCompactEmptySlot, getAvailableSpectra } from './nurseHelpers';
+
+// Convert data to include layout name
+const nurseWithLayout = (nurse: Nurse, layoutName: LayoutName): Nurse => ({
+  ...nurse,
+  layoutName,
+});
+
+const techWithLayout = (tech: PatientCareTech, layoutName: LayoutName): PatientCareTech => ({
+  ...tech,
+  layoutName,
+});
+
+export async function getNurses(layoutName: LayoutName): Promise<Nurse[]> {
+  if (!layoutName) return [];
+  
+  try {
+    const db = await getDb();
+    const stmt = db.prepare('SELECT * FROM nurses WHERE layout_name = ? ORDER BY role, name');
+    const rows = stmt.all(layoutName);
+    
+    const nurses = rows.map(nurseFromDb);
+    
+    // Validate each nurse object to ensure assignedPatientIds is an array
+    return nurses.map(nurse => ({
+      ...nurse,
+      assignedPatientIds: Array.isArray(nurse.assignedPatientIds) ? nurse.assignedPatientIds : Array(6).fill(null),
+    }));
+  } catch (error) {
+    console.error(`Error fetching nurse layout ${layoutName}:`, error);
+    return [];
+  }
+}
+
+export async function saveNurses(layoutName: LayoutName, nurses: Nurse[]): Promise<void> {
+  if (!layoutName || !nurses) return;
+
+  try {
+    const db = await getDb();
+    
+    const transaction = db.transaction(() => {
+      // Delete existing nurses for this layout
+      const deleteStmt = db.prepare('DELETE FROM nurses WHERE layout_name = ?');
+      deleteStmt.run(layoutName);
+      
+      // Insert all nurses
+      const insertStmt = db.prepare(`
+        INSERT INTO nurses (
+          id, layout_name, name, role, spectra, relief, assigned_patient_ids, grid_row, grid_column
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `);
+      
+      nurses.forEach(nurse => {
+        const dbNurse = nurseToDb(nurseWithLayout(nurse, layoutName));
+        insertStmt.run(
+          dbNurse.id, dbNurse.layout_name, dbNurse.name, dbNurse.role,
+          dbNurse.spectra, dbNurse.relief, dbNurse.assigned_patient_ids,
+          dbNurse.grid_row, dbNurse.grid_column
+        );
+      });
+    });
+    
+    transaction();
+  } catch (error) {
+    console.error(`Error saving nurse layout ${layoutName}:`, error);
+  }
+}
+
+export async function getTechs(layoutName: LayoutName): Promise<PatientCareTech[]> {
+  if (!layoutName) return [];
+  
+  try {
+    const db = await getDb();
+    const stmt = db.prepare('SELECT * FROM patient_care_techs WHERE layout_name = ? ORDER BY name');
+    const rows = stmt.all(layoutName);
+    return rows.map(techFromDb);
+  } catch (error) {
+    console.error(`Error fetching techs for layout ${layoutName}:`, error);
+    return [];
+  }
+}
+
+export async function saveTechs(layoutName: LayoutName, techs: PatientCareTech[]): Promise<void> {
+  if (!layoutName || !techs) return;
+  
+  try {
+    const db = await getDb();
+    
+    const transaction = db.transaction(() => {
+      // Delete existing techs for this layout
+      const deleteStmt = db.prepare('DELETE FROM patient_care_techs WHERE layout_name = ?');
+      deleteStmt.run(layoutName);
+      
+      // Insert all techs
+      const insertStmt = db.prepare(`
+        INSERT INTO patient_care_techs (
+          id, layout_name, name, spectra, assignment_group, grid_row, grid_column
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+      `);
+      
+      techs.forEach(tech => {
+        const dbTech = techToDb(techWithLayout(tech, layoutName));
+        insertStmt.run(
+          dbTech.id, dbTech.layout_name, dbTech.name, dbTech.spectra,
+          dbTech.assignment_group, dbTech.grid_row, dbTech.grid_column
+        );
+      });
+    });
+    
+    transaction();
+  } catch (error) {
+    console.error(`Error saving techs for layout ${layoutName}:`, error);
+  }
+}
+
+export async function addStaffMember(
+  formData: AddStaffMemberFormValues, 
+  nurses: Nurse[], 
+  techs: PatientCareTech[],
+  patients: Patient[], 
+  spectraPool: Spectra[]
+): Promise<{ 
+  newNurses?: Nurse[] | null; 
+  newTechs?: PatientCareTech[] | null; 
+  success?: boolean; 
+  error?: string 
+}> {
+  const { role } = formData;
+  if (role === 'Sitter') {
+    return { success: true };
+  }
+  const isNurseRole = ['Staff Nurse', 'Float Pool Nurse'].includes(role);
+  const isTechRole = role === 'Patient Care Tech';
+  
+  if (role === 'Charge Nurse' || role === 'Unit Clerk') {
+    const newNurses = nurses.map(n => n.role === role ? { ...n, name: formData.name } : n);
+    return { newNurses };
+  }
+  
+  const assignedSpectraId = formData.spectra;
+
+  if ((isNurseRole || isTechRole) && !assignedSpectraId) {
+    return { error: "No Spectra device selected. Please select an available device." };
+  }
+
+  const isSpectraAlreadyAssigned = [...nurses, ...techs].some(s => s.spectra === assignedSpectraId);
+  if (isSpectraAlreadyAssigned) {
+    return { error: "The selected Spectra device is already assigned to another staff member." };
+  }
+
+  const position = findCompactEmptySlot(patients, nurses, techs, isNurseRole ? 3 : 1, 1);
+  if (!position) {
+    return { error: "Cannot add new staff member, the grid is full or fragmented. Try moving staff to free up space." };
+  }
+
+  if (isNurseRole) {
+    const newNurse: Nurse = {
+      id: `nurse-${Date.now()}`,
+      name: formData.name,
+      role: formData.role,
+      relief: formData.relief || undefined,
+      spectra: assignedSpectraId,
+      assignedPatientIds: Array(6).fill(null),
+      gridRow: position.row,
+      gridColumn: position.col,
+    };
+    return { newNurses: [...nurses, newNurse] };
+  }
+  
+  if (isTechRole) {
+    const newTech: PatientCareTech = {
+      id: `tech-${Date.now()}`,
+      name: formData.name,
+      spectra: assignedSpectraId as string,
+      assignmentGroup: '',
+      gridRow: position.row,
+      gridColumn: position.col,
+    };
+    return { newTechs: [...techs, newTech] };
+  }
+  
+  return { error: `Unhandled role: ${role}` };
+}
+
+export async function calculateTechAssignments(
+  techs: PatientCareTech[],
+  patients: Patient[]
+): Promise<PatientCareTech[]> {
+  if (techs.length === 0) return [];
+
+  const patientsWithNurse = patients.filter(p => p.assignedNurse);
+  if (patientsWithNurse.length === 0) {
+    return techs.map(tech => ({ ...tech, assignmentGroup: "All Patients" }));
+  }
+
+  const patientsPerTech = Math.ceil(patientsWithNurse.length / techs.length);
+  const assignments: { [key: string]: string[] } = {};
+  const assignedPatientIds = new Set<string>();
+  
+  techs.forEach(tech => assignments[tech.id] = []);
+
+  let currentTechIndex = 0;
+  for (const patient of patientsWithNurse) {
+    if (assignedPatientIds.has(patient.id)) continue;
+
+    assignments[techs[currentTechIndex].id].push(patient.id);
+    assignedPatientIds.add(patient.id);
+
+    currentTechIndex = (currentTechIndex + 1) % techs.length;
+  }
+
+  const patientMap = new Map(patients.map(p => [p.id, p]));
+  const nurseToPatients = new Map<string, string[]>();
+
+  patientsWithNurse.forEach(p => {
+    if (p.assignedNurse) {
+      if (!nurseToPatients.has(p.assignedNurse)) {
+        nurseToPatients.set(p.assignedNurse, []);
+      }
+      nurseToPatients.get(p.assignedNurse)!.push(p.roomDesignation);
+    }
+  });
+
+  return techs.map(tech => {
+    const assignedNurses = new Set<string>();
+    const myPatientIds = assignments[tech.id];
+
+    myPatientIds.forEach(patientId => {
+      const patient = patientMap.get(patientId);
+      if (patient && patient.assignedNurse) {
+        assignedNurses.add(patient.assignedNurse);
+      }
+    });
+
+    const nurseNames = Array.from(assignedNurses).sort();
+    const assignmentGroup = nurseNames.length > 0 ? `Nurses: ${nurseNames.join(', ')}` : 'Unassigned';
+
+    return { ...tech, assignmentGroup };
+  });
+}
