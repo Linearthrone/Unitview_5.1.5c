@@ -210,9 +210,25 @@ const PatientGrid: React.FC<PatientGridProps> = ({
   };
 
   return (
-    <div className="flex-grow flex overflow-auto p-2">
+    <div className="relative flex-grow flex min-h-[min(24rem,50vh)]">
       <div
-        className="grid"
+        className="absolute left-1 sm:left-2 top-0 bottom-0 z-10 pointer-events-none flex flex-col py-4 w-6 sm:w-8"
+        aria-hidden
+      >
+        <div className="flex-1 flex items-center justify-center min-h-0">
+          <span className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-wide text-center [writing-mode:vertical-rl] rotate-180">
+            North side
+          </span>
+        </div>
+        <div className="flex-1 flex items-center justify-center min-h-0">
+          <span className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-wide text-center [writing-mode:vertical-rl] rotate-180">
+            South side / section
+          </span>
+        </div>
+      </div>
+      <div className="flex-grow flex overflow-auto p-2 pl-7 sm:pl-10">
+      <div
+        className="grid w-full"
         style={{
           gridTemplateColumns: `repeat(${NUM_COLS_GRID}, minmax(12rem, 1fr))`,
           gridTemplateRows: `repeat(${NUM_ROWS_GRID}, minmax(12rem, auto))`,
@@ -264,6 +280,7 @@ const PatientGrid: React.FC<PatientGridProps> = ({
             />
           </div>
         ))}
+      </div>
       </div>
     </div>
   );

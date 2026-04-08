@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 // UI Components
 import AppHeader from '@/components/app-header';
+import ShiftMakerDialog from '@/components/shift-maker-dialog';
 import PatientGrid from '@/components/patient-grid';
 import ReportSheet from '@/components/report-sheet';
 import PrintableReport from '@/components/printable-report';
@@ -21,6 +22,12 @@ import UnitClerkCard from '@/components/unit-clerk-card';
 // Hooks and utils
 import { useToast } from "@/hooks/use-toast";
 import { NUM_ROWS_GRID } from '@/lib/grid-utils';
+import { computeNameAlertGroups } from '@/lib/name-alerts';
+import {
+  isOccupiedBed,
+  patientHasInvoluntaryHoldKeywords,
+  countPatientsWithSitterNurse,
+} from '@/lib/patient-status-helpers';
 import { debugLocalStorage } from './debug-storage';
 import { databaseDebug } from './database-debug';
 // Types
@@ -111,6 +118,7 @@ export default function UnitViewClient({
     unitType: 'Med-Surg',
   });
   const [isOncomingShiftSetup, setIsOncomingShiftSetup] = useState(false);
+  const [isShiftMakerOpen, setIsShiftMakerOpen] = useState(false);
 
   const getChargeNurseName = () => {
     return nurses.find(n => n.role === 'Charge Nurse')?.name || 'Unassigned';
@@ -236,9 +244,10 @@ export default function UnitViewClient({
 
   const handleStartOncomingShiftSetup = () => {
     setIsOncomingShiftSetup(true);
+    setIsShiftMakerOpen(true);
     toast({
-      title: "Oncoming Shift Setup",
-      description: "Setup mode enabled. Assign nurses and rooms for the oncoming shift, then save assignments.",
+      title: "Oncoming shift",
+      description: "Review the shift board, then assign nurses on the map and save shift assignments when ready.",
     });
   };
 
@@ -799,18 +808,35 @@ export default function UnitViewClient({
   const dnrCount = patients.filter(p => p.isComfortCareDNR).length;
   const restraintCount = patients.filter(p => p.isInRestraints).length;
   const foleyCount = patients.filter(p => Array.isArray(p.ldas) && p.ldas.some(lda => lda.toLowerCase().includes('foley'))).length;
+  const isolationCount = useMemo(
+    () => patients.filter((p) => isOccupiedBed(p.name) && p.isIsolation).length,
+    [patients]
+  );
+  const involuntaryHoldCount = useMemo(
+    () => patients.filter((p) => isOccupiedBed(p.name) && patientHasInvoluntaryHoldKeywords(p)).length,
+    [patients]
+  );
+  const sitterCount = useMemo(
+    () => countPatientsWithSitterNurse(patients, nurses),
+    [patients, nurses]
+  );
+  const nameAlertGroups = useMemo(() => computeNameAlertGroups(patients), [patients]);
 
   return (
     <div className="flex flex-col min-h-screen bg-background">
       <AppHeader
         title="UnitView"
-        unitName={`${currentLayoutName}${isOncomingShiftSetup ? ' (Oncoming Shift Setup)' : ''}`}
+        unitName={`${getFriendlyLayoutName(currentLayoutName)}${isOncomingShiftSetup ? ' (Oncoming shift setup)' : ''}`}
         activePatientCount={activePatientCount}
         totalRoomCount={totalRoomCount}
         isLayoutLocked={isLayoutLocked}
         dnrCount={dnrCount}
         restraintCount={restraintCount}
         foleyCount={foleyCount}
+        isolationCount={isolationCount}
+        sitterCount={sitterCount}
+        involuntaryHoldCount={involuntaryHoldCount}
+        nameAlertGroups={nameAlertGroups}
         onToggleLayoutLock={toggleLayoutLock}
         currentLayoutName={currentLayoutName}
         onSelectLayout={handleSelectLayout}
@@ -937,6 +963,11 @@ export default function UnitViewClient({
         onOpenChange={(isOpen) => !isOpen && setPatientToDischarge(null)}
         patient={patientToDischarge}
         onConfirm={handleConfirmDischarge}
+      />
+      <ShiftMakerDialog
+        open={isShiftMakerOpen}
+        onOpenChange={setIsShiftMakerOpen}
+        nurses={nurses}
       />
       <footer className="text-center p-4 text-sm text-muted-foreground border-t print-hide">
         UnitView &copy; {currentYear !== null ? currentYear : 'Loading...'}

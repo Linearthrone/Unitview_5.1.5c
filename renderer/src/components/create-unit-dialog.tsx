@@ -24,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Slider } from "@/components/ui/slider";
 import { Building2, Loader2, MoveRight, Undo2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { parseRoomNumberRangeSpec, sequentialRoomNumbers } from '@/lib/room-number-spec';
@@ -156,6 +157,8 @@ export default function CreateUnitDialog({ open, onOpenChange, onSave, existingL
   const [isSaving, setIsSaving] = useState(false);
   const [printCardTypes, setPrintCardTypes] = useState<PrintableCardType[]>(['Staff Nurse', 'Patient Care Tech', 'Unit Clerk', 'Charge Nurse']);
   const [printInfoFields, setPrintInfoFields] = useState<PrintableInfoField[]>(['Name', 'Role', 'Assigned Rooms']);
+  /** Percent scale for the layout map (steps 2–3); list column scrolls separately. */
+  const [placementMapScale, setPlacementMapScale] = useState(100);
 
   const roomInputRefsMap = useRef<Map<string, HTMLInputElement>>(new Map());
   const roomInputToRefocusAfterAlert = useRef<HTMLInputElement | null>(null);
@@ -199,6 +202,7 @@ export default function CreateUnitDialog({ open, onOpenChange, onSave, existingL
       setIsSaving(false);
       setPrintCardTypes(['Staff Nurse', 'Patient Care Tech', 'Unit Clerk', 'Charge Nurse']);
       setPrintInfoFields(['Name', 'Role', 'Assigned Rooms']);
+      setPlacementMapScale(100);
     }
   }, [open]);
 
@@ -475,7 +479,9 @@ export default function CreateUnitDialog({ open, onOpenChange, onSave, existingL
   const togglePrintInfoField = (value: PrintableInfoField) => {
     setPrintInfoFields((prev) => (prev.includes(value) ? prev.filter((x) => x !== value) : [...prev, value]));
   };
-  
+
+  const placementMapScaleFactor = placementMapScale / 100;
+
   return (
     <>
     <AlertDialog
@@ -525,9 +531,15 @@ export default function CreateUnitDialog({ open, onOpenChange, onSave, existingL
             </DialogDescription>
           </DialogHeader>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto px-6">
-          <div className="grid gap-4 py-4">
+        <div
+          className={cn(
+            'flex min-h-0 flex-1 flex-col px-6',
+            step === 2 || step === 3 ? 'overflow-hidden' : 'overflow-y-auto'
+          )}
+        >
+          {error ? <p className="shrink-0 text-sm text-destructive pb-2 pt-1">{error}</p> : null}
           {step === 1 ? (
+            <div className="grid gap-4 py-4">
             <>
               <div className="space-y-2">
                 <Label htmlFor="unit-designation">Unit Designation / Name</Label>
@@ -633,7 +645,9 @@ export default function CreateUnitDialog({ open, onOpenChange, onSave, existingL
                 </div>
               </div>
             </>
+            </div>
           ) : step === 4 ? (
+            <div className="grid gap-4 py-4">
             <div className="space-y-4">
               <div className="rounded-md border p-3">
                 <div className="text-sm font-semibold">Printed card types</div>
@@ -674,10 +688,11 @@ export default function CreateUnitDialog({ open, onOpenChange, onSave, existingL
                 </div>
               </div>
             </div>
+            </div>
           ) : (
-            <div className="grid min-h-0 grid-cols-[1fr_2fr] gap-4 sm:min-h-[320px]">
-              <div className="min-h-0 space-y-3 overflow-y-auto rounded-md border p-3">
-                <div className="space-y-2 rounded-md border border-dashed bg-muted/20 p-2">
+            <div className="grid min-h-0 min-w-0 flex-1 grid-cols-1 gap-4 py-4 sm:grid-cols-[1fr_2fr] sm:min-h-[320px]">
+              <div className="flex min-h-[200px] flex-1 flex-col gap-3 rounded-md border p-3 sm:min-h-0">
+                <div className="shrink-0 space-y-2 rounded-md border border-dashed bg-muted/20 p-2">
                   <div className="text-xs font-semibold">Layout grid size</div>
                   <p className="text-[11px] text-muted-foreground leading-snug">
                     Rows and columns set how many slots appear on the map. Each slot becomes one position on the unit board (max {MAX_LAYOUT_ROWS}×{MAX_LAYOUT_COLS}).
@@ -736,16 +751,19 @@ export default function CreateUnitDialog({ open, onOpenChange, onSave, existingL
                       : null}
                   </p>
                 </div>
-                <div className="text-sm font-semibold">Cards to place</div>
-                <p className="text-xs text-muted-foreground">
-                  {step === 2
-                    ? 'Place all room cards first. You can drag from the list or type a room number in an empty grid cell. Tab or Enter accepts and moves to the next empty cell; Shift+Tab goes to the previous.'
-                    : 'Place nurse, PCA, and unit clerk cards on the map after room placement is complete. One card per grid cell.'}
-                </p>
-                <Button type="button" variant="outline" size="sm" onClick={clearPlacements}>
-                  <Undo2 className="mr-2 h-4 w-4" />
-                  Clear Placements
-                </Button>
+                <div className="shrink-0 space-y-2">
+                  <div className="text-sm font-semibold">Cards to place</div>
+                  <p className="text-xs text-muted-foreground">
+                    {step === 2
+                      ? 'Place all room cards first. You can drag from the list or type a room number in an empty grid cell. Tab or Enter accepts and moves to the next empty cell; Shift+Tab goes to the previous.'
+                      : 'Place nurse, PCA, and unit clerk cards on the map after room placement is complete. One card per grid cell.'}
+                  </p>
+                  <Button type="button" variant="outline" size="sm" onClick={clearPlacements}>
+                    <Undo2 className="mr-2 h-4 w-4" />
+                    Clear Placements
+                  </Button>
+                </div>
+                <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain pr-0.5">
                 <div className="space-y-4">
                   <div>
                     <div className="text-xs font-semibold text-muted-foreground mb-1">Room cards ({numRooms})</div>
@@ -818,8 +836,34 @@ export default function CreateUnitDialog({ open, onOpenChange, onSave, existingL
                   </div>
                   )}
                 </div>
+                </div>
               </div>
-              <div className="min-h-0 min-w-0 space-y-2 overflow-y-auto">
+              <div className="flex min-h-[240px] min-w-0 flex-1 flex-col gap-2 sm:min-h-0">
+                <div className="shrink-0 flex flex-wrap items-center gap-3 rounded-md border border-dashed bg-muted/20 px-3 py-2">
+                  <Label htmlFor="placement-map-scale" className="text-xs font-medium whitespace-nowrap">
+                    Layout map scale
+                  </Label>
+                  <Slider
+                    id="placement-map-scale"
+                    className="max-w-[12rem] flex-1"
+                    min={60}
+                    max={160}
+                    step={5}
+                    value={[placementMapScale]}
+                    onValueChange={(v) => setPlacementMapScale(v[0] ?? 100)}
+                    disabled={isSaving}
+                    aria-valuetext={`${placementMapScale} percent`}
+                  />
+                  <span className="text-xs tabular-nums text-muted-foreground">{placementMapScale}%</span>
+                </div>
+                <div className="min-h-0 flex-1 overflow-auto overscroll-contain rounded-md border bg-muted/10 p-2">
+                  <div
+                    style={{
+                      transform: `scale(${placementMapScaleFactor})`,
+                      transformOrigin: 'top left',
+                      width: `${100 / placementMapScaleFactor}%`,
+                    }}
+                  >
                 <div
                   className="grid gap-2"
                   style={{ gridTemplateColumns: `repeat(${layoutCols}, minmax(0, 1fr))` }}
@@ -904,11 +948,11 @@ export default function CreateUnitDialog({ open, onOpenChange, onSave, existingL
                     );
                   })}
                 </div>
+                  </div>
+                </div>
               </div>
             </div>
           )}
-          </div>
-          {error && <p className="text-sm text-destructive pt-1">{error}</p>}
         </div>
         <div className="shrink-0 border-t px-6 py-4">
           <DialogFooter>

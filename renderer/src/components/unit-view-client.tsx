@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 // UI Components
 import AppHeader from './app-header';
+import ShiftMakerDialog from './shift-maker-dialog';
 import PatientGrid from './patient-grid';
 import ReportSheet from './report-sheet';
 import PrintableReport from './printable-report';
@@ -21,6 +22,12 @@ import UnitClerkCard from './unit-clerk-card';
 // Hooks and utils
 import { useToast } from "../hooks/use-toast";
 import { NUM_ROWS_GRID } from '../lib/grid-utils';
+import { computeNameAlertGroups } from '@/lib/name-alerts';
+import {
+  isOccupiedBed,
+  patientHasInvoluntaryHoldKeywords,
+  countPatientsWithSitterNurse,
+} from '@/lib/patient-status-helpers';
 // Types
 import type { LayoutName, Patient, StaffRole, CreateUnitPayload } from '../types/patient';
 import type { Nurse, PatientCareTech, Spectra } from '../types/nurse';
@@ -103,6 +110,8 @@ export default function UnitViewClient({
   const [isManageSpectraDialogOpen, setIsManageSpectraDialogOpen] = useState(false);
   const [isAddRoomDialogOpen, setIsAddRoomDialogOpen] = useState(false);
   const [isCreateUnitDialogOpen, setIsCreateUnitDialogOpen] = useState(false);
+  const [isShiftMakerOpen, setIsShiftMakerOpen] = useState(false);
+  const [isOncomingShiftSetup, setIsOncomingShiftSetup] = useState(false);
 
   // Electron API integration
   useEffect(() => {
@@ -235,6 +244,7 @@ export default function UnitViewClient({
     try {
       const chargeNurseName = getChargeNurseName();
       await assignmentService.saveShiftAssignments(currentLayoutName, nurses, patients, chargeNurseName);
+      setIsOncomingShiftSetup(false);
       toast({
         title: "Assignments Saved",
         description: "The current shift assignments have been saved for reference.",
@@ -816,18 +826,35 @@ export default function UnitViewClient({
   const dnrCount = patients.filter(p => p.isComfortCareDNR).length;
   const restraintCount = patients.filter(p => p.isInRestraints).length;
   const foleyCount = patients.filter(p => Array.isArray(p.ldas) && p.ldas.some(lda => lda.toLowerCase().includes('foley'))).length;
+  const isolationCount = useMemo(
+    () => patients.filter((p) => isOccupiedBed(p.name) && p.isIsolation).length,
+    [patients]
+  );
+  const involuntaryHoldCount = useMemo(
+    () => patients.filter((p) => isOccupiedBed(p.name) && patientHasInvoluntaryHoldKeywords(p)).length,
+    [patients]
+  );
+  const sitterCount = useMemo(
+    () => countPatientsWithSitterNurse(patients, nurses),
+    [patients, nurses]
+  );
+  const nameAlertGroups = useMemo(() => computeNameAlertGroups(patients), [patients]);
 
   return (
     <div className="flex flex-col min-h-screen bg-background">
       <AppHeader
         title="UnitView"
-        unitName={currentLayoutName}
+        unitName={`${getFriendlyLayoutName(currentLayoutName)}${isOncomingShiftSetup ? ' (Oncoming shift setup)' : ''}`}
         activePatientCount={activePatientCount}
         totalRoomCount={totalRoomCount}
         isLayoutLocked={isLayoutLocked}
         dnrCount={dnrCount}
         restraintCount={restraintCount}
         foleyCount={foleyCount}
+        isolationCount={isolationCount}
+        sitterCount={sitterCount}
+        involuntaryHoldCount={involuntaryHoldCount}
+        nameAlertGroups={nameAlertGroups}
         onToggleLayoutLock={toggleLayoutLock}
         currentLayoutName={currentLayoutName}
         onSelectLayout={handleSelectLayout}
@@ -841,6 +868,15 @@ export default function UnitViewClient({
         onAddRoom={() => setIsAddRoomDialogOpen(true)}
         onInsertMockData={handleInsertMockData}
         onSaveAssignments={handleSaveAssignments}
+        onSetupOncomingShift={() => {
+          setIsOncomingShiftSetup(true);
+          setIsShiftMakerOpen(true);
+          toast({
+            title: 'Oncoming shift',
+            description:
+              'Review the shift board, then assign nurses on the map and save shift assignments when ready.',
+          });
+        }}
         onLeaveUnit={onBackToDashboard}
       />
       <main className="flex-grow flex flex-col overflow-auto print-hide">
@@ -953,6 +989,11 @@ export default function UnitViewClient({
         onOpenChange={(isOpen) => !isOpen && setPatientToDischarge(null)}
         patient={patientToDischarge}
         onConfirm={handleConfirmDischarge}
+      />
+      <ShiftMakerDialog
+        open={isShiftMakerOpen}
+        onOpenChange={setIsShiftMakerOpen}
+        nurses={nurses}
       />
       <footer className="text-center p-4 text-sm text-muted-foreground border-t print-hide">
         UnitView &copy; {currentYear !== null ? currentYear : 'Loading...'}
