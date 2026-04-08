@@ -1,31 +1,49 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Button } from './ui/button';
-import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Alert, AlertDescription } from './ui/alert';
-import { 
-  Plus, 
-  Settings, 
-  Hospital, 
-  Palette, 
-  Monitor, 
-  LogOut,
+import { Badge } from './ui/badge';
+import {
+  Plus,
+  Settings,
+  Hospital,
+  Palette,
   ChevronRight,
   Layout,
   Moon,
   Sun,
-  Zap
+  Zap,
+  LogOut,
+  Activity,
+  BedDouble,
+  Users,
+  ShieldAlert,
 } from 'lucide-react';
 import { User, UnitSettings } from '../types/auth';
 import type { CreateUnitPayload } from '../types/patient';
 import { authService } from '../services/authService';
 import * as layoutService from '../services/layoutService';
+import { computeFacilityStatistics, type FacilityStatistics } from '../services/facilityStatsService';
+import { getLastOpenedUnitName } from '../lib/last-unit-storage';
 import CreateUnitDialog from './create-unit-dialog';
+import UserDashboardSettings from './user-dashboard-settings';
 
 /** Placeholder unit created in older versions; not shown on the dashboard. */
 const isPlaceholderDefaultUnit = (u: UnitSettings) => u.id === 'default';
+
+function sortUnitsWithLastFirst(units: UnitSettings[], lastName: string | null): UnitSettings[] {
+  const copy = [...units];
+  copy.sort((a, b) => {
+    if (lastName) {
+      if (a.name === lastName && b.name !== lastName) return -1;
+      if (b.name === lastName && a.name !== lastName) return 1;
+    }
+    return a.name.localeCompare(b.name);
+  });
+  return copy;
+}
 
 interface UserDashboardProps {
   user: User;
@@ -38,49 +56,96 @@ export default function UserDashboard({ user, onLogout, onBackToLogin, onEnterUn
   const [units, setUnits] = useState<UnitSettings[]>([]);
   const [selectedUnit, setSelectedUnit] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [statsLoading, setStatsLoading] = useState(true);
+  const [facilityStats, setFacilityStats] = useState<FacilityStatistics | null>(null);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [isCreateUnitOpen, setIsCreateUnitOpen] = useState(false);
   const [availableLayoutNames, setAvailableLayoutNames] = useState<string[]>([]);
+  const [screen, setScreen] = useState<'main' | 'settings'>('main');
 
   const [currentTheme, setCurrentTheme] = useState<'light' | 'dark' | 'blue' | 'green' | 'purple'>('light');
 
-  useEffect(() => {
-    loadUnits();
-    loadCurrentSettings();
-    layoutService.getAvailableLayouts().then(setAvailableLayoutNames);
+  /** Read each render so returning from a unit refreshes “last opened” from storage. */
+  const lastOpenedName = getLastOpenedUnitName(user.id);
+
+  const showMessage = useCallback((type: 'success' | 'error', text: string) => {
+    setMessage({ type, text });
+    setTimeout(() => setMessage(null), 3000);
   }, []);
 
-  const loadUnits = () => {
-    try {
-      const allUnits = authService.getUnitSettings();
-      setUnits(allUnits);
-    } catch (error) {
-      showMessage('error', 'Failed to load units');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const applyTheme = useCallback((theme: 'light' | 'dark' | 'blue' | 'green' | 'purple') => {
+    const root = document.documentElement;
+    root.classList.remove('theme-light', 'theme-dark', 'theme-blue', 'theme-green', 'theme-purple');
+    root.classList.add(`theme-${theme}`);
+    localStorage.setItem('unitview_theme', theme);
+  }, []);
 
-  const loadCurrentSettings = () => {
+  const loadCurrentSettings = useCallback(() => {
     try {
       const stored = localStorage.getItem('unitview_theme');
       if (stored && ['light', 'dark', 'blue', 'green', 'purple'].includes(stored)) {
         setCurrentTheme(stored as 'light' | 'dark' | 'blue' | 'green' | 'purple');
+        applyTheme(stored as 'light' | 'dark' | 'blue' | 'green' | 'purple');
         return;
       }
       const firstReal = authService.getUnitSettings().find((u) => !isPlaceholderDefaultUnit(u));
       if (firstReal) {
         setCurrentTheme(firstReal.theme);
+        applyTheme(firstReal.theme);
       }
     } catch (error) {
       console.error('Failed to load current settings');
     }
-  };
+  }, [applyTheme]);
 
-  const showMessage = (type: 'success' | 'error', text: string) => {
-    setMessage({ type, text });
-    setTimeout(() => setMessage(null), 3000);
-  };
+  const loadInitialData = useCallback(async () => {
+    setIsLoading(true);
+    setStatsLoading(true);
+    try {
+      const [allUnits, layouts] = await Promise.all([
+        Promise.resolve(authService.getUnitSettings()),
+        layoutService.getAvailableLayouts(),
+      ]);
+      setUnits(allUnits);
+      setAvailableLayoutNames(layouts);
+
+      const visible = allUnits.filter((u) => !isPlaceholderDefaultUnit(u));
+      const layoutKeys = visible.map((u) => u.name).filter((n) => layouts.includes(n));
+      const stats = await computeFacilityStatistics(layoutKeys);
+      setFacilityStats(stats);
+    } catch {
+      showMessage('error', 'Failed to load dashboard data');
+      setFacilityStats(null);
+    } finally {
+      setIsLoading(false);
+      setStatsLoading(false);
+    }
+  }, [showMessage]);
+
+  useEffect(() => {
+    loadInitialData();
+    loadCurrentSettings();
+  }, [loadInitialData, loadCurrentSettings]);
+
+  const visibleUnits = useMemo(
+    () => units.filter((u) => !isPlaceholderDefaultUnit(u)),
+    [units]
+  );
+
+  const sortedUnits = useMemo(
+    () => sortUnitsWithLastFirst(visibleUnits, lastOpenedName),
+    [visibleUnits, lastOpenedName]
+  );
+
+  useEffect(() => {
+    if (sortedUnits.length === 0) {
+      setSelectedUnit('');
+      return;
+    }
+    const last = getLastOpenedUnitName(user.id);
+    const preferred = last && sortedUnits.some((u) => u.name === last) ? last : sortedUnits[0].name;
+    setSelectedUnit((prev) => (prev && sortedUnits.some((u) => u.name === prev) ? prev : preferred));
+  }, [sortedUnits, user.id]);
 
   const handleCreateUnitWizard = async (data: CreateUnitPayload) => {
     await layoutService.createFullUnitFromPayload(data);
@@ -97,7 +162,7 @@ export default function UserDashboard({ user, onLogout, onBackToLogin, onEnterUn
       return;
     }
     setIsCreateUnitOpen(false);
-    loadUnits();
+    await loadInitialData();
     const layouts = await layoutService.getAvailableLayouts();
     setAvailableLayoutNames(layouts);
     setSelectedUnit(data.designation);
@@ -110,28 +175,12 @@ export default function UserDashboard({ user, onLogout, onBackToLogin, onEnterUn
       showMessage('error', 'Please select a unit');
       return;
     }
-    
-    // Save the selected unit as preference
     onEnterUnit(selectedUnit);
   };
 
   const handleThemeChange = (theme: 'light' | 'dark' | 'blue' | 'green' | 'purple') => {
     setCurrentTheme(theme);
-    // Apply theme immediately for preview
     applyTheme(theme);
-  };
-
-  const applyTheme = (theme: 'light' | 'dark' | 'blue' | 'green' | 'purple') => {
-    const root = document.documentElement;
-    
-    // Remove existing theme classes
-    root.classList.remove('theme-light', 'theme-dark', 'theme-blue', 'theme-green', 'theme-purple');
-    
-    // Apply new theme
-    root.classList.add(`theme-${theme}`);
-    
-    // Store theme preference
-    localStorage.setItem('unitview_theme', theme);
   };
 
   const getThemeIcon = (theme: string) => {
@@ -172,11 +221,19 @@ export default function UserDashboard({ user, onLogout, onBackToLogin, onEnterUn
     );
   }
 
-  const visibleUnits = units.filter((u) => !isPlaceholderDefaultUnit(u));
+  if (screen === 'settings') {
+    return (
+      <UserDashboardSettings
+        user={user}
+        onBack={() => setScreen('main')}
+        currentTheme={currentTheme}
+        onThemeChange={handleThemeChange}
+      />
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gray-50 theme-light">
-      {/* Header */}
+    <div className={`min-h-screen bg-gray-50 theme-${currentTheme}`}>
       <header className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
@@ -187,198 +244,244 @@ export default function UserDashboard({ user, onLogout, onBackToLogin, onEnterUn
                 <p className="text-sm text-gray-500">Welcome, {user.username}</p>
               </div>
             </div>
-            <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-600">
-                Role: <span className="font-medium">{user.role === 'admin' ? 'Administrator' : 'User'}</span>
+            <div className="flex items-center space-x-2 sm:space-x-4">
+              <span className="text-sm text-gray-600 hidden sm:inline">
+                Role:{' '}
+                <span className="font-medium">{user.role === 'admin' ? 'Administrator' : 'User'}</span>
               </span>
-              <Button variant="outline" onClick={onBackToLogin}>
+              <Button variant="ghost" size="icon" onClick={() => setScreen('settings')} aria-label="Settings">
+                <Settings className="w-5 h-5" />
+              </Button>
+              <Button variant="outline" onClick={onBackToLogin} className="hidden sm:inline-flex">
                 Back to Login
               </Button>
               <Button variant="outline" onClick={onLogout}>
-                <LogOut className="w-4 h-4 mr-2" />
-                Logout
+                <LogOut className="w-4 h-4 sm:mr-2" />
+                <span className="hidden sm:inline">Logout</span>
               </Button>
             </div>
           </div>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
         {message && (
-          <Alert className={`mb-6 ${message.type === 'error' ? 'border-red-200 bg-red-50' : 'border-green-200 bg-green-50'}`}>
-            <AlertDescription>
-              {message.text}
-            </AlertDescription>
+          <Alert
+            className={`${
+              message.type === 'error' ? 'border-red-200 bg-red-50' : 'border-green-200 bg-green-50'
+            }`}
+          >
+            <AlertDescription>{message.text}</AlertDescription>
           </Alert>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Unit Selection */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Layout className="w-5 h-5 mr-2" />
-                Select Unit
-              </CardTitle>
-              <CardDescription>
-                Choose a unit to manage or create a new one
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label htmlFor="unit-select">Available Units</Label>
-                <Select value={selectedUnit} onValueChange={setSelectedUnit}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a unit" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {visibleUnits.map((unit) => (
+        {/* Facility statistics (aggregated across all configured units) */}
+        <section aria-labelledby="facility-stats-heading">
+          <h2 id="facility-stats-heading" className="text-lg font-semibold text-gray-900 mb-3">
+            Facility overview
+          </h2>
+          <p className="text-sm text-muted-foreground mb-4">
+            Totals are calculated from every unit that is set up in this facility (patient and staff records per
+            unit).
+          </p>
+          {statsLoading || !facilityStats ? (
+            <div className="flex items-center gap-2 text-sm text-gray-500">
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600" />
+              Loading facility statistics…
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+              <Card className="border-blue-100 bg-gradient-to-br from-blue-50/80 to-white">
+                <CardHeader className="pb-2 pt-4 px-4">
+                  <div className="flex items-center gap-2 text-blue-700">
+                    <Layout className="w-4 h-4" />
+                    <span className="text-xs font-medium uppercase tracking-wide">Units</span>
+                  </div>
+                  <CardTitle className="text-2xl tabular-nums">{facilityStats.unitCount}</CardTitle>
+                  <CardDescription className="text-xs">With saved layouts</CardDescription>
+                </CardHeader>
+              </Card>
+              <Card className="border-emerald-100 bg-gradient-to-br from-emerald-50/80 to-white">
+                <CardHeader className="pb-2 pt-4 px-4">
+                  <div className="flex items-center gap-2 text-emerald-700">
+                    <BedDouble className="w-4 h-4" />
+                    <span className="text-xs font-medium uppercase tracking-wide">Beds</span>
+                  </div>
+                  <CardTitle className="text-2xl tabular-nums">
+                    {facilityStats.occupiedBeds}
+                    <span className="text-base font-normal text-gray-500">
+                      {' '}
+                      / {facilityStats.totalBeds}
+                    </span>
+                  </CardTitle>
+                  <CardDescription className="text-xs">Occupied / total</CardDescription>
+                </CardHeader>
+              </Card>
+              <Card className="border-amber-100 bg-gradient-to-br from-amber-50/80 to-white">
+                <CardHeader className="pb-2 pt-4 px-4">
+                  <div className="flex items-center gap-2 text-amber-800">
+                    <Activity className="w-4 h-4" />
+                    <span className="text-xs font-medium uppercase tracking-wide">Occupancy</span>
+                  </div>
+                  <CardTitle className="text-2xl tabular-nums">{facilityStats.occupancyPercent}%</CardTitle>
+                  <CardDescription className="text-xs">
+                    {facilityStats.vacantBeds} vacant bed{facilityStats.vacantBeds === 1 ? '' : 's'}
+                  </CardDescription>
+                </CardHeader>
+              </Card>
+              <Card className="border-violet-100 bg-gradient-to-br from-violet-50/80 to-white">
+                <CardHeader className="pb-2 pt-4 px-4">
+                  <div className="flex items-center gap-2 text-violet-700">
+                    <Users className="w-4 h-4" />
+                    <span className="text-xs font-medium uppercase tracking-wide">Staff</span>
+                  </div>
+                  <CardTitle className="text-2xl tabular-nums">
+                    {facilityStats.totalNurses + facilityStats.totalTechs}
+                  </CardTitle>
+                  <CardDescription className="text-xs">
+                    {facilityStats.totalNurses} nurses · {facilityStats.totalTechs} techs
+                  </CardDescription>
+                </CardHeader>
+              </Card>
+            </div>
+          )}
+          {!statsLoading && facilityStats && facilityStats.unitCount > 0 && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
+              <Card>
+                <CardContent className="pt-4 pb-4 flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-orange-100 text-orange-800">
+                    <ShieldAlert className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">Fall risk (occupied)</p>
+                    <p className="text-2xl font-semibold tabular-nums">{facilityStats.patientsFallRisk}</p>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-4 pb-4 flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-sky-100 text-sky-900">
+                    <Activity className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">Isolation (occupied)</p>
+                    <p className="text-2xl font-semibold tabular-nums">{facilityStats.patientsIsolation}</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+        </section>
+
+        {/* Unit selection */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <Layout className="w-5 h-5 mr-2" />
+              Select unit
+            </CardTitle>
+            <CardDescription>
+              All units configured for this facility are listed below. Your last opened unit appears first.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <Label htmlFor="unit-select">Available units</Label>
+              <Select value={selectedUnit} onValueChange={setSelectedUnit}>
+                <SelectTrigger id="unit-select" className="mt-1">
+                  <SelectValue placeholder="Select a unit" />
+                </SelectTrigger>
+                <SelectContent>
+                  {sortedUnits.map((unit) => {
+                    const isLastOpened = lastOpenedName === unit.name;
+                    return (
                       <SelectItem key={unit.id} value={unit.name}>
-                        <div className="flex items-center">
-                          <div className={`w-3 h-3 rounded-full mr-2 ${getThemeColor(unit.theme).split(' ')[0]}`} />
-                          {unit.name}
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <div className={`w-3 h-3 rounded-full shrink-0 ${getThemeColor(unit.theme).split(' ')[0]}`} />
+                          <span>{unit.name}</span>
+                          {isLastOpened && (
+                            <Badge variant="secondary" className="text-[10px] px-1.5 py-0 font-normal">
+                              Last opened
+                            </Badge>
+                          )}
                         </div>
                       </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              <div className="flex space-x-2">
-                <Button 
-                  onClick={handleEnterUnit} 
-                  disabled={!selectedUnit}
-                  className="flex-1"
-                >
-                  Enter Unit
-                  <ChevronRight className="w-4 h-4 ml-2" />
-                </Button>
-                
-                <Button variant="outline" onClick={() => setIsCreateUnitOpen(true)}>
-                  <Plus className="w-4 h-4 mr-2" />
-                  New Unit
-                </Button>
-                <CreateUnitDialog
-                  open={isCreateUnitOpen}
-                  onOpenChange={setIsCreateUnitOpen}
-                  onSave={handleCreateUnitWizard}
-                  existingLayoutNames={availableLayoutNames}
-                />
-              </div>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
 
-              {visibleUnits.length > 0 && (
-                <div className="mt-4">
-                  <h4 className="text-sm font-medium text-gray-700 mb-2">Recent Units</h4>
-                  <div className="space-y-2">
-                    {visibleUnits.slice(0, 3).map((unit) => (
-                      <div 
+            <div className="flex flex-wrap gap-2">
+              <Button onClick={handleEnterUnit} disabled={!selectedUnit} className="flex-1 min-w-[140px]">
+                Enter unit
+                <ChevronRight className="w-4 h-4 ml-2" />
+              </Button>
+
+              <Button variant="outline" onClick={() => setIsCreateUnitOpen(true)}>
+                <Plus className="w-4 h-4 mr-2" />
+                New unit
+              </Button>
+              <CreateUnitDialog
+                open={isCreateUnitOpen}
+                onOpenChange={setIsCreateUnitOpen}
+                onSave={handleCreateUnitWizard}
+                existingLayoutNames={availableLayoutNames}
+              />
+            </div>
+
+            {sortedUnits.length > 0 && (
+              <div className="mt-4">
+                <h4 className="text-sm font-medium text-gray-700 mb-2">Units</h4>
+                <div className="space-y-2 max-h-[min(360px,50vh)] overflow-y-auto pr-1">
+                  {sortedUnits.map((unit) => {
+                    const isLastOpened = lastOpenedName === unit.name;
+                    return (
+                      <div
                         key={unit.id}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            setSelectedUnit(unit.name);
+                          }
+                        }}
                         className={`p-3 rounded-lg border cursor-pointer transition-colors hover:bg-gray-50 ${
-                          selectedUnit === unit.name ? 'border-blue-500 bg-blue-50' : 'border-gray-200'
-                        }`}
+                          selectedUnit === unit.name
+                            ? 'border-blue-500 bg-blue-50 ring-1 ring-blue-200'
+                            : 'border-gray-200'
+                        } ${isLastOpened ? 'shadow-sm' : ''}`}
                         onClick={() => setSelectedUnit(unit.name)}
                       >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center">
-                            <div className={`w-3 h-3 rounded-full mr-2 ${getThemeColor(unit.theme).split(' ')[0]}`} />
-                            <span className="font-medium">{unit.name}</span>
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div
+                              className={`w-3 h-3 rounded-full shrink-0 ${getThemeColor(unit.theme).split(' ')[0]}`}
+                            />
+                            <span className="font-medium truncate">{unit.name}</span>
+                            {isLastOpened && (
+                              <Badge className="bg-amber-100 text-amber-900 hover:bg-amber-100 shrink-0">
+                                Last opened
+                              </Badge>
+                            )}
                           </div>
-                          <div className="flex items-center text-sm text-gray-500">
+                          <div className="flex items-center text-sm text-gray-500 shrink-0">
                             {getThemeIcon(unit.theme)}
                             <span className="ml-1 capitalize">{unit.theme}</span>
                           </div>
                         </div>
                         <div className="text-xs text-gray-500 mt-1">
-                          Created: {new Date(unit.createdAt).toLocaleDateString()}
+                          Created {new Date(unit.createdAt).toLocaleDateString()}
                         </div>
                       </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Settings */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Settings className="w-5 h-5 mr-2" />
-                Settings
-              </CardTitle>
-              <CardDescription>
-                Configure application preferences and themes
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label className="text-sm font-medium">Color Theme</Label>
-                <div className="grid grid-cols-2 gap-3 mt-2">
-                  {[
-                    { value: 'light', label: 'Light', icon: Sun },
-                    { value: 'dark', label: 'Dark', icon: Moon },
-                    { value: 'blue', label: 'Blue', icon: Zap },
-                    { value: 'green', label: 'Green', icon: Palette },
-                    { value: 'purple', label: 'Purple', icon: Layout },
-                  ].map((theme) => (
-                    <button
-                      key={theme.value}
-                      onClick={() => handleThemeChange(theme.value as any)}
-                      className={`p-3 rounded-lg border transition-all ${
-                        currentTheme === theme.value 
-                          ? 'border-blue-500 bg-blue-50' 
-                          : 'border-gray-200 hover:bg-gray-50'
-                      }`}
-                    >
-                      <div className="flex items-center justify-center mb-1">
-                        <theme.icon className="w-5 h-5" />
-                      </div>
-                      <div className="text-xs font-medium capitalize">{theme.label}</div>
-                    </button>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
-
-              <div className="pt-4 border-t">
-                <h4 className="text-sm font-medium text-gray-700 mb-2">Account Information</h4>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Employee Number:</span>
-                    <span className="font-medium">{user.employeeNumber}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Full Name:</span>
-                    <span className="font-medium">{user.username}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Role:</span>
-                    <span className="font-medium">{user.role === 'admin' ? 'Administrator' : 'User'}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Last Login:</span>
-                    <span className="font-medium">
-                      {user.lastLogin ? new Date(user.lastLogin).toLocaleString() : 'Never'}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="pt-4 border-t">
-                <h4 className="text-sm font-medium text-gray-700 mb-2">Application Info</h4>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Version:</span>
-                    <span className="font-medium">1.0.0</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Data Storage:</span>
-                    <span className="font-medium">Local</span>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+            )}
+          </CardContent>
+        </Card>
       </main>
     </div>
   );

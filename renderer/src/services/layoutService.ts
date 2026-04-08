@@ -1,5 +1,16 @@
 import { getDb } from '../lib/database-simple';
-import type { LayoutName, UserPreferences, AssignmentSet, CreateUnitPayload, UnitLayoutMetadata, UnitType, LayoutCardPlacement } from '../types/patient';
+import type {
+  LayoutName,
+  UserPreferences,
+  AssignmentSet,
+  CreateUnitPayload,
+  UnitLayoutMetadata,
+  UnitType,
+  LayoutCardPlacement,
+  PrintLayoutOptions,
+  PrintableCardType,
+  PrintableInfoField,
+} from '../types/patient';
 import type { Nurse } from '@/types/nurse';
 import type { Patient } from '@/types/patient';
 import type { PatientCareTech } from '@/types/nurse';
@@ -12,9 +23,23 @@ const DEFAULT_LAYOUT_METADATA: UnitLayoutMetadata = {
   baselinePctsPerShift: 2,
   nurseToPatientRatio: 4,
   unitType: 'Med-Surg',
+  printLayoutOptions: {
+    includedCardTypes: ['Staff Nurse', 'Patient Care Tech', 'Unit Clerk', 'Charge Nurse'],
+    includedInfoFields: ['Name', 'Role', 'Assigned Rooms'],
+  },
 };
 
 const UNIT_TYPE_VALUES: UnitType[] = ['ICU', 'Med-Surg', 'Telemetry', 'Step-Down', 'ER', 'Other'];
+const PRINTABLE_CARD_TYPES: PrintableCardType[] = ['Staff Nurse', 'Patient Care Tech', 'Unit Clerk', 'Charge Nurse'];
+const PRINTABLE_INFO_FIELDS: PrintableInfoField[] = [
+  'Name',
+  'Role',
+  'Assigned Rooms',
+  'Spectra',
+  'Assignment Group',
+  'Relief',
+  'Notes',
+];
 
 export async function getUserPreferences(): Promise<UserPreferences> {
   try {
@@ -273,6 +298,16 @@ export async function saveNewLayout(
 export async function getLayoutMetadata(layoutName: LayoutName): Promise<UnitLayoutMetadata> {
   const db = await getDb();
   const metadata = db.getLayout(layoutName);
+  const defaultPrint = DEFAULT_LAYOUT_METADATA.printLayoutOptions!;
+  const incomingPrint = metadata?.printLayoutOptions;
+  const printLayoutOptions: PrintLayoutOptions = {
+    includedCardTypes: Array.isArray(incomingPrint?.includedCardTypes)
+      ? incomingPrint.includedCardTypes.filter((x): x is PrintableCardType => PRINTABLE_CARD_TYPES.includes(x as PrintableCardType))
+      : defaultPrint.includedCardTypes,
+    includedInfoFields: Array.isArray(incomingPrint?.includedInfoFields)
+      ? incomingPrint.includedInfoFields.filter((x): x is PrintableInfoField => PRINTABLE_INFO_FIELDS.includes(x as PrintableInfoField))
+      : defaultPrint.includedInfoFields,
+  };
   return {
     numRooms: metadata?.numRooms ?? DEFAULT_LAYOUT_METADATA.numRooms,
     bedsPerRoom: metadata?.bedsPerRoom ?? DEFAULT_LAYOUT_METADATA.bedsPerRoom,
@@ -280,10 +315,27 @@ export async function getLayoutMetadata(layoutName: LayoutName): Promise<UnitLay
     baselinePctsPerShift: metadata?.baselinePctsPerShift ?? DEFAULT_LAYOUT_METADATA.baselinePctsPerShift,
     nurseToPatientRatio: metadata?.nurseToPatientRatio ?? DEFAULT_LAYOUT_METADATA.nurseToPatientRatio,
     unitType: metadata?.unitType && UNIT_TYPE_VALUES.includes(metadata.unitType) ? metadata.unitType : DEFAULT_LAYOUT_METADATA.unitType,
+    printLayoutOptions: {
+      includedCardTypes: printLayoutOptions.includedCardTypes.length
+        ? printLayoutOptions.includedCardTypes
+        : defaultPrint.includedCardTypes,
+      includedInfoFields: printLayoutOptions.includedInfoFields.length
+        ? printLayoutOptions.includedInfoFields
+        : defaultPrint.includedInfoFields,
+    },
   };
 }
 
 function sanitizeMetadata(input: Partial<UnitLayoutMetadata>): UnitLayoutMetadata {
+  const defaultPrint = DEFAULT_LAYOUT_METADATA.printLayoutOptions!;
+  const incomingPrint = input.printLayoutOptions;
+  const includedCardTypes = Array.isArray(incomingPrint?.includedCardTypes)
+    ? incomingPrint.includedCardTypes.filter((x): x is PrintableCardType => PRINTABLE_CARD_TYPES.includes(x as PrintableCardType))
+    : defaultPrint.includedCardTypes;
+  const includedInfoFields = Array.isArray(incomingPrint?.includedInfoFields)
+    ? incomingPrint.includedInfoFields.filter((x): x is PrintableInfoField => PRINTABLE_INFO_FIELDS.includes(x as PrintableInfoField))
+    : defaultPrint.includedInfoFields;
+
   return {
     numRooms: Math.max(1, Number(input.numRooms ?? DEFAULT_LAYOUT_METADATA.numRooms)),
     bedsPerRoom: Math.max(1, Number(input.bedsPerRoom ?? DEFAULT_LAYOUT_METADATA.bedsPerRoom)),
@@ -291,5 +343,9 @@ function sanitizeMetadata(input: Partial<UnitLayoutMetadata>): UnitLayoutMetadat
     baselinePctsPerShift: Math.max(0, Number(input.baselinePctsPerShift ?? DEFAULT_LAYOUT_METADATA.baselinePctsPerShift)),
     nurseToPatientRatio: Math.max(1, Number(input.nurseToPatientRatio ?? DEFAULT_LAYOUT_METADATA.nurseToPatientRatio)),
     unitType: input.unitType && UNIT_TYPE_VALUES.includes(input.unitType) ? input.unitType : DEFAULT_LAYOUT_METADATA.unitType,
+    printLayoutOptions: {
+      includedCardTypes: includedCardTypes.length ? includedCardTypes : defaultPrint.includedCardTypes,
+      includedInfoFields: includedInfoFields.length ? includedInfoFields : defaultPrint.includedInfoFields,
+    },
   };
 }

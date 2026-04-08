@@ -66,6 +66,7 @@ export interface UnitLayoutMetadata {
   baselinePctsPerShift: number;
   nurseToPatientRatio: number;
   unitType: UnitType;
+  printLayoutOptions?: PrintLayoutOptions;
 }
 
 /** What each draggable item on the new-unit layout map represents */
@@ -78,6 +79,21 @@ export interface LayoutCardPlacement {
   roomIndex?: number;
   row: number;
   column: number;
+}
+
+export type PrintableCardType = 'Staff Nurse' | 'Patient Care Tech' | 'Unit Clerk' | 'Charge Nurse';
+export type PrintableInfoField =
+  | 'Name'
+  | 'Role'
+  | 'Assigned Rooms'
+  | 'Spectra'
+  | 'Assignment Group'
+  | 'Relief'
+  | 'Notes';
+
+export interface PrintLayoutOptions {
+  includedCardTypes: PrintableCardType[];
+  includedInfoFields: PrintableInfoField[];
 }
 
 export interface CreateUnitPayload extends UnitLayoutMetadata {

@@ -10,6 +10,7 @@ import * as nurseService from '../services/nurseService';
 import * as spectraService from '../services/spectraService';
 import * as layoutService from '../services/layoutService';
 import type { LayoutName } from '../types/patient';
+import { setLastOpenedUnitName } from '../lib/last-unit-storage';
 
 type AuthView = 'login' | 'admin' | 'user-dashboard' | 'unit-view';
 
@@ -118,6 +119,11 @@ export default function AuthContainer() {
         nurseService.getTechs(layoutToLoad),
       ]);
 
+      const sessionUser = authService.getCurrentUser();
+      if (sessionUser) {
+        setLastOpenedUnitName(sessionUser.id, layoutToLoad);
+      }
+
       setInitialProps({
         initialLayoutName: layoutToLoad,
         initialAvailableLayouts: allLayouts,
@@ -128,6 +134,7 @@ export default function AuthContainer() {
         initialSpectraPool: initialSpectra,
       });
 
+      setAuthState(prev => ({ ...prev, isLoading: false, error: null }));
       setCurrentView('unit-view');
     } catch (error) {
       setAuthState(prev => ({ 
