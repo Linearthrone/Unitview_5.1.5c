@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import AuthContainer from './components/auth-container';
 import { initializeDatabase } from './lib/database-simple';
+import { determineDataSource } from './lib/data-source';
 import { UndoRedoProvider } from './hooks/use-undo-redo';
 
 function App() {
@@ -10,6 +11,9 @@ function App() {
   useEffect(() => {
     const initializeApp = async () => {
       try {
+        const selectedDataSource = determineDataSource();
+        console.log('Setup data source:', selectedDataSource);
+
         // Initialize the database
         await initializeDatabase();
       } catch (err) {

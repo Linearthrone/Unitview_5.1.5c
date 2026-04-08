@@ -51,6 +51,7 @@ interface PatientGridProps {
   onDeleteRoom: (patientId: string) => void;
   onRemoveTech: (techId: string) => void;
   onAssignStaff: (role: StaffRole) => void;
+  onQuickAddStaff?: (role: StaffRole) => void;
   onRemoveStaff: (role: StaffRole) => void;
 }
 
@@ -79,6 +80,7 @@ const PatientGrid: React.FC<PatientGridProps> = ({
   onRemoveNurse,
   onRemoveTech,
   onAssignStaff,
+  onQuickAddStaff,
   onRemoveStaff,
   onDeleteRoom,
 }) => {
@@ -189,9 +191,21 @@ const PatientGrid: React.FC<PatientGridProps> = ({
   const renderNurseCard = (nurse: Nurse) => {
     switch (nurse.role) {
       case 'Charge Nurse':
-        return <ChargeNurseCard name={nurse.name} onAssign={onAssignStaff} onRemove={onRemoveStaff} />;
+        return (
+          <ChargeNurseCard
+            name={nurse.name}
+            onAssign={onAssignStaff}
+            onRemove={onRemoveStaff}
+          />
+        );
       case 'Unit Clerk':
-        return <UnitClerkCard name={nurse.name} onAssign={onAssignStaff} onRemove={onRemoveStaff} />;
+        return (
+          <UnitClerkCard
+            name={nurse.name}
+            onAssign={onAssignStaff}
+            onRemove={onRemoveStaff}
+          />
+        );
       case 'Staff Nurse':
       case 'Float Pool Nurse':
         return (
@@ -201,6 +215,7 @@ const PatientGrid: React.FC<PatientGridProps> = ({
             onDropOnSlot={handleDropOnNurseSlot}
             onClearAssignments={onClearNurseAssignments}
             onRemoveNurse={onRemoveNurse}
+            onQuickAddStaff={onQuickAddStaff}
             isEffectivelyLocked={isEffectivelyLocked}
           />
         );
@@ -276,6 +291,7 @@ const PatientGrid: React.FC<PatientGridProps> = ({
             <PatientCareTechCard
               tech={tech}
               onRemoveTech={onRemoveTech}
+              onQuickAddStaff={onQuickAddStaff}
               isEffectivelyLocked={isEffectivelyLocked}
             />
           </div>

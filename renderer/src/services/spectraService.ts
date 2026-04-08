@@ -1,21 +1,15 @@
 import { getDb } from '../lib/database-simple';
-import type { Spectra } from '../types/nurse';
+import type { Nurse, PatientCareTech, Spectra, SpectraLogEntry, SpectraStatus } from '../types/nurse';
 
 export async function getSpectraPool(): Promise<Spectra[]> {
   try {
     const db = await getDb();
-    const stmt = db.prepare('SELECT * FROM spectra_pool ORDER BY id');
-    const rows = stmt.all();
-    
-    if (rows.length === 0) {
-      // Initialize with default spectra data
-      await initializeSpectraPool();
-      return getSpectraPool(); // Recursive call to fetch the initialized data
-    }
-    
-    return rows.map(row => ({
-      id: row.id,
-      inService: Boolean(row.in_service),
+    const rows = db.getSpectraPool();
+
+    return rows.map((row) => ({
+      ...row,
+      status: row.status ?? (row.inService ? 'in service' : 'out of service'),
+      logs: Array.isArray(row.logs) ? row.logs : [],
     }));
   } catch (error) {
     console.error('Error fetching spectra pool:', error);
@@ -23,49 +17,124 @@ export async function getSpectraPool(): Promise<Spectra[]> {
   }
 }
 
-async function initializeSpectraPool(): Promise<void> {
+export async function saveSpectraPool(pool: Spectra[]): Promise<void> {
   try {
     const db = await getDb();
-    const stmt = db.prepare('INSERT INTO spectra_pool (id, in_service) VALUES (?, ?)');
-    
-    const transaction = db.transaction(() => {
-      initialSpectra.forEach(spectra => {
-        stmt.run(spectra.id, spectra.inService ? 1 : 0);
-      });
-    });
-    
-    transaction();
+    db.saveSpectraPool(pool);
   } catch (error) {
-    console.error('Error initializing spectra pool:', error);
+    console.error('Error saving spectra pool:', error);
+    throw error;
   }
 }
 
-export async function updateSpectra(spectraId: string, inService: boolean): Promise<void> {
-  try {
-    const db = await getDb();
-    const stmt = db.prepare('UPDATE spectra_pool SET in_service = ? WHERE id = ?');
-    stmt.run(inService ? 1 : 0, spectraId);
-  } catch (error) {
-    console.error('Error updating spectra:', error);
-  }
+export async function addSpectra(spectraId: string, currentPool: Spectra[]): Promise<{ newPool?: Spectra[]; error?: string }> {
+  const normalizedId = spectraId.trim().toUpperCase();
+  if (!normalizedId) return { error: 'Device ID is required.' };
+  if (currentPool.some((item) => item.id.toUpperCase() === normalizedId)) return { error: 'That Spectralink already exists.' };
+
+  const newDevice: Spectra = {
+    id: normalizedId,
+    inService: true,
+    status: 'in service',
+    assignedTo: '',
+    logs: [],
+  };
+  const nextPool = [...currentPool, newDevice].sort((a, b) => a.id.localeCompare(b.id));
+  await saveSpectraPool(nextPool);
+  return { newPool: nextPool };
 }
 
-export async function addSpectra(spectraId: string): Promise<void> {
-  try {
-    const db = await getDb();
-    const stmt = db.prepare('INSERT OR IGNORE INTO spectra_pool (id, in_service) VALUES (?, 1)');
-    stmt.run(spectraId);
-  } catch (error) {
-    console.error('Error adding spectra:', error);
+export async function toggleSpectraStatus(
+  spectraId: string,
+  inService: boolean,
+  currentPool: Spectra[],
+  nurses: Nurse[],
+  techs: PatientCareTech[]
+): Promise<{ newPool?: Spectra[]; error?: string }> {
+  const device = currentPool.find((item) => item.id === spectraId);
+  if (!device) return { error: 'Device not found.' };
+  if (!inService && device.assignedTo) {
+    const stillAssigned =
+      nurses.some((nurse) => nurse.name === device.assignedTo) ||
+      techs.some((tech) => tech.name === device.assignedTo);
+    if (stillAssigned) {
+      return { error: `Cannot take ${spectraId} out of service while assigned to ${device.assignedTo}.` };
+    }
   }
+
+  const status: SpectraStatus = inService ? 'in service' : 'out of service';
+  return updateDeviceStatus(spectraId, status, currentPool);
 }
 
-export async function removeSpectra(spectraId: string): Promise<void> {
-  try {
-    const db = await getDb();
-    const stmt = db.prepare('DELETE FROM spectra_pool WHERE id = ?');
-    stmt.run(spectraId);
-  } catch (error) {
-    console.error('Error removing spectra:', error);
+export async function updateDeviceStatus(
+  spectraId: string,
+  status: SpectraStatus,
+  currentPool: Spectra[]
+): Promise<{ newPool?: Spectra[]; error?: string }> {
+  const exists = currentPool.some((item) => item.id === spectraId);
+  if (!exists) return { error: 'Device not found.' };
+
+  const nextPool = currentPool.map((item) =>
+    item.id === spectraId
+      ? {
+          ...item,
+          status,
+          inService: status === 'in service',
+        }
+      : item
+  );
+  await saveSpectraPool(nextPool);
+  return { newPool: nextPool };
+}
+
+export async function assignDeviceToStaff(
+  spectraId: string,
+  staffName: string,
+  currentPool: Spectra[]
+): Promise<{ newPool?: Spectra[]; error?: string }> {
+  const device = currentPool.find((item) => item.id === spectraId);
+  if (!device) return { error: 'Device not found.' };
+  if ((device.status ?? (device.inService ? 'in service' : 'out of service')) !== 'in service') {
+    return { error: 'Only in-service devices can be assigned.' };
   }
+
+  const nextPool = currentPool.map((item) => {
+    if (item.id === spectraId) return { ...item, assignedTo: staffName };
+    if (item.assignedTo === staffName) return { ...item, assignedTo: '' };
+    return item;
+  });
+  await saveSpectraPool(nextPool);
+  return { newPool: nextPool };
+}
+
+export async function unassignDevice(
+  spectraId: string,
+  currentPool: Spectra[]
+): Promise<{ newPool?: Spectra[]; error?: string }> {
+  const exists = currentPool.some((item) => item.id === spectraId);
+  if (!exists) return { error: 'Device not found.' };
+  const nextPool = currentPool.map((item) => (item.id === spectraId ? { ...item, assignedTo: '' } : item));
+  await saveSpectraPool(nextPool);
+  return { newPool: nextPool };
+}
+
+export async function addDeviceLog(
+  spectraId: string,
+  message: string,
+  currentPool: Spectra[]
+): Promise<{ newPool?: Spectra[]; error?: string }> {
+  const trimmed = message.trim();
+  if (!trimmed) return { error: 'Log message cannot be empty.' };
+  const exists = currentPool.some((item) => item.id === spectraId);
+  if (!exists) return { error: 'Device not found.' };
+  const newLog: SpectraLogEntry = {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    createdAt: new Date().toISOString(),
+    message: trimmed,
+  };
+  const nextPool = currentPool.map((item) =>
+    item.id === spectraId ? { ...item, logs: [...(item.logs ?? []), newLog] } : item
+  );
+  await saveSpectraPool(nextPool);
+  return { newPool: nextPool };
 }

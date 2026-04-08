@@ -14,6 +14,7 @@ import DischargeConfirmationDialog from './discharge-confirmation-dialog';
 import AddStaffMemberDialog from './add-staff-member-dialog';
 import AssignStaffDialog from './assign-staff-dialog';
 import ManageSpectraDialog from './manage-spectra-dialog';
+import SpectralinkDeviceTable from './spectralink-device-table';
 import AddRoomDialog from './add-room-dialog';
 import CreateUnitDialog from './create-unit-dialog';
 import EditRoomDesignationDialog from './edit-room-designation-dialog';
@@ -30,7 +31,7 @@ import {
 } from '@/lib/patient-status-helpers';
 // Types
 import type { LayoutName, Patient, StaffRole, CreateUnitPayload } from '../types/patient';
-import type { Nurse, PatientCareTech, Spectra } from '../types/nurse';
+import type { Nurse, PatientCareTech, Spectra, SpectraStatus } from '../types/nurse';
 import type { AdmitPatientFormValues } from '../types/forms';
 import type { AddStaffMemberFormValues } from '../types/forms';
 import type { User } from '../types/auth';
@@ -105,6 +106,7 @@ export default function UnitViewClient({
   const [admitOrUpdatePatient, setAdmitOrUpdatePatient] = useState<Patient | null>(null);
   const [isUpdateMode, setIsUpdateMode] = useState(false);
   const [isAddStaffMemberDialogOpen, setIsAddStaffMemberDialogOpen] = useState(false);
+  const [quickAddRole, setQuickAddRole] = useState<StaffRole>('Staff Nurse');
   const [isAssignStaffDialogOpen, setIsAssignStaffDialogOpen] = useState(false);
   const [staffRoleToAssign, setStaffRoleToAssign] = useState<StaffRole | null>(null);
   const [isManageSpectraDialogOpen, setIsManageSpectraDialogOpen] = useState(false);
@@ -162,13 +164,8 @@ export default function UnitViewClient({
             nurseService.getTechs(layoutName),
         ]);
 
-        const validNurses = nurseData.map(n => ({
-          ...n,
-          assignedPatientIds: Array.isArray(n.assignedPatientIds) ? n.assignedPatientIds : Array(6).fill(null)
-        }));
-
         setPatients(patientData);
-        setNurses(validNurses);
+        setNurses(nurseData);
         setTechs(techData);
 
         setCurrentLayoutName(layoutName);
@@ -398,6 +395,11 @@ export default function UnitViewClient({
     setIsAssignStaffDialogOpen(true);
   }
 
+  const handleQuickAddStaff = (role: StaffRole) => {
+    setQuickAddRole(role);
+    setIsAddStaffMemberDialogOpen(true);
+  };
+
   const handleSaveAssignedStaff = (name: string, role: StaffRole) => {
       setNurses(prev => prev.map(n => n.role === role ? { ...n, name } : n));
       toast({ title: "Staff Assigned", description: `${name} has been assigned as the ${role}.` });
@@ -430,6 +432,46 @@ export default function UnitViewClient({
         setSpectraPool(result.newPool);
     } else if (result.error) {
         toast({ variant: "destructive", title: "Cannot Disable", description: result.error });
+    }
+  };
+
+  const handleSetSpectraStatus = async (id: string, status: SpectraStatus) => {
+    const result = await spectraService.updateDeviceStatus(id, status, spectraPool);
+    if (result.newPool) {
+      setSpectraPool(result.newPool);
+      toast({ title: 'Device Updated', description: `${id} set to ${status}.` });
+    } else if (result.error) {
+      toast({ variant: 'destructive', title: 'Unable to Update Device', description: result.error });
+    }
+  };
+
+  const handleAssignSpectraToStaff = async (id: string, staffName: string) => {
+    const result = await spectraService.assignDeviceToStaff(id, staffName, spectraPool);
+    if (result.newPool) {
+      setSpectraPool(result.newPool);
+      toast({ title: 'Device Assigned', description: `${id} assigned to ${staffName}.` });
+    } else if (result.error) {
+      toast({ variant: 'destructive', title: 'Unable to Assign Device', description: result.error });
+    }
+  };
+
+  const handleUnassignSpectra = async (id: string) => {
+    const result = await spectraService.unassignDevice(id, spectraPool);
+    if (result.newPool) {
+      setSpectraPool(result.newPool);
+      toast({ title: 'Device Unassigned', description: `${id} is now unassigned.` });
+    } else if (result.error) {
+      toast({ variant: 'destructive', title: 'Unable to Unassign Device', description: result.error });
+    }
+  };
+
+  const handleAddSpectraLog = async (id: string, message: string) => {
+    const result = await spectraService.addDeviceLog(id, message, spectraPool);
+    if (result.newPool) {
+      setSpectraPool(result.newPool);
+      toast({ title: 'Log Added', description: `Log saved for ${id}.` });
+    } else if (result.error) {
+      toast({ variant: 'destructive', title: 'Unable to Save Log', description: result.error });
     }
   };
 
@@ -743,10 +785,11 @@ export default function UnitViewClient({
           return patientA.bedNumber - patientB.bedNumber;
         });
 
-        // 5. Pad the array with nulls to fill all 6 slots
-        const finalPaddedIds = Array(6).fill(null);
+        // 5. Pad the array with nulls to fill configured nurse capacity
+        const nurseCapacity = Math.max(1, targetNurse.assignedPatientIds.length);
+        const finalPaddedIds = Array(nurseCapacity).fill(null);
         sortedPatientIds.forEach((id, index) => {
-          if (index < 6) {
+          if (index < nurseCapacity) {
             finalPaddedIds[index] = id;
           }
         });
@@ -800,7 +843,7 @@ export default function UnitViewClient({
 
     newNurses = newNurses.map(n => {
         if (n.id === nurseId) {
-            return { ...n, assignedPatientIds: Array(6).fill(null) };
+            return { ...n, assignedPatientIds: Array(Math.max(1, n.assignedPatientIds.length)).fill(null) };
         }
         return n;
     });
@@ -817,8 +860,56 @@ export default function UnitViewClient({
   }, [patients, nurses, techs, isInitialized, isLayoutLocked, handleAutoSave]);
 
   useEffect(() => {
-    // Remove tech assignment auto-update since calculateTechAssignments is removed
-    // If you need tech assignment logic, implement it here or in another helper
+    const admittedPatients = patients
+      .filter((p) => isOccupiedBed(p.name) && !p.isBlocked)
+      .sort((a, b) => a.bedNumber - b.bedNumber);
+
+    const assignedTechs = techs.filter((tech) => {
+      const normalizedName = tech.name.trim().toLowerCase();
+      return normalizedName.length > 0 && normalizedName !== 'unassigned';
+    });
+
+    if (assignedTechs.length === 0) {
+      const anyNonEmptyGroups = techs.some((tech) => (tech.assignmentGroup ?? '').trim().length > 0);
+      if (anyNonEmptyGroups) {
+        setTechs((prev) => prev.map((tech) => ({ ...tech, assignmentGroup: '' })));
+      }
+      return;
+    }
+
+    const totalPatients = admittedPatients.length;
+    const baseLoad = Math.floor(totalPatients / assignedTechs.length);
+    const remainder = totalPatients % assignedTechs.length;
+
+    let cursor = 0;
+    const nextGroupByTechId = new Map<string, string>();
+    assignedTechs.forEach((tech, index) => {
+      const groupSize = baseLoad + (index < remainder ? 1 : 0);
+      const groupPatients = admittedPatients.slice(cursor, cursor + groupSize);
+      cursor += groupSize;
+
+      if (groupPatients.length === 0) {
+        nextGroupByTechId.set(tech.id, '');
+      } else {
+        const firstRoom = groupPatients[0].roomDesignation;
+        const lastRoom = groupPatients[groupPatients.length - 1].roomDesignation;
+        nextGroupByTechId.set(tech.id, firstRoom === lastRoom ? firstRoom : `${firstRoom} - ${lastRoom}`);
+      }
+    });
+
+    const needsUpdate = techs.some((tech) => {
+      const nextGroup = nextGroupByTechId.get(tech.id) ?? '';
+      return (tech.assignmentGroup ?? '') !== nextGroup;
+    });
+
+    if (!needsUpdate) return;
+
+    setTechs((prev) =>
+      prev.map((tech) => ({
+        ...tech,
+        assignmentGroup: nextGroupByTechId.get(tech.id) ?? '',
+      }))
+    );
   }, [patients, techs]);
     
   const activePatientCount = patients.filter(p => p.name !== 'Vacant').length;
@@ -907,8 +998,21 @@ export default function UnitViewClient({
               onDeleteRoom={handleDeleteRoom}
               onRemoveTech={handleRemoveTech}
               onAssignStaff={handleAssignStaff}
+              onQuickAddStaff={handleQuickAddStaff}
               onRemoveStaff={handleRemoveStaff}
             />
+        </div>
+        <div className="border-t p-4">
+          <SpectralinkDeviceTable
+            title="Unit Spectralink Device Table"
+            spectraPool={spectraPool}
+            nurses={nurses}
+            techs={techs}
+            onAssignDevice={handleAssignSpectraToStaff}
+            onUnassignDevice={handleUnassignSpectra}
+            onSetStatus={handleSetSpectraStatus}
+            onAddLog={handleAddSpectraLog}
+          />
         </div>
       </main>
       <PrintableReport patients={patients} />
@@ -951,6 +1055,7 @@ export default function UnitViewClient({
         spectraPool={spectraPool}
         nurses={nurses}
         techs={techs}
+        initialRole={quickAddRole}
       />
        <AssignStaffDialog
         open={isAssignStaffDialogOpen}
@@ -994,6 +1099,17 @@ export default function UnitViewClient({
         open={isShiftMakerOpen}
         onOpenChange={setIsShiftMakerOpen}
         nurses={nurses}
+        patients={patients}
+        onPatientDragStart={handlePatientDragStart}
+        onDragEnd={handleDragEnd}
+        onDropOnNurseSlot={handleDropOnNurseSlot}
+        onClearNurseAssignments={handleClearNurseAssignments}
+        spectraPool={spectraPool}
+        techs={techs}
+        onAssignSpectra={handleAssignSpectraToStaff}
+        onUnassignSpectra={handleUnassignSpectra}
+        onSetSpectraStatus={handleSetSpectraStatus}
+        onAddSpectraLog={handleAddSpectraLog}
       />
       <footer className="text-center p-4 text-sm text-muted-foreground border-t print-hide">
         UnitView &copy; {currentYear !== null ? currentYear : 'Loading...'}

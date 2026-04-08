@@ -4,6 +4,7 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Star, Smartphone, UserPlus, UserX } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import {
   ContextMenu,
   ContextMenuContent,
@@ -20,6 +21,7 @@ interface ChargeNurseCardProps {
 }
 
 const ChargeNurseCard: React.FC<ChargeNurseCardProps> = ({ name, onAssign, onRemove }) => {
+  const isUnassigned = name.trim().toLowerCase() === 'unassigned';
   return (
      <ContextMenu>
       <ContextMenuTrigger>
@@ -35,13 +37,24 @@ const ChargeNurseCard: React.FC<ChargeNurseCardProps> = ({ name, onAssign, onRem
                 <div>
                     <p className="text-xl font-bold">{name}</p>
                 </div>
-                 {name !== 'Unassigned' && (
+                 {!isUnassigned && (
                      <div>
                          <p className="font-bold text-lg flex items-center gap-2">
                             <Smartphone className="h-4 w-4"/>
                             <span>x5501</span>
                         </p>
                     </div>
+                )}
+                {isUnassigned && (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => onAssign('Charge Nurse')}
+                  >
+                    <UserPlus className="mr-2 h-4 w-4" />
+                    + Assign staff
+                  </Button>
                 )}
             </div>
           </CardContent>
@@ -56,7 +69,7 @@ const ChargeNurseCard: React.FC<ChargeNurseCardProps> = ({ name, onAssign, onRem
         <ContextMenuItem
           className="text-destructive focus:text-destructive"
           onClick={() => onRemove('Charge Nurse')}
-          disabled={name === 'Unassigned'}
+          disabled={isUnassigned}
         >
           <UserX className="mr-2 h-4 w-4" />
           Remove Charge Nurse

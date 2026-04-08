@@ -968,6 +968,11 @@ export default function UnitViewClient({
         open={isShiftMakerOpen}
         onOpenChange={setIsShiftMakerOpen}
         nurses={nurses}
+        patients={patients}
+        onPatientDragStart={handlePatientDragStart}
+        onDragEnd={handleDragEnd}
+        onDropOnNurseSlot={handleDropOnNurseSlot}
+        onClearNurseAssignments={handleClearNurseAssignments}
       />
       <footer className="text-center p-4 text-sm text-muted-foreground border-t print-hide">
         UnitView &copy; {currentYear !== null ? currentYear : 'Loading...'}

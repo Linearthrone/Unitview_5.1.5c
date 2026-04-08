@@ -35,15 +35,24 @@ interface AddStaffMemberDialogProps {
   spectraPool: Spectra[];
   nurses: Nurse[];
   techs: PatientCareTech[];
+  initialRole?: AddStaffMemberFormValues['role'];
 }
 
-export default function AddStaffMemberDialog({ open, onOpenChange, onSave, spectraPool, nurses, techs }: AddStaffMemberDialogProps) {
+export default function AddStaffMemberDialog({
+  open,
+  onOpenChange,
+  onSave,
+  spectraPool,
+  nurses,
+  techs,
+  initialRole = 'Staff Nurse',
+}: AddStaffMemberDialogProps) {
   const form = useForm<AddStaffMemberFormValues>({
     resolver: zodResolver(AddStaffMemberFormSchema),
     defaultValues: {
       name: '',
       relief: '',
-      role: 'Staff Nurse',
+      role: initialRole,
       spectra: '',
     },
   });
@@ -57,9 +66,14 @@ export default function AddStaffMemberDialog({ open, onOpenChange, onSave, spect
 
   useEffect(() => {
     if (open) {
-      form.reset();
+      form.reset({
+        name: '',
+        relief: '',
+        role: initialRole,
+        spectra: '',
+      });
     }
-  }, [open, form]);
+  }, [open, form, initialRole]);
   
   const showSpectraField = ['Staff Nurse', 'Float Pool Nurse', 'Patient Care Tech'].includes(role);
 

@@ -4,6 +4,7 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ClipboardList, Phone, User, UserPlus, UserX } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import {
   ContextMenu,
   ContextMenuContent,
@@ -20,6 +21,7 @@ interface UnitClerkCardProps {
 }
 
 const UnitClerkCard: React.FC<UnitClerkCardProps> = ({ name, onAssign, onRemove }) => {
+  const isUnassigned = name.trim().toLowerCase() === 'unassigned';
   return (
     <ContextMenu>
       <ContextMenuTrigger>
@@ -38,7 +40,7 @@ const UnitClerkCard: React.FC<UnitClerkCardProps> = ({ name, onAssign, onRemove 
                       <span>{name}</span>
                     </p>
                 </div>
-                 {name !== 'Unassigned' && (
+                 {!isUnassigned && (
                     <div>
                         <p className="font-bold text-lg flex items-center gap-2">
                             <Phone className="h-4 w-4"/>
@@ -46,6 +48,17 @@ const UnitClerkCard: React.FC<UnitClerkCardProps> = ({ name, onAssign, onRemove 
                         </p>
                     </div>
                  )}
+                {isUnassigned && (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => onAssign('Unit Clerk')}
+                  >
+                    <UserPlus className="mr-2 h-4 w-4" />
+                    + Assign staff
+                  </Button>
+                )}
             </div>
           </CardContent>
         </Card>
@@ -59,7 +72,7 @@ const UnitClerkCard: React.FC<UnitClerkCardProps> = ({ name, onAssign, onRemove 
         <ContextMenuItem
           className="text-destructive focus:text-destructive"
           onClick={() => onRemove('Unit Clerk')}
-          disabled={name === 'Unassigned'}
+          disabled={isUnassigned}
         >
           <UserX className="mr-2 h-4 w-4" />
           Remove Unit Clerk

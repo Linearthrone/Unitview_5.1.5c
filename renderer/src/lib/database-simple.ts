@@ -4,6 +4,7 @@
 import type { Patient, LayoutName, UserPreferences, AssignmentSet, UnitLayoutMetadata } from '../types/patient';
 import type { Nurse, PatientCareTech, Spectra } from '../types/nurse';
 import type { User, UnitSettings } from '../types/auth';
+import { getConfiguredDataSource } from './data-source';
 
 // Data storage interfaces
 interface DatabaseSchema {
@@ -51,18 +52,17 @@ export class SimpleDatabase {
     console.log('🔄 Initializing database...');
     
     try {
-      // Load data from electron main process
+      const dataSource = getConfiguredDataSource();
+      console.log('🗄️ Selected data source:', dataSource);
+
+      // The setup currently supports local on-device storage only.
       if (window.electronAPI) {
         const userDataPath = await window.electronAPI.getUserDataPath();
         console.log('📁 User data path:', userDataPath);
-        // For now, we'll use localStorage for simplicity
-        // In a production app, you'd want to use proper file storage via IPC
-        this.loadFromLocalStorage();
       } else {
-        // Fallback to localStorage for development
-        console.log('⚠️ No electronAPI found, using localStorage');
-        this.loadFromLocalStorage();
+        console.log('⚠️ No electronAPI found, using local browser storage');
       }
+      this.loadFromLocalStorage();
       this.isLoaded = true;
       console.log('✅ Database initialized successfully');
     } catch (error) {
@@ -330,6 +330,15 @@ export class SimpleDatabase {
   // Spectra Pool
   getSpectraPool(): Spectra[] {
     return this.data.spectra_pool;
+  }
+
+  saveSpectraPool(pool: Spectra[]): void {
+    this.data.spectra_pool = pool.map((device) => ({
+      ...device,
+      status: device.status ?? (device.inService ? 'in service' : 'out of service'),
+      logs: Array.isArray(device.logs) ? device.logs : [],
+    }));
+    this.saveToLocalStorage();
   }
 
   updateSpectra(spectraId: string, inService: boolean): void {

@@ -6,15 +6,23 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Wrench, Users, XSquare } from 'lucide-react';
 import type { PatientCareTech } from '@/types/nurse';
+import type { StaffRole } from '@/types/patient';
 import { cn } from '@/lib/utils';
 
 interface PatientCareTechCardProps {
   tech: PatientCareTech;
   onRemoveTech: (techId: string) => void;
+  onQuickAddStaff?: (role: StaffRole) => void;
   isEffectivelyLocked: boolean;
 }
 
-const PatientCareTechCard: React.FC<PatientCareTechCardProps> = ({ tech, onRemoveTech, isEffectivelyLocked }) => {
+const PatientCareTechCard: React.FC<PatientCareTechCardProps> = ({
+  tech,
+  onRemoveTech,
+  onQuickAddStaff,
+  isEffectivelyLocked,
+}) => {
+  const isUnassigned = tech.name.trim().toLowerCase() === 'unassigned';
 
   const handleRemoveClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -52,6 +60,17 @@ const PatientCareTechCard: React.FC<PatientCareTechCardProps> = ({ tech, onRemov
             <Users className="h-4 w-4" />
             <span className="font-bold text-sm">{tech.assignmentGroup || 'Unassigned'}</span>
         </div>
+        {isUnassigned && onQuickAddStaff && (
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            className="mt-2"
+            onClick={() => onQuickAddStaff('Patient Care Tech')}
+          >
+            + Assign staff
+          </Button>
+        )}
       </CardContent>
     </Card>
   );

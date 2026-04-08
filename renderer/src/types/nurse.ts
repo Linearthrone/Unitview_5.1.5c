@@ -1,9 +1,25 @@
 
 import type { StaffRole } from "./patient";
 
+export type SpectraStatus =
+  | "in service"
+  | "out of service"
+  | "lost"
+  | "damaged"
+  | "being repaired";
+
+export interface SpectraLogEntry {
+  id: string;
+  createdAt: string;
+  message: string;
+}
+
 export interface Spectra {
   id: string; // The spectra number itself, e.g., "SPEC-1234"
   inService: boolean;
+  status?: SpectraStatus;
+  assignedTo?: string;
+  logs?: SpectraLogEntry[];
 }
 
 export interface Nurse {

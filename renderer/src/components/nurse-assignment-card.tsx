@@ -16,6 +16,7 @@ interface NurseAssignmentCardProps {
   onDropOnSlot: (nurseId: string, slotIndex: number) => void;
   onClearAssignments: (nurseId: string) => void;
   onRemoveNurse: (nurseId: string) => void;
+  onQuickAddStaff?: (role: 'Staff Nurse' | 'Float Pool Nurse') => void;
   isEffectivelyLocked: boolean;
 }
 
@@ -25,11 +26,13 @@ const NurseAssignmentCard: React.FC<NurseAssignmentCardProps> = ({
   onDropOnSlot,
   onClearAssignments,
   onRemoveNurse,
+  onQuickAddStaff,
   isEffectivelyLocked
 }) => {
   const patientMap = new Map(patients.map(p => [p.id, p]));
   const assignedCount = nurse.assignedPatientIds.filter(id => id !== null).length;
   const isAtCapacity = assignedCount >= nurse.assignedPatientIds.length;
+  const isUnassigned = nurse.name.trim().toLowerCase() === 'unassigned';
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -85,8 +88,20 @@ const NurseAssignmentCard: React.FC<NurseAssignmentCardProps> = ({
                 </div>
             )}
             <div className="pt-1">
-              Capacity: {nurse.assignedPatientIds.length} rooms
+              Capacity: {nurse.assignedPatientIds.length} patients
             </div>
+            {isUnassigned && onQuickAddStaff && (
+              <div className="pt-1">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => onQuickAddStaff(nurse.role as 'Staff Nurse' | 'Float Pool Nurse')}
+                >
+                  + Assign staff
+                </Button>
+              </div>
+            )}
         </div>
       </CardHeader>
       <Separator />

@@ -1,85 +1,323 @@
 "use client";
 
-import React, { useMemo } from 'react';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import type { Nurse } from '@/types/nurse';
-
-const DEFAULT_COLS = 3;
-const DEFAULT_ROWS = 3;
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
+import { isOccupiedBed, patientHasInvoluntaryHoldKeywords } from "@/lib/patient-status-helpers";
+import { NUM_COLS_GRID, NUM_ROWS_GRID } from "@/lib/grid-utils";
+import type { Nurse, PatientCareTech, Spectra, SpectraStatus } from "@/types/nurse";
+import type { Patient } from "@/types/patient";
+import SpectralinkDeviceTable from "./spectralink-device-table";
 
 interface ShiftMakerDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   nurses: Nurse[];
+  techs?: PatientCareTech[];
+  patients: Patient[];
+  spectraPool?: Spectra[];
+  onPatientDragStart: (e: React.DragEvent<HTMLDivElement>, patientId: string, row: number, col: number) => void;
+  onDragEnd: () => void;
+  onDropOnNurseSlot: (nurseId: string, slotIndex: number) => void;
+  onClearNurseAssignments: (nurseId: string) => void;
+  onAssignSpectra?: (spectraId: string, staffName: string) => void;
+  onUnassignSpectra?: (spectraId: string) => void;
+  onSetSpectraStatus?: (spectraId: string, status: SpectraStatus) => void;
+  onAddSpectraLog?: (spectraId: string, message: string) => void;
 }
 
-/** Staff / float nurses shown for oncoming shift planning (excludes charge, clerk, sitter). */
 function selectShiftBoardNurses(nurses: Nurse[]): Nurse[] {
-  return nurses.filter(
-    (n) => n.role === 'Staff Nurse' || n.role === 'Float Pool Nurse'
-  );
+  return nurses.filter((n) => n.role === "Staff Nurse" || n.role === "Float Pool Nurse");
 }
 
-const ShiftMakerDialog: React.FC<ShiftMakerDialogProps> = ({ open, onOpenChange, nurses }) => {
+function getTopPriorityBadges(patient: Patient): string[] {
+  const flags = [
+    patient.isComfortCareDNR ? "DNR" : null,
+    patient.isInRestraints ? "Restraints" : null,
+    patient.isIsolation ? "Isolation" : null,
+    patientHasInvoluntaryHoldKeywords(patient) ? "1013/2013" : null,
+    patient.isFallRisk ? "Fall Risk" : null,
+    patient.isSeizureRisk ? "Seizure Risk" : null,
+    patient.isAspirationRisk ? "Aspiration Risk" : null,
+  ].filter((v): v is string => Boolean(v));
+  return flags.slice(0, 3);
+}
+
+const ShiftMakerDialog: React.FC<ShiftMakerDialogProps> = ({
+  open,
+  onOpenChange,
+  nurses,
+  techs = [],
+  patients,
+  spectraPool = [],
+  onPatientDragStart,
+  onDragEnd,
+  onDropOnNurseSlot,
+  onClearNurseAssignments,
+  onAssignSpectra = () => undefined,
+  onUnassignSpectra = () => undefined,
+  onSetSpectraStatus = () => undefined,
+  onAddSpectraLog = () => undefined,
+}) => {
   const boardNurses = useMemo(() => selectShiftBoardNurses(nurses), [nurses]);
-  const capacity = DEFAULT_COLS * DEFAULT_ROWS;
-  const slots = useMemo(() => {
-    const out: (Nurse | null)[] = [...boardNurses];
-    while (out.length < capacity) out.push(null);
-    return out.slice(0, capacity);
-  }, [boardNurses, capacity]);
+  const boardPatients = useMemo(() => patients.filter((p) => isOccupiedBed(p.name) && !p.isBlocked), [patients]);
+  const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
+  const roomRowRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const nurseCardRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
+  const assignedPatientIds = useMemo(() => {
+    const ids = new Set<string>();
+    boardNurses.forEach((nurse) => {
+      nurse.assignedPatientIds.forEach((id) => {
+        if (id) ids.add(id);
+      });
+    });
+    return ids;
+  }, [boardNurses]);
+
+  const miniMapRooms = useMemo(() => {
+    return patients
+      .filter((p) => p.gridRow >= 1 && p.gridRow <= NUM_ROWS_GRID && p.gridColumn >= 1 && p.gridColumn <= NUM_COLS_GRID)
+      .sort((a, b) => {
+        if (a.gridRow !== b.gridRow) return a.gridRow - b.gridRow;
+        return a.gridColumn - b.gridColumn;
+      });
+  }, [patients]);
+  const sortedRoomsForList = useMemo(() => [...miniMapRooms].sort((a, b) => a.bedNumber - b.bedNumber), [miniMapRooms]);
+
+  const selectedAssignedNurseId = useMemo(() => {
+    if (!selectedPatientId) return null;
+    return boardNurses.find((nurse) => nurse.assignedPatientIds.includes(selectedPatientId))?.id ?? null;
+  }, [boardNurses, selectedPatientId]);
+
+  useEffect(() => {
+    if (!selectedPatientId) return;
+    roomRowRefs.current[selectedPatientId]?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, [selectedPatientId]);
+
+  useEffect(() => {
+    if (!selectedAssignedNurseId) return;
+    nurseCardRefs.current[selectedAssignedNurseId]?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, [selectedAssignedNurseId]);
+
+  if (!open) return null;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Oncoming shift assignment</DialogTitle>
-          <DialogDescription>
-            Planning board for staff and float nurses ({DEFAULT_COLS}×{DEFAULT_ROWS} cards). Assignments on the unit map are unchanged; use this view to brief the oncoming team.
-          </DialogDescription>
-        </DialogHeader>
-
-        <div
-          className="grid gap-3 py-2"
-          style={{
-            gridTemplateColumns: `repeat(${DEFAULT_COLS}, minmax(0, 1fr))`,
-          }}
-        >
-          {slots.map((nurse, i) => (
-            <div
-              key={nurse?.id ?? `empty-${i}`}
-              className="rounded-lg border bg-card p-3 min-h-[5.5rem] flex flex-col justify-center shadow-sm"
-            >
-              {nurse ? (
-                <>
-                  <p className="font-semibold text-sm leading-tight">{nurse.name || 'Unnamed'}</p>
-                  <p className="text-xs text-muted-foreground mt-1">{nurse.role}</p>
-                  {nurse.spectra && (
-                    <p className="text-xs text-muted-foreground mt-0.5">Spectra: {nurse.spectra}</p>
-                  )}
-                </>
-              ) : (
-                <p className="text-sm text-muted-foreground text-center">Open slot</p>
-              )}
-            </div>
-          ))}
-        </div>
-
-        <DialogFooter>
+    <div className="fixed inset-0 z-50 bg-slate-950 text-slate-100">
+      <div className="flex h-full min-h-0 flex-col">
+        <header className="flex items-center justify-between border-b border-slate-800 px-6 py-3">
+          <div>
+            <h2 className="text-xl font-semibold tracking-wide">Oncoming Shift Blackboard</h2>
+            <p className="text-sm text-slate-300">
+              Drag room lines from the left onto nurse assignment slots.
+            </p>
+          </div>
           <Button type="button" variant="secondary" onClick={() => onOpenChange(false)}>
-            Close
+            Close board
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </header>
+
+        <div className="flex min-h-0 flex-1">
+          <aside className="w-[24rem] shrink-0 overflow-y-auto border-r border-slate-800 bg-slate-900/60 p-4">
+            <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-slate-300">Rooms</h3>
+            <div className="space-y-2">
+              {sortedRoomsForList.map((patient) => {
+                const roomAssigned = assignedPatientIds.has(patient.id);
+                const badgeLabels = getTopPriorityBadges(patient);
+                const lastName = patient.name.split(",")[0]?.trim() || patient.name;
+                const canDragAssign = isOccupiedBed(patient.name) && !patient.isBlocked;
+                return (
+                  <div
+                    key={patient.id}
+                    ref={(el) => {
+                      roomRowRefs.current[patient.id] = el;
+                    }}
+                    draggable={canDragAssign}
+                    onDragStart={(e) => {
+                      if (!canDragAssign) return;
+                      onPatientDragStart(e, patient.id, patient.gridRow, patient.gridColumn);
+                    }}
+                    onDragEnd={onDragEnd}
+                    className={cn(
+                      "rounded-md border border-slate-700 bg-slate-800 px-3 py-2 transition",
+                      canDragAssign ? "cursor-grab active:cursor-grabbing" : "cursor-default",
+                      selectedPatientId === patient.id && "border-cyan-400 ring-2 ring-cyan-300/70",
+                      roomAssigned && canDragAssign && "opacity-35"
+                    )}
+                    title={
+                      patient.isBlocked
+                        ? "Room is out of service"
+                        : !isOccupiedBed(patient.name)
+                        ? "Room is vacant"
+                        : roomAssigned
+                        ? "Already assigned to a nurse"
+                        : "Drag onto a nurse card"
+                    }
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="truncate text-sm font-semibold">
+                        {patient.roomDesignation} -{" "}
+                        {patient.isBlocked ? "Out of service" : isOccupiedBed(patient.name) ? lastName : "Vacant"}
+                      </p>
+                      {roomAssigned && canDragAssign && (
+                        <Badge variant="outline" className="border-slate-500 text-slate-300">
+                          Assigned
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {patient.isBlocked ? (
+                        <Badge variant="secondary" className="bg-rose-900 text-rose-100">
+                          Out of service
+                        </Badge>
+                      ) : !isOccupiedBed(patient.name) ? (
+                        <Badge variant="secondary" className="bg-slate-700 text-slate-100">
+                          Vacant
+                        </Badge>
+                      ) : badgeLabels.length > 0 ? (
+                        badgeLabels.map((label) => (
+                          <Badge key={label} variant="secondary" className="bg-slate-700 text-slate-100">
+                            {label}
+                          </Badge>
+                        ))
+                      ) : (
+                        <span className="text-xs text-slate-400">No critical badges</span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </aside>
+
+          <section className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            <div className="flex justify-center border-b border-slate-800 px-4 py-3">
+              <div className="rounded-md border border-slate-700 bg-slate-900 p-2">
+                <p className="mb-2 text-center text-xs font-semibold uppercase tracking-wide text-slate-300">
+                  Mini map
+                </p>
+                <div
+                  className="grid gap-1"
+                  style={{
+                    gridTemplateColumns: `repeat(${NUM_COLS_GRID}, minmax(0, 0.8rem))`,
+                    gridTemplateRows: `repeat(${NUM_ROWS_GRID}, minmax(0, 0.8rem))`,
+                  }}
+                >
+                  {miniMapRooms.map((room) => {
+                    const isSelected = selectedPatientId === room.id;
+                    const isOccupied = isOccupiedBed(room.name);
+                    return (
+                    <button
+                      key={room.id}
+                      type="button"
+                      onClick={() => setSelectedPatientId(room.id)}
+                      className={cn(
+                        "h-3 w-3 rounded-sm border border-slate-500 transition focus:outline-none",
+                        isSelected && "border-cyan-300 ring-2 ring-cyan-300/80",
+                        room.isBlocked
+                          ? "bg-rose-700"
+                          : assignedPatientIds.has(room.id)
+                          ? "bg-slate-600"
+                          : isOccupied
+                          ? "bg-emerald-400"
+                          : "bg-slate-300"
+                      )}
+                      style={{
+                        gridRowStart: room.gridRow,
+                        gridColumnStart: room.gridColumn,
+                      }}
+                      title={`${room.roomDesignation}${room.isBlocked ? " (Out of service)" : ""}`}
+                    />
+                  )})}
+                </div>
+              </div>
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-y-auto p-4">
+              <div className="grid grid-cols-1 gap-4 xl:grid-cols-2 2xl:grid-cols-3">
+                {boardNurses.map((nurse) => {
+                  return (
+                    <div
+                      key={nurse.id}
+                      ref={(el) => {
+                        nurseCardRefs.current[nurse.id] = el;
+                      }}
+                      className={cn(
+                        "rounded-lg border border-slate-700 bg-slate-900 p-4",
+                        selectedAssignedNurseId === nurse.id && "border-cyan-400 ring-2 ring-cyan-300/70"
+                      )}
+                    >
+                      <div className="mb-3 flex items-start justify-between gap-3">
+                        <div>
+                          <h4 className="text-lg font-semibold">{nurse.name || "Unnamed Nurse"}</h4>
+                          <p className="text-xs uppercase tracking-wider text-slate-400">{nurse.role}</p>
+                          {nurse.spectra ? (
+                            <p className="mt-1 text-xs text-slate-300">Spectra: {nurse.spectra}</p>
+                          ) : null}
+                        </div>
+                        <Badge variant="outline" className="border-slate-600 text-slate-300">
+                          Capacity: {nurse.assignedPatientIds.length}
+                        </Badge>
+                      </div>
+
+                      <div className="space-y-2">
+                        {nurse.assignedPatientIds.map((patientId, index) => {
+                          const patient = patientId ? boardPatients.find((p) => p.id === patientId) : undefined;
+                          return (
+                            <div
+                              key={`${nurse.id}-${index}`}
+                              onDragOver={(e) => {
+                                e.preventDefault();
+                                e.dataTransfer.dropEffect = "move";
+                              }}
+                              onDrop={(e) => {
+                                e.preventDefault();
+                                onDropOnNurseSlot(nurse.id, index);
+                              }}
+                              className={cn(
+                                "rounded-md border-2 border-dashed px-3 py-2 text-sm",
+                                patient ? "border-slate-600 bg-slate-800" : "border-cyan-500/60 bg-slate-950/40"
+                              )}
+                            >
+                              {patient ? `${patient.roomDesignation} - ${patient.name}` : "Drop room assignment here"}
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        className="mt-3 w-full"
+                        onClick={() => onClearNurseAssignments(nurse.id)}
+                      >
+                        Clear assignments
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+              {spectraPool.length > 0 ? (
+                <div className="mt-4">
+                  <SpectralinkDeviceTable
+                    title="Oncoming Shift Spectralink Devices"
+                    spectraPool={spectraPool}
+                    nurses={boardNurses}
+                    techs={techs}
+                    onAssignDevice={onAssignSpectra}
+                    onUnassignDevice={onUnassignSpectra}
+                    onSetStatus={onSetSpectraStatus}
+                    onAddLog={onAddSpectraLog}
+                  />
+                </div>
+              ) : null}
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
   );
 };
 

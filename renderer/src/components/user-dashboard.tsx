@@ -17,6 +17,7 @@ import {
   Zap,
   LogOut,
   Activity,
+  ArrowRightLeft,
   BedDouble,
   Users,
   ShieldAlert,
@@ -320,12 +321,14 @@ export default function UserDashboard({ user, onLogout, onBackToLogin, onEnterUn
               <Card className="border-amber-100 bg-gradient-to-br from-amber-50/80 to-white">
                 <CardHeader className="pb-2 pt-4 px-4">
                   <div className="flex items-center gap-2 text-amber-800">
-                    <Activity className="w-4 h-4" />
-                    <span className="text-xs font-medium uppercase tracking-wide">Occupancy</span>
+                    <ArrowRightLeft className="w-4 h-4" />
+                    <span className="text-xs font-medium uppercase tracking-wide">ADT quick look</span>
                   </div>
-                  <CardTitle className="text-2xl tabular-nums">{facilityStats.occupancyPercent}%</CardTitle>
+                  <CardTitle className="text-xl tabular-nums">
+                    A {facilityStats.adtAdmissions} · D {facilityStats.adtDischargesDueToday} · T {facilityStats.adtTransfersFlagged}
+                  </CardTitle>
                   <CardDescription className="text-xs">
-                    {facilityStats.vacantBeds} vacant bed{facilityStats.vacantBeds === 1 ? '' : 's'}
+                    Admissions (active), discharges due today, and transfer-flagged patients
                   </CardDescription>
                 </CardHeader>
               </Card>

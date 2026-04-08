@@ -151,7 +151,7 @@ export async function createNewUnitLayout(payload: CreateUnitPayload): Promise<v
 function mapCardPlacement(placement: LayoutCardPlacement, index: number): { gridRow: number; gridColumn: number } {
   return {
     gridRow: Math.max(1, Math.min(NUM_ROWS_GRID, placement.row)),
-    gridColumn: Math.max(1, Math.min(NUM_COLS_GRID, placement.column * 2)),
+    gridColumn: Math.max(1, Math.min(NUM_COLS_GRID, placement.column)),
   };
 }
 
