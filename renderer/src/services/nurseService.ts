@@ -5,6 +5,7 @@ import type { AddStaffMemberFormValues } from '../types/forms';
 import type { LayoutName } from '../types/patient';
 import { NUM_COLS_GRID, NUM_ROWS_GRID } from '../lib/grid-utils';
 import { findCompactEmptySlot, getAvailableSpectra } from './nurseHelpers';
+import * as layoutService from './layoutService';
 
 // Convert data to include layout name
 const nurseWithLayout = (nurse: Nurse, layoutName: LayoutName): Nurse => ({
@@ -25,9 +26,13 @@ export async function getNurses(layoutName: LayoutName): Promise<Nurse[]> {
     const nurses = db.getNurses(layoutName);
     
     // Validate each nurse object to ensure assignedPatientIds is an array
+    const metadata = await layoutService.getLayoutMetadata(layoutName);
+    const nurseCapacity = Math.max(1, metadata.nurseToPatientRatio);
     const validNurses = nurses.map(n => ({
       ...n,
-      assignedPatientIds: Array.isArray(n.assignedPatientIds) ? n.assignedPatientIds : Array(6).fill(null)
+      assignedPatientIds: Array.from({ length: nurseCapacity }, (_, index) => (
+        Array.isArray(n.assignedPatientIds) ? (n.assignedPatientIds[index] ?? null) : null
+      )),
     }));
     
     console.log(`Loaded ${validNurses.length} nurses for layout "${layoutName}"`);
@@ -90,6 +95,8 @@ export async function addStaffMember(
 
   const { name, role, spectra, relief } = staffData;
   const newId = `${role.replace(/\s+/g, '-').toLowerCase()}-${Date.now()}`;
+  const metadata = await layoutService.getLayoutMetadata(layoutName);
+  const nurseCapacity = Math.max(1, metadata.nurseToPatientRatio);
 
   let newNurses = [...currentNurses];
   let newTechs = [...currentTechs];
@@ -104,7 +111,7 @@ export async function addStaffMember(
       role,
       spectra: assignedSpectra,
       relief: relief || '',
-      assignedPatientIds: Array(6).fill(null),
+      assignedPatientIds: Array(nurseCapacity).fill(null),
       gridRow: slot.row,
       gridColumn: slot.col,
     };
@@ -186,7 +193,7 @@ export async function assignPatientToNurse(
 ): Promise<Nurse[]> {
   const updatedNurses = currentNurses.map(nurse => {
     if (nurse.id === nurseId) {
-      const newAssignedIds = [...(nurse.assignedPatientIds || Array(6).fill(null))];
+      const newAssignedIds = [...(nurse.assignedPatientIds || [])];
       newAssignedIds[slotIndex] = patientId;
       return { ...nurse, assignedPatientIds: newAssignedIds };
     }
@@ -209,9 +216,11 @@ export async function clearNurseAssignments(
   nurseId: string,
   currentNurses: Nurse[]
 ): Promise<Nurse[]> {
+  const metadata = await layoutService.getLayoutMetadata(layoutName);
+  const nurseCapacity = Math.max(1, metadata.nurseToPatientRatio);
   const updatedNurses = currentNurses.map(nurse => {
     if (nurse.id === nurseId) {
-      return { ...nurse, assignedPatientIds: Array(6).fill(null) };
+      return { ...nurse, assignedPatientIds: Array(nurseCapacity).fill(null) };
     }
     return nurse;
   });

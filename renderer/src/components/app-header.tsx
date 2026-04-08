@@ -44,6 +44,7 @@ interface AppHeaderProps {
   onCreateUnit?: () => void;
   onInsertMockData?: () => void;
   onSaveAssignments: () => void;
+  onSetupOncomingShift?: () => void;
   onLeaveUnit?: () => void;
 }
 
@@ -87,6 +88,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({
   onCreateUnit,
   onInsertMockData,
   onSaveAssignments,
+  onSetupOncomingShift,
   onLeaveUnit,
 }) => {
   const [isExplanationOpen, setIsExplanationOpen] = useState(false);
@@ -234,6 +236,11 @@ const AppHeader: React.FC<AppHeaderProps> = ({
                     <DropdownMenuItem onClick={onSaveAssignments}>
                         <Archive /> Save Shift Assignments
                     </DropdownMenuItem>
+                    {onSetupOncomingShift && (
+                      <DropdownMenuItem onClick={onSetupOncomingShift}>
+                          <ClipboardSignature /> Setup Oncoming Shift
+                      </DropdownMenuItem>
+                    )}
                     <DropdownMenuItem onClick={() => setIsExplanationOpen(true)}>
                         <HelpCircle /> Icon Explanation
                     </DropdownMenuItem>

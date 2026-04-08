@@ -4,7 +4,6 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
 import { Alert, AlertDescription } from './ui/alert';
 import { 
   Plus, 
@@ -20,13 +19,19 @@ import {
   Zap
 } from 'lucide-react';
 import { User, UnitSettings } from '../types/auth';
+import type { CreateUnitPayload } from '../types/patient';
 import { authService } from '../services/authService';
+import * as layoutService from '../services/layoutService';
+import CreateUnitDialog from './create-unit-dialog';
+
+/** Placeholder unit created in older versions; not shown on the dashboard. */
+const isPlaceholderDefaultUnit = (u: UnitSettings) => u.id === 'default';
 
 interface UserDashboardProps {
   user: User;
   onLogout: () => void;
   onBackToLogin: () => void;
-  onEnterUnit: (unitName: string) => void;
+  onEnterUnit: (unitName: string) => void | Promise<void>;
 }
 
 export default function UserDashboard({ user, onLogout, onBackToLogin, onEnterUnit }: UserDashboardProps) {
@@ -35,15 +40,14 @@ export default function UserDashboard({ user, onLogout, onBackToLogin, onEnterUn
   const [isLoading, setIsLoading] = useState(true);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [isCreateUnitOpen, setIsCreateUnitOpen] = useState(false);
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [availableLayoutNames, setAvailableLayoutNames] = useState<string[]>([]);
 
-  // Form states
-  const [newUnitName, setNewUnitName] = useState('');
   const [currentTheme, setCurrentTheme] = useState<'light' | 'dark' | 'blue' | 'green' | 'purple'>('light');
 
   useEffect(() => {
     loadUnits();
     loadCurrentSettings();
+    layoutService.getAvailableLayouts().then(setAvailableLayoutNames);
   }, []);
 
   const loadUnits = () => {
@@ -59,9 +63,14 @@ export default function UserDashboard({ user, onLogout, onBackToLogin, onEnterUn
 
   const loadCurrentSettings = () => {
     try {
-      const defaultUnit = authService.getUnitSetting('default');
-      if (defaultUnit) {
-        setCurrentTheme(defaultUnit.theme);
+      const stored = localStorage.getItem('unitview_theme');
+      if (stored && ['light', 'dark', 'blue', 'green', 'purple'].includes(stored)) {
+        setCurrentTheme(stored as 'light' | 'dark' | 'blue' | 'green' | 'purple');
+        return;
+      }
+      const firstReal = authService.getUnitSettings().find((u) => !isPlaceholderDefaultUnit(u));
+      if (firstReal) {
+        setCurrentTheme(firstReal.theme);
       }
     } catch (error) {
       console.error('Failed to load current settings');
@@ -73,30 +82,27 @@ export default function UserDashboard({ user, onLogout, onBackToLogin, onEnterUn
     setTimeout(() => setMessage(null), 3000);
   };
 
-  const handleCreateUnit = () => {
-    if (!newUnitName.trim()) {
-      showMessage('error', 'Please enter a unit name');
-      return;
-    }
-
+  const handleCreateUnitWizard = async (data: CreateUnitPayload) => {
+    await layoutService.createFullUnitFromPayload(data);
     const newUnit: UnitSettings = {
       id: `unit-${Date.now()}`,
-      name: newUnitName.trim(),
+      name: data.designation,
       theme: currentTheme,
       createdAt: new Date(),
       lastModified: new Date(),
     };
-
     const success = authService.saveUnitSettings(newUnit);
-
-    if (success) {
-      showMessage('success', 'Unit created successfully');
-      setNewUnitName('');
-      setIsCreateUnitOpen(false);
-      loadUnits();
-    } else {
-      showMessage('error', 'Failed to create unit');
+    if (!success) {
+      showMessage('error', 'Unit layout was created but saving the unit to your list failed.');
+      return;
     }
+    setIsCreateUnitOpen(false);
+    loadUnits();
+    const layouts = await layoutService.getAvailableLayouts();
+    setAvailableLayoutNames(layouts);
+    setSelectedUnit(data.designation);
+    showMessage('success', `Unit "${data.designation}" created. Opening…`);
+    await Promise.resolve(onEnterUnit(data.designation));
   };
 
   const handleEnterUnit = () => {
@@ -166,6 +172,8 @@ export default function UserDashboard({ user, onLogout, onBackToLogin, onEnterUn
     );
   }
 
+  const visibleUnits = units.filter((u) => !isPlaceholderDefaultUnit(u));
+
   return (
     <div className="min-h-screen bg-gray-50 theme-light">
       {/* Header */}
@@ -224,7 +232,7 @@ export default function UserDashboard({ user, onLogout, onBackToLogin, onEnterUn
                     <SelectValue placeholder="Select a unit" />
                   </SelectTrigger>
                   <SelectContent>
-                    {units.map((unit) => (
+                    {visibleUnits.map((unit) => (
                       <SelectItem key={unit.id} value={unit.name}>
                         <div className="flex items-center">
                           <div className={`w-3 h-3 rounded-full mr-2 ${getThemeColor(unit.theme).split(' ')[0]}`} />
@@ -246,48 +254,23 @@ export default function UserDashboard({ user, onLogout, onBackToLogin, onEnterUn
                   <ChevronRight className="w-4 h-4 ml-2" />
                 </Button>
                 
-                <Dialog open={isCreateUnitOpen} onOpenChange={setIsCreateUnitOpen}>
-                  <DialogTrigger asChild>
-                    <Button variant="outline">
-                      <Plus className="w-4 h-4 mr-2" />
-                      New Unit
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Create New Unit</DialogTitle>
-                      <DialogDescription>
-                        Set up a new unit for patient management
-                      </DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                      <div>
-                        <Label htmlFor="unit-name">Unit Name</Label>
-                        <Input
-                          id="unit-name"
-                          value={newUnitName}
-                          onChange={(e) => setNewUnitName(e.target.value)}
-                          placeholder="e.g., ICU, Emergency, Pediatrics"
-                        />
-                      </div>
-                      <div className="flex justify-end space-x-2">
-                        <Button variant="outline" onClick={() => setIsCreateUnitOpen(false)}>
-                          Cancel
-                        </Button>
-                        <Button onClick={handleCreateUnit}>
-                          Create Unit
-                        </Button>
-                      </div>
-                    </div>
-                  </DialogContent>
-                </Dialog>
+                <Button variant="outline" onClick={() => setIsCreateUnitOpen(true)}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  New Unit
+                </Button>
+                <CreateUnitDialog
+                  open={isCreateUnitOpen}
+                  onOpenChange={setIsCreateUnitOpen}
+                  onSave={handleCreateUnitWizard}
+                  existingLayoutNames={availableLayoutNames}
+                />
               </div>
 
-              {units.length > 0 && (
+              {visibleUnits.length > 0 && (
                 <div className="mt-4">
                   <h4 className="text-sm font-medium text-gray-700 mb-2">Recent Units</h4>
                   <div className="space-y-2">
-                    {units.slice(0, 3).map((unit) => (
+                    {visibleUnits.slice(0, 3).map((unit) => (
                       <div 
                         key={unit.id}
                         className={`p-3 rounded-lg border cursor-pointer transition-colors hover:bg-gray-50 ${

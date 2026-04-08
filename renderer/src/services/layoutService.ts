@@ -1,20 +1,27 @@
 import { getDb } from '../lib/database-simple';
-import type { LayoutName, UserPreferences, AssignmentSet } from '../types/patient';
+import type { LayoutName, UserPreferences, AssignmentSet, CreateUnitPayload, UnitLayoutMetadata, UnitType, LayoutCardPlacement } from '../types/patient';
+import type { Nurse } from '@/types/nurse';
+import type { Patient } from '@/types/patient';
+import type { PatientCareTech } from '@/types/nurse';
+import { NUM_COLS_GRID, NUM_ROWS_GRID } from '../lib/grid-utils';
+
+const DEFAULT_LAYOUT_METADATA: UnitLayoutMetadata = {
+  numRooms: 24,
+  bedsPerRoom: 1,
+  baselineNursesPerShift: 6,
+  baselinePctsPerShift: 2,
+  nurseToPatientRatio: 4,
+  unitType: 'Med-Surg',
+};
+
+const UNIT_TYPE_VALUES: UnitType[] = ['ICU', 'Med-Surg', 'Telemetry', 'Step-Down', 'ER', 'Other'];
 
 export async function getUserPreferences(): Promise<UserPreferences> {
   try {
     const db = await getDb();
-    
-    // Get last selected layout
-    const layoutStmt = db.prepare('SELECT value FROM user_preferences WHERE key = ?');
-    const layoutRow = layoutStmt.get('lastSelectedLayout') as { value: string } | undefined;
-    const lastSelectedLayout = layoutRow ? layoutRow.value : 'North-South View';
-    
-    // Get layout locked status
-    const lockedStmt = db.prepare('SELECT value FROM user_preferences WHERE key = ?');
-    const lockedRow = lockedStmt.get('isLayoutLocked') as { value: string } | undefined;
-    const isLayoutLocked = lockedRow ? lockedRow.value === 'true' : false;
-    
+    const lastSelectedLayout = (db.getUserPreference('lastSelectedLayout') || 'North-South View') as LayoutName;
+    const isLayoutLocked = db.getUserPreference('isLayoutLocked') === 'true';
+
     return {
       lastSelectedLayout,
       isLayoutLocked,
@@ -31,22 +38,8 @@ export async function getUserPreferences(): Promise<UserPreferences> {
 export async function saveUserPreferences(preferences: UserPreferences): Promise<void> {
   try {
     const db = await getDb();
-    
-    const transaction = db.transaction(() => {
-      // Save last selected layout
-      const layoutStmt = db.prepare(`
-        INSERT OR REPLACE INTO user_preferences (key, value) VALUES (?, ?)
-      `);
-      layoutStmt.run('lastSelectedLayout', preferences.lastSelectedLayout);
-      
-      // Save layout locked status
-      const lockedStmt = db.prepare(`
-        INSERT OR REPLACE INTO user_preferences (key, value) VALUES (?, ?)
-      `);
-      lockedStmt.run('isLayoutLocked', preferences.isLayoutLocked.toString());
-    });
-    
-    transaction();
+    db.setUserPreference('lastSelectedLayout', preferences.lastSelectedLayout);
+    db.setUserPreference('isLayoutLocked', preferences.isLayoutLocked.toString());
   } catch (error) {
     console.error('Error saving user preferences:', error);
   }
@@ -55,10 +48,7 @@ export async function saveUserPreferences(preferences: UserPreferences): Promise
 export async function getAvailableLayouts(): Promise<LayoutName[]> {
   try {
     const db = await getDb();
-    const stmt = db.prepare('SELECT name FROM layouts ORDER BY name');
-    const rows = stmt.all() as { name: string }[];
-    
-    const layouts = rows.map(row => row.name);
+    const layouts = db.getAvailableLayouts();
     
     // Always include the default layout if it doesn't exist
     if (!layouts.includes('North-South View')) {
@@ -76,8 +66,7 @@ export async function getAvailableLayouts(): Promise<LayoutName[]> {
 export async function createLayout(layoutName: LayoutName): Promise<void> {
   try {
     const db = await getDb();
-    const stmt = db.prepare('INSERT INTO layouts (name) VALUES (?)');
-    stmt.run(layoutName);
+    db.createLayout(layoutName);
   } catch (error) {
     // Layout might already exist, which is fine
     console.error('Error creating layout (might already exist):', error);
@@ -87,8 +76,7 @@ export async function createLayout(layoutName: LayoutName): Promise<void> {
 export async function deleteLayout(layoutName: LayoutName): Promise<void> {
   try {
     const db = await getDb();
-    const stmt = db.prepare('DELETE FROM layouts WHERE name = ?');
-    stmt.run(layoutName);
+    db.deleteLayout(layoutName);
   } catch (error) {
     console.error('Error deleting layout:', error);
   }
@@ -97,20 +85,7 @@ export async function deleteLayout(layoutName: LayoutName): Promise<void> {
 export async function saveAssignmentSet(assignmentSet: AssignmentSet): Promise<void> {
   try {
     const db = await getDb();
-    const stmt = db.prepare(`
-      INSERT INTO assignment_sets (
-        id, layout_name, shift, date, charge_nurse_name, assignments
-      ) VALUES (?, ?, ?, ?, ?, ?)
-    `);
-    
-    stmt.run(
-      assignmentSet.id,
-      assignmentSet.layoutName,
-      assignmentSet.shift,
-      assignmentSet.date.toISOString(),
-      assignmentSet.chargeNurseName,
-      JSON.stringify(assignmentSet.assignments)
-    );
+    db.saveAssignmentSet(assignmentSet);
   } catch (error) {
     console.error('Error saving assignment set:', error);
   }
@@ -119,17 +94,8 @@ export async function saveAssignmentSet(assignmentSet: AssignmentSet): Promise<v
 export async function getAssignmentSets(layoutName: LayoutName): Promise<AssignmentSet[]> {
   try {
     const db = await getDb();
-    const stmt = db.prepare('SELECT * FROM assignment_sets WHERE layout_name = ? ORDER BY date DESC');
-    const rows = stmt.all(layoutName);
-    
-    return rows.map(row => ({
-      id: row.id,
-      layoutName: row.layout_name,
-      shift: row.shift,
-      date: new Date(row.date),
-      chargeNurseName: row.charge_nurse_name,
-      assignments: JSON.parse(row.assignments),
-    }));
+    const rows = db.getAssignmentSets(layoutName);
+    return [...rows].sort((a, b) => b.date.getTime() - a.date.getTime());
   } catch (error) {
     console.error('Error fetching assignment sets:', error);
     return [];
@@ -139,9 +105,191 @@ export async function getAssignmentSets(layoutName: LayoutName): Promise<Assignm
 export async function deleteAssignmentSet(id: string): Promise<void> {
   try {
     const db = await getDb();
-    const stmt = db.prepare('DELETE FROM assignment_sets WHERE id = ?');
-    stmt.run(id);
+    db.deleteAssignmentSet(id);
   } catch (error) {
     console.error('Error deleting assignment set:', error);
   }
+}
+
+export async function setUserPreference(key: string, value: string | boolean): Promise<void> {
+  const db = await getDb();
+  db.setUserPreference(key, String(value));
+}
+
+export async function createNewUnitLayout(payload: CreateUnitPayload): Promise<void> {
+  const { designation } = payload;
+  const db = await getDb();
+  db.createLayout(designation);
+  db.setLayoutMetadata(designation, sanitizeMetadata(payload));
+}
+
+function mapCardPlacement(placement: LayoutCardPlacement, index: number): { gridRow: number; gridColumn: number } {
+  return {
+    gridRow: Math.max(1, Math.min(NUM_ROWS_GRID, placement.row)),
+    gridColumn: Math.max(1, Math.min(NUM_COLS_GRID, placement.column * 2)),
+  };
+}
+
+function emptyNurseSlots(ratio: number): (string | null)[] {
+  return Array(Math.max(1, ratio)).fill(null);
+}
+
+/** Creates layout metadata, room patients from placements, staff nurses, PCTs, unit clerk, and persists. */
+export async function createFullUnitFromPayload(data: CreateUnitPayload): Promise<void> {
+  if (!Array.isArray(data.roomDisplayNumbers) || data.roomDisplayNumbers.length !== data.numRooms) {
+    throw new Error('Room numbering must provide exactly one number per room.');
+  }
+
+  await createNewUnitLayout(data);
+
+  const roomPlacements = data.cardPlacements
+    .filter((p): p is LayoutCardPlacement & { roomIndex: number } => p.kind === 'Room' && typeof p.roomIndex === 'number')
+    .sort((a, b) => a.roomIndex - b.roomIndex);
+
+  if (roomPlacements.length !== data.numRooms) {
+    throw new Error(`Place all ${data.numRooms} room cards on the map (found ${roomPlacements.length}).`);
+  }
+  const seenRooms = new Set(roomPlacements.map(p => p.roomIndex));
+  if (seenRooms.size !== data.numRooms) {
+    throw new Error('Each room card must have a unique room number.');
+  }
+  for (let i = 1; i <= data.numRooms; i++) {
+    if (!seenRooms.has(i)) {
+      throw new Error(`Missing placement for Room ${i}.`);
+    }
+  }
+
+  const nursePlacements = data.cardPlacements.filter(p => p.kind === 'Staff Nurse');
+  const pctPlacements = data.cardPlacements.filter(p => p.kind === 'Patient Care Tech');
+  const clerkPlacements = data.cardPlacements.filter(p => p.kind === 'Unit Clerk');
+
+  if (nursePlacements.length !== data.baselineNursesPerShift) {
+    throw new Error(`Place all ${data.baselineNursesPerShift} nurse assignment cards (found ${nursePlacements.length}).`);
+  }
+  if (pctPlacements.length !== data.baselinePctsPerShift) {
+    throw new Error(`Place all ${data.baselinePctsPerShift} PCT cards (found ${pctPlacements.length}).`);
+  }
+  if (clerkPlacements.length !== 1) {
+    throw new Error('Place exactly one Unit Clerk card on the map.');
+  }
+
+  const displayForIndex = (roomIndex: number): number => {
+    const n = data.roomDisplayNumbers[roomIndex - 1];
+    if (typeof n !== 'number' || !Number.isFinite(n)) {
+      throw new Error(`Missing room display number for room ${roomIndex}.`);
+    }
+    return n;
+  };
+
+  const newRooms: Patient[] = roomPlacements.map((placement) => {
+    const mapped = mapCardPlacement(placement, 0);
+    const idx = placement.roomIndex;
+    const displayNum = displayForIndex(idx);
+    return {
+      id: `room-${data.designation.replace(/\s+/g, '-').toLowerCase()}-${idx}`,
+      bedNumber: displayNum,
+      roomDesignation: `Room ${displayNum}`,
+      name: 'Vacant',
+      age: 0,
+      admitDate: new Date(),
+      dischargeDate: new Date(),
+      chiefComplaint: 'N/A',
+      ldas: [],
+      diet: 'N/A',
+      mobility: 'Independent',
+      codeStatus: 'Full Code',
+      orientationStatus: 'N/A',
+      isFallRisk: false,
+      isSeizureRisk: false,
+      isAspirationRisk: false,
+      isIsolation: false,
+      isInRestraints: false,
+      isComfortCareDNR: false,
+      isBlocked: false,
+      gridRow: mapped.gridRow,
+      gridColumn: mapped.gridColumn,
+    };
+  });
+
+  const staffNurses: Nurse[] = nursePlacements.map((placement, index) => {
+    const mapped = mapCardPlacement(placement, index);
+    return {
+      id: `nurse-${index + 1}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      name: `RN ${index + 1}`,
+      role: 'Staff Nurse',
+      spectra: '',
+      relief: '',
+      assignedPatientIds: emptyNurseSlots(data.nurseToPatientRatio),
+      gridRow: mapped.gridRow,
+      gridColumn: mapped.gridColumn,
+    };
+  });
+
+  const unitClerkNurses: Nurse[] = clerkPlacements.map((placement) => {
+    const mapped = mapCardPlacement(placement, 0);
+    return {
+      id: `unit-clerk-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      name: 'Unit Clerk',
+      role: 'Unit Clerk',
+      spectra: '',
+      relief: '',
+      assignedPatientIds: emptyNurseSlots(data.nurseToPatientRatio),
+      gridRow: mapped.gridRow,
+      gridColumn: mapped.gridColumn,
+    };
+  });
+
+  const seedNurses: Nurse[] = [...staffNurses, ...unitClerkNurses];
+
+  const seedTechs: PatientCareTech[] = pctPlacements.map((placement, index) => {
+    const mapped = mapCardPlacement(placement, index);
+    return {
+      id: `tech-${index + 1}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      name: `PCT ${index + 1}`,
+      spectra: '',
+      assignmentGroup: '',
+      gridRow: mapped.gridRow,
+      gridColumn: mapped.gridColumn,
+    };
+  });
+
+  await saveNewLayout(data.designation, newRooms, seedNurses, seedTechs);
+  await setUserPreference('lastSelectedLayout', data.designation);
+}
+
+export async function saveNewLayout(
+  layoutName: LayoutName,
+  patients: Patient[],
+  nurses: Nurse[],
+  techs: PatientCareTech[]
+): Promise<void> {
+  const db = await getDb();
+  db.createLayout(layoutName);
+  db.savePatients(layoutName, patients);
+  db.saveNurses(layoutName, nurses);
+  db.saveTechs(layoutName, techs);
+}
+
+export async function getLayoutMetadata(layoutName: LayoutName): Promise<UnitLayoutMetadata> {
+  const db = await getDb();
+  const metadata = db.getLayout(layoutName);
+  return {
+    numRooms: metadata?.numRooms ?? DEFAULT_LAYOUT_METADATA.numRooms,
+    bedsPerRoom: metadata?.bedsPerRoom ?? DEFAULT_LAYOUT_METADATA.bedsPerRoom,
+    baselineNursesPerShift: metadata?.baselineNursesPerShift ?? DEFAULT_LAYOUT_METADATA.baselineNursesPerShift,
+    baselinePctsPerShift: metadata?.baselinePctsPerShift ?? DEFAULT_LAYOUT_METADATA.baselinePctsPerShift,
+    nurseToPatientRatio: metadata?.nurseToPatientRatio ?? DEFAULT_LAYOUT_METADATA.nurseToPatientRatio,
+    unitType: metadata?.unitType && UNIT_TYPE_VALUES.includes(metadata.unitType) ? metadata.unitType : DEFAULT_LAYOUT_METADATA.unitType,
+  };
+}
+
+function sanitizeMetadata(input: Partial<UnitLayoutMetadata>): UnitLayoutMetadata {
+  return {
+    numRooms: Math.max(1, Number(input.numRooms ?? DEFAULT_LAYOUT_METADATA.numRooms)),
+    bedsPerRoom: Math.max(1, Number(input.bedsPerRoom ?? DEFAULT_LAYOUT_METADATA.bedsPerRoom)),
+    baselineNursesPerShift: Math.max(0, Number(input.baselineNursesPerShift ?? DEFAULT_LAYOUT_METADATA.baselineNursesPerShift)),
+    baselinePctsPerShift: Math.max(0, Number(input.baselinePctsPerShift ?? DEFAULT_LAYOUT_METADATA.baselinePctsPerShift)),
+    nurseToPatientRatio: Math.max(1, Number(input.nurseToPatientRatio ?? DEFAULT_LAYOUT_METADATA.nurseToPatientRatio)),
+    unitType: input.unitType && UNIT_TYPE_VALUES.includes(input.unitType) ? input.unitType : DEFAULT_LAYOUT_METADATA.unitType,
+  };
 }

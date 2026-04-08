@@ -24,7 +24,7 @@ import { NUM_ROWS_GRID } from '@/lib/grid-utils';
 import { debugLocalStorage } from './debug-storage';
 import { databaseDebug } from './database-debug';
 // Types
-import type { LayoutName, Patient, StaffRole } from '@/types/patient';
+import type { LayoutName, Patient, StaffRole, CreateUnitPayload, UnitLayoutMetadata } from '@/types/patient';
 import type { Nurse, PatientCareTech, Spectra } from '@/types/nurse';
 import type { AdmitPatientFormValues } from '@/types/forms';
 import type { AddStaffMemberFormValues } from '@/types/forms';
@@ -102,6 +102,15 @@ export default function UnitViewClient({
   const [isCreateUnitDialogOpen, setIsCreateUnitDialogOpen] = useState(false);
   const [patientToDischarge, setPatientToDischarge] = useState<Patient | null>(null);
   const [patientToEditDesignation, setPatientToEditDesignation] = useState<Patient | null>(null);
+  const [layoutMetadata, setLayoutMetadata] = useState<UnitLayoutMetadata>({
+    numRooms: initialPatients.length,
+    bedsPerRoom: 1,
+    baselineNursesPerShift: initialNurses.filter(n => n.role === 'Staff Nurse').length,
+    baselinePctsPerShift: initialTechs.length,
+    nurseToPatientRatio: 4,
+    unitType: 'Med-Surg',
+  });
+  const [isOncomingShiftSetup, setIsOncomingShiftSetup] = useState(false);
 
   const getChargeNurseName = () => {
     return nurses.find(n => n.role === 'Charge Nurse')?.name || 'Unassigned';
@@ -110,20 +119,24 @@ export default function UnitViewClient({
   const loadLayoutData = useCallback(async (layoutName: LayoutName) => {
       setIsInitialized(false);
       try {
-        const [patientData, nurseData, techData] = await Promise.all([
+        const [patientData, nurseData, techData, metadata] = await Promise.all([
             patientService.getPatients(layoutName),
             nurseService.getNurses(layoutName),
             nurseService.getTechs(layoutName),
+            layoutService.getLayoutMetadata(layoutName),
         ]);
 
         const validNurses = nurseData.map(n => ({
           ...n,
-          assignedPatientIds: Array.isArray(n.assignedPatientIds) ? n.assignedPatientIds : Array(6).fill(null)
+          assignedPatientIds: Array.from({ length: Math.max(1, metadata.nurseToPatientRatio) }, (_, index) => (
+            Array.isArray(n.assignedPatientIds) ? (n.assignedPatientIds[index] ?? null) : null
+          )),
         }));
 
         setPatients(patientData);
         setNurses(validNurses);
         setTechs(techData);
+        setLayoutMetadata(metadata);
 
         setCurrentLayoutName(layoutName);
       } catch (error) {
@@ -206,6 +219,7 @@ export default function UnitViewClient({
     try {
       const chargeNurseName = getChargeNurseName();
       await assignmentService.saveShiftAssignments(currentLayoutName, nurses, patients, chargeNurseName);
+      setIsOncomingShiftSetup(false);
       toast({
         title: "Assignments Saved",
         description: "The current shift assignments have been saved for reference.",
@@ -218,6 +232,14 @@ export default function UnitViewClient({
           description: "Could not save the current assignments. See console for details.",
        });
     }
+  };
+
+  const handleStartOncomingShiftSetup = () => {
+    setIsOncomingShiftSetup(true);
+    toast({
+      title: "Oncoming Shift Setup",
+      description: "Setup mode enabled. Assign nurses and rooms for the oncoming shift, then save assignments.",
+    });
   };
 
 
@@ -390,13 +412,34 @@ export default function UnitViewClient({
     }
   };
 
-  const handleCreateUnit = async ({ designation, numRooms }: { designation: string; numRooms: number }) => {
+  const handleDeleteRoom = async (patientId: string) => {
+    const room = patients.find(p => p.id === patientId);
+    if (!room || room.name !== 'Vacant') {
+      toast({
+        variant: "destructive",
+        title: "Cannot Delete Room",
+        description: "Only vacant rooms can be deleted.",
+      });
+      return;
+    }
+
+    setPatients(prev => prev.filter(p => p.id !== patientId));
+    setNurses(prev => prev.map(n => ({
+      ...n,
+      assignedPatientIds: n.assignedPatientIds.map(id => (id === patientId ? null : id)),
+    })));
+    toast({
+      title: "Room Deleted",
+      description: `${room.roomDesignation} has been removed from this layout.`,
+    });
+  };
+
+  const handleCreateUnit = async (data: CreateUnitPayload) => {
     try {
-        await layoutService.createNewUnitLayout(designation, numRooms);
-        await layoutService.setUserPreference('lastSelectedLayout', designation);
+        await layoutService.createFullUnitFromPayload(data);
         toast({
             title: "Unit Created",
-            description: `Unit "${designation}" with ${numRooms} rooms has been created. Reloading...`,
+            description: `Unit "${data.designation}" has been created. Loading unit...`,
         });
         window.location.href = '/';
     } catch (error) {
@@ -407,7 +450,7 @@ export default function UnitViewClient({
             title: "Error Creating Unit",
             description: errorMessage,
         });
-        throw error; // Re-throw the error so the dialog can catch it
+        throw error;
     }
   };
 
@@ -434,16 +477,38 @@ export default function UnitViewClient({
     if (!content) return;
 
     const printWindow = window.open('', '_blank');
-    printWindow?.document.write(`
+    if (!printWindow) return;
+
+    const bodyHtml = content.innerHTML.replace(/<\/script/gi, '<\\/script');
+    printWindow.document.write(`
         <html>
         <head>
+          <meta charset="utf-8" />
           <title>Print Report</title>
           <style>
+              body { margin: 0; font-family: Arial, Helvetica, sans-serif; font-size: 10pt; color: #000; }
+              #printable-assignments-report,
+              #printable-charge-report {
+                display: block !important;
+                position: static !important;
+                left: auto !important;
+                top: auto !important;
+                width: 100% !important;
+                max-width: 100% !important;
+                height: auto !important;
+                overflow: visible !important;
+                opacity: 1 !important;
+              }
+              .uv-print-assignments-layout {
+                display: grid !important;
+                grid-template-columns: 1fr 18rem;
+                gap: 12px;
+                align-items: start;
+              }
+              .uv-print-nurse-row { display: grid !important; gap: 8px; }
+              .uv-print-pct-row { display: grid !important; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
               @media print {
-                  body { 
-                      font-family: Arial, Helvetica, sans-serif;
-                      font-size: 10pt;
-                  }
+                  body { font-size: 10pt; }
                   .print-hide { display: none !important; }
                   .page-break-inside-avoid { page-break-inside: avoid; }
                   h1 { font-size: 16pt; font-weight: bold; text-align: center; margin-bottom: 0.5rem; }
@@ -454,12 +519,19 @@ export default function UnitViewClient({
           <link rel="stylesheet" href="/globals.css">
           <script src="https://cdn.tailwindcss.com"></script>
         </head>
-        <body onload="window.print(); window.close();">
-          ${content.innerHTML}
+        <body>
+          ${bodyHtml}
+          <script>
+            setTimeout(function () {
+              window.focus();
+              window.print();
+              window.close();
+            }, 400);
+          </script>
         </body>
         </html>
     `);
-    printWindow?.document.close();
+    printWindow.document.close();
   };
   
   const handlePatientDragStart = useCallback((
@@ -634,10 +706,20 @@ export default function UnitViewClient({
           return patientA.bedNumber - patientB.bedNumber;
         });
 
-        // 5. Pad the array with nulls to fill all 6 slots
-        const finalPaddedIds = Array(6).fill(null);
+        const nurseCapacity = Math.max(1, layoutMetadata.nurseToPatientRatio);
+        if (newAssignedIds.length > nurseCapacity) {
+          toast({
+            variant: "destructive",
+            title: "Assignment limit reached",
+            description: `This nurse can only hold ${nurseCapacity} room assignments.`,
+          });
+          return currentNurses;
+        }
+
+        // 5. Pad the array with nulls to fill configured nurse capacity
+        const finalPaddedIds = Array(nurseCapacity).fill(null);
         sortedPatientIds.forEach((id, index) => {
-          if (index < 6) {
+          if (index < nurseCapacity) {
             finalPaddedIds[index] = id;
           }
         });
@@ -671,7 +753,7 @@ export default function UnitViewClient({
     });
 
     setDraggingPatientInfo(null);
-  }, [draggingPatientInfo]);
+  }, [draggingPatientInfo, layoutMetadata.nurseToPatientRatio, toast]);
 
   const handleClearNurseAssignments = useCallback((nurseId: string) => {
     let newPatients = [...patients];
@@ -691,14 +773,14 @@ export default function UnitViewClient({
 
     newNurses = newNurses.map(n => {
         if (n.id === nurseId) {
-            return { ...n, assignedPatientIds: Array(6).fill(null) };
+            return { ...n, assignedPatientIds: Array(Math.max(1, layoutMetadata.nurseToPatientRatio)).fill(null) };
         }
         return n;
     });
     
     setNurses(newNurses);
     setPatients(newPatients);
-  }, [patients, nurses]);
+  }, [patients, nurses, layoutMetadata.nurseToPatientRatio]);
 
 
   useEffect(() => {
@@ -722,6 +804,7 @@ export default function UnitViewClient({
     <div className="flex flex-col min-h-screen bg-background">
       <AppHeader
         title="UnitView"
+        unitName={`${currentLayoutName}${isOncomingShiftSetup ? ' (Oncoming Shift Setup)' : ''}`}
         activePatientCount={activePatientCount}
         totalRoomCount={totalRoomCount}
         isLayoutLocked={isLayoutLocked}
@@ -742,6 +825,7 @@ export default function UnitViewClient({
         onCreateUnit={() => setIsCreateUnitDialogOpen(true)}
         onInsertMockData={handleInsertMockData}
         onSaveAssignments={handleSaveAssignments}
+        onSetupOncomingShift={handleStartOncomingShiftSetup}
       />
       <main className="flex-grow flex flex-col overflow-auto print-hide">
         <div className="flex-grow flex items-stretch">
@@ -768,6 +852,7 @@ export default function UnitViewClient({
               onToggleBlockRoom={handleToggleBlockRoom}
               onEditDesignation={(patient) => setPatientToEditDesignation(patient)}
               onRemoveNurse={handleRemoveNurse}
+              onDeleteRoom={handleDeleteRoom}
               onRemoveTech={handleRemoveTech}
               onAssignStaff={handleAssignStaff}
               onRemoveStaff={handleRemoveStaff}

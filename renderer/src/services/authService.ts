@@ -21,19 +21,6 @@ class AuthService {
     Object.entries(defaultPasswords).forEach(([employeeNumber, password]) => {
       this.db.savePassword(employeeNumber, password);
     });
-
-    // Initialize default unit settings if none exist
-    const existingSettings = this.db.getUnitSettings();
-    if (existingSettings.length === 0) {
-      const defaultSettings: UnitSettings = {
-        id: 'default',
-        name: 'Default Unit',
-        theme: 'light',
-        createdAt: new Date(),
-        lastModified: new Date(),
-      };
-      this.db.saveUnitSettings(defaultSettings);
-    }
   }
 
   async login(credentials: LoginCredentials): Promise<AuthState> {

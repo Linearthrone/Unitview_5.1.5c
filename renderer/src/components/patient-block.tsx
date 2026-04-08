@@ -174,6 +174,7 @@ const PatientBlock: React.FC<PatientBlockProps> = ({
           className={cn(
             "relative flex flex-col h-full shadow-lg hover:shadow-xl transition-shadow duration-200",
             isBlocked ? "cursor-not-allowed bg-black dark:bg-gray-900 border-gray-700" : "cursor-pointer bg-gray-200 dark:bg-gray-800",
+            !isBlocked && !!patient.assignedNurse && "opacity-70",
             isDragging ? "opacity-50 ring-2 ring-primary" : ""
           )}
           data-patient-id={patient.id}

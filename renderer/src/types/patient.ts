@@ -5,6 +5,7 @@ export type CodeStatus = 'Full Code' | 'DNR' | 'DNI' | 'DNR/DNI';
 export type LayoutName = string;
 export type OrientationStatus = 'x1' | 'x2' | 'x3' | 'x4' | 'N/A';
 export type StaffRole = 'Staff Nurse' | 'Charge Nurse' | 'Float Pool Nurse' | 'Unit Clerk' | 'Patient Care Tech' | 'Sitter';
+export type UnitType = 'ICU' | 'Med-Surg' | 'Telemetry' | 'Step-Down' | 'ER' | 'Other';
 
 
 export interface Patient {
@@ -56,4 +57,32 @@ export interface AssignmentSet {
             patientName: string;
         }[];
     }[];
+}
+
+export interface UnitLayoutMetadata {
+  numRooms: number;
+  bedsPerRoom: number;
+  baselineNursesPerShift: number;
+  baselinePctsPerShift: number;
+  nurseToPatientRatio: number;
+  unitType: UnitType;
+}
+
+/** What each draggable item on the new-unit layout map represents */
+export type LayoutCardKind = 'Room' | 'Staff Nurse' | 'Patient Care Tech' | 'Unit Clerk';
+
+export interface LayoutCardPlacement {
+  id: string;
+  kind: LayoutCardKind;
+  /** 1-based room index when kind is Room */
+  roomIndex?: number;
+  row: number;
+  column: number;
+}
+
+export interface CreateUnitPayload extends UnitLayoutMetadata {
+  designation: string;
+  cardPlacements: LayoutCardPlacement[];
+  /** Building room number for each 1-based room index (same order as room cards 1..numRooms) */
+  roomDisplayNumbers: number[];
 }

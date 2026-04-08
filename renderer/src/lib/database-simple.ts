@@ -1,14 +1,14 @@
 // Enhanced database implementation with authentication and persistence
 // This uses a JSON-based storage system that works in the renderer process
 
-import type { Patient, LayoutName, UserPreferences, AssignmentSet } from '../types/patient';
+import type { Patient, LayoutName, UserPreferences, AssignmentSet, UnitLayoutMetadata } from '../types/patient';
 import type { Nurse, PatientCareTech, Spectra } from '../types/nurse';
 import type { User, UnitSettings } from '../types/auth';
 
 // Data storage interfaces
 interface DatabaseSchema {
   user_preferences: { [key: string]: string };
-  layouts: { name: string; created_at: string; updated_at: string }[];
+  layouts: ({ name: string; created_at: string; updated_at: string } & Partial<UnitLayoutMetadata>)[];
   patients: Patient[];
   nurses: Nurse[];
   patient_care_techs: PatientCareTech[];
@@ -261,6 +261,31 @@ export class SimpleDatabase {
       });
       this.saveToLocalStorage();
     }
+  }
+
+  deleteLayout(layoutName: LayoutName): void {
+    this.data.layouts = this.data.layouts.filter(l => l.name !== layoutName);
+    this.data.patients = this.data.patients.filter(p => p.layoutName !== layoutName);
+    this.data.nurses = this.data.nurses.filter(n => n.layoutName !== layoutName);
+    this.data.patient_care_techs = this.data.patient_care_techs.filter(t => t.layoutName !== layoutName);
+    this.data.assignment_sets = this.data.assignment_sets.filter(a => a.layoutName !== layoutName);
+    this.saveToLocalStorage();
+  }
+
+  getAllLayouts(): LayoutName[] {
+    return this.getAvailableLayouts();
+  }
+
+  getLayout(layoutName: LayoutName): (({ name: string; created_at: string; updated_at: string } & Partial<UnitLayoutMetadata>) | undefined) {
+    return this.data.layouts.find(l => l.name === layoutName);
+  }
+
+  setLayoutMetadata(layoutName: LayoutName, metadata: UnitLayoutMetadata): void {
+    const layout = this.data.layouts.find(l => l.name === layoutName);
+    if (!layout) return;
+    Object.assign(layout, metadata);
+    layout.updated_at = new Date().toISOString();
+    this.saveToLocalStorage();
   }
 
   // Patients

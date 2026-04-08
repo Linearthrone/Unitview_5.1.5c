@@ -1,5 +1,6 @@
 import type { AssignmentSet, LayoutName, Patient } from '../types/patient';
 import type { Nurse } from '@/types/nurse';
+import * as layoutService from './layoutService';
 
 export async function saveShiftAssignments(
     layoutName: LayoutName, 
@@ -47,18 +48,10 @@ export async function saveShiftAssignments(
         })),
     };
 
-    // Convert dates to Timestamps for Firestore
-    const dataToSave = {
-        ...assignmentSet,
-        date: Timestamp.fromDate(assignmentSet.date),
-    };
-    
-    const assignmentDocRef = doc(db, 'assignments', assignmentId);
-
     try {
-        await setDoc(assignmentDocRef, dataToSave);
+        await layoutService.saveAssignmentSet(assignmentSet);
     } catch (error) {
-        console.error("Error saving shift assignments to Firestore:", error);
+        console.error("Error saving shift assignments:", error);
         throw new Error("Failed to save assignments to the database.");
     }
 }

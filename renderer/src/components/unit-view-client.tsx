@@ -22,7 +22,7 @@ import UnitClerkCard from './unit-clerk-card';
 import { useToast } from "../hooks/use-toast";
 import { NUM_ROWS_GRID } from '../lib/grid-utils';
 // Types
-import type { LayoutName, Patient, StaffRole } from '../types/patient';
+import type { LayoutName, Patient, StaffRole, CreateUnitPayload } from '../types/patient';
 import type { Nurse, PatientCareTech, Spectra } from '../types/nurse';
 import type { AdmitPatientFormValues } from '../types/forms';
 import type { AddStaffMemberFormValues } from '../types/forms';
@@ -441,13 +441,12 @@ export default function UnitViewClient({
     }
   };
 
-  const handleCreateUnit = async ({ designation, numRooms }: { designation: string; numRooms: number }) => {
+  const handleCreateUnit = async (data: CreateUnitPayload) => {
     try {
-        await layoutService.createNewUnitLayout(designation, numRooms);
-        await layoutService.setUserPreference('lastSelectedLayout', designation);
+        await layoutService.createFullUnitFromPayload(data);
         toast({
             title: "Unit Created",
-            description: `Unit "${designation}" with ${numRooms} rooms has been created. Reloading...`,
+            description: `Unit "${data.designation}" has been created. Reloading...`,
         });
         window.location.href = '/';
     } catch (error) {
@@ -458,7 +457,7 @@ export default function UnitViewClient({
             title: "Error Creating Unit",
             description: errorMessage,
         });
-        throw error; // Re-throw the error so the dialog can catch it
+        throw error;
     }
   };
 
@@ -485,16 +484,38 @@ export default function UnitViewClient({
     if (!content) return;
 
     const printWindow = window.open('', '_blank');
-    printWindow?.document.write(`
+    if (!printWindow) return;
+
+    const bodyHtml = content.innerHTML.replace(/<\/script/gi, '<\\/script');
+    printWindow.document.write(`
         <html>
         <head>
+          <meta charset="utf-8" />
           <title>Print Report</title>
           <style>
+              body { margin: 0; font-family: Arial, Helvetica, sans-serif; font-size: 10pt; color: #000; }
+              #printable-assignments-report,
+              #printable-charge-report {
+                display: block !important;
+                position: static !important;
+                left: auto !important;
+                top: auto !important;
+                width: 100% !important;
+                max-width: 100% !important;
+                height: auto !important;
+                overflow: visible !important;
+                opacity: 1 !important;
+              }
+              .uv-print-assignments-layout {
+                display: grid !important;
+                grid-template-columns: 1fr 18rem;
+                gap: 12px;
+                align-items: start;
+              }
+              .uv-print-nurse-row { display: grid !important; gap: 8px; }
+              .uv-print-pct-row { display: grid !important; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
               @media print {
-                  body { 
-                      font-family: Arial, Helvetica, sans-serif;
-                      font-size: 10pt;
-                  }
+                  body { font-size: 10pt; }
                   .print-hide { display: none !important; }
                   .page-break-inside-avoid { page-break-inside: avoid; }
                   h1 { font-size: 16pt; font-weight: bold; text-align: center; margin-bottom: 0.5rem; }
@@ -505,12 +526,19 @@ export default function UnitViewClient({
           <link rel="stylesheet" href="/globals.css">
           <script src="https://cdn.tailwindcss.com"></script>
         </head>
-        <body onload="window.print(); window.close();">
-          ${content.innerHTML}
+        <body>
+          ${bodyHtml}
+          <script>
+            setTimeout(function () {
+              window.focus();
+              window.print();
+              window.close();
+            }, 400);
+          </script>
         </body>
         </html>
     `);
-    printWindow?.document.close();
+    printWindow.document.close();
   };
   
   const handlePatientDragStart = useCallback((
@@ -811,7 +839,6 @@ export default function UnitViewClient({
         onAddStaffMember={() => setIsAddStaffMemberDialogOpen(true)}
         onManageSpectra={() => setIsManageSpectraDialogOpen(true)}
         onAddRoom={() => setIsAddRoomDialogOpen(true)}
-        onCreateUnit={() => setIsCreateUnitDialogOpen(true)}
         onInsertMockData={handleInsertMockData}
         onSaveAssignments={handleSaveAssignments}
         onLeaveUnit={onBackToDashboard}

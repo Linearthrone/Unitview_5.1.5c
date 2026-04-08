@@ -28,17 +28,21 @@ const NurseAssignmentCard: React.FC<NurseAssignmentCardProps> = ({
   isEffectivelyLocked
 }) => {
   const patientMap = new Map(patients.map(p => [p.id, p]));
+  const assignedCount = nurse.assignedPatientIds.filter(id => id !== null).length;
+  const isAtCapacity = assignedCount >= nurse.assignedPatientIds.length;
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
-    if (!isEffectivelyLocked) {
+    if (!isEffectivelyLocked && !isAtCapacity) {
       e.dataTransfer.dropEffect = 'move';
+    } else {
+      e.dataTransfer.dropEffect = 'none';
     }
   };
 
   const handleDrop = (e: React.DragEvent<HTMLDivElement>, slotIndex: number) => {
     e.preventDefault();
-    if (isEffectivelyLocked) return;
+    if (isEffectivelyLocked || isAtCapacity) return;
     onDropOnSlot(nurse.id, slotIndex);
   };
   
@@ -80,6 +84,9 @@ const NurseAssignmentCard: React.FC<NurseAssignmentCardProps> = ({
                     <span>Relief: {nurse.relief}</span>
                 </div>
             )}
+            <div className="pt-1">
+              Capacity: {nurse.assignedPatientIds.length} rooms
+            </div>
         </div>
       </CardHeader>
       <Separator />
@@ -94,6 +101,7 @@ const NurseAssignmentCard: React.FC<NurseAssignmentCardProps> = ({
               className={cn(
                 "border-2 border-dashed rounded-md flex items-center justify-center text-sm font-semibold h-8",
                 isEffectivelyLocked ? "border-gray-400" : "border-primary/60 hover:bg-primary/10",
+                !patient && isAtCapacity && "opacity-60 border-muted-foreground/50 bg-muted/20",
                 patient ? "border-solid bg-card" : ""
               )}
             >

@@ -49,7 +49,18 @@ const PrintableReport: React.FC<PrintableReportProps> = ({ patients }) => {
   const sortedPatients = [...activePatients].sort((a, b) => a.bedNumber - b.bedNumber);
 
   return (
-    <div id="printable-charge-report" className="hidden print:block text-black font-sans">
+    <div
+      id="printable-charge-report"
+      className="text-black font-sans"
+      aria-hidden="true"
+      style={{
+        position: 'absolute',
+        left: '-9999px',
+        top: 0,
+        width: '8.5in',
+        maxWidth: '100vw',
+      }}
+    >
       <h1 className="text-xl font-bold text-center mb-2">Unit Charge Report</h1>
       <p className="text-center text-sm mb-4">
         {generatedDate ? `Generated on: ${generatedDate}`: 'Generating...'}
