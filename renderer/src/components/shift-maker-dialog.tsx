@@ -25,6 +25,10 @@ interface ShiftMakerDialogProps {
   onUnassignSpectra?: (spectraId: string) => void;
   onSetSpectraStatus?: (spectraId: string, status: SpectraStatus) => void;
   onAddSpectraLog?: (spectraId: string, message: string) => void;
+  /** Promote this draft to the active shift (parent clears draft after persist). */
+  onActivateOncomingShift?: () => void | Promise<void>;
+  onAddNurseCard?: () => void;
+  onRemoveNurseCard?: (nurseId: string) => void;
 }
 
 function selectShiftBoardNurses(nurses: Nurse[]): Nurse[] {
@@ -59,6 +63,9 @@ const ShiftMakerDialog: React.FC<ShiftMakerDialogProps> = ({
   onUnassignSpectra = () => undefined,
   onSetSpectraStatus = () => undefined,
   onAddSpectraLog = () => undefined,
+  onActivateOncomingShift,
+  onAddNurseCard,
+  onRemoveNurseCard,
 }) => {
   const boardNurses = useMemo(() => selectShiftBoardNurses(nurses), [nurses]);
   const boardPatients = useMemo(() => patients.filter((p) => isOccupiedBed(p.name) && !p.isBlocked), [patients]);
@@ -106,16 +113,32 @@ const ShiftMakerDialog: React.FC<ShiftMakerDialogProps> = ({
   return (
     <div className="fixed inset-0 z-50 bg-slate-950 text-slate-100">
       <div className="flex h-full min-h-0 flex-col">
-        <header className="flex items-center justify-between border-b border-slate-800 px-6 py-3">
+        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 px-6 py-3">
           <div>
             <h2 className="text-xl font-semibold tracking-wide">Oncoming Shift Blackboard</h2>
             <p className="text-sm text-slate-300">
-              Drag room lines from the left onto nurse assignment slots.
+              Drag room lines from the left onto nurse assignment slots. Edits here do not change the active unit map until activation.
             </p>
           </div>
-          <Button type="button" variant="secondary" onClick={() => onOpenChange(false)}>
-            Close board
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            {onAddNurseCard ? (
+              <Button type="button" variant="outline" onClick={() => onAddNurseCard()}>
+                Add nurse card
+              </Button>
+            ) : null}
+            {onActivateOncomingShift ? (
+              <Button
+                type="button"
+                className="bg-emerald-700 text-white hover:bg-emerald-600"
+                onClick={() => void onActivateOncomingShift()}
+              >
+                Activate oncoming shift
+              </Button>
+            ) : null}
+            <Button type="button" variant="secondary" onClick={() => onOpenChange(false)}>
+              Close board
+            </Button>
+          </div>
         </header>
 
         <div className="flex min-h-0 flex-1">
@@ -286,15 +309,28 @@ const ShiftMakerDialog: React.FC<ShiftMakerDialogProps> = ({
                         })}
                       </div>
 
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        size="sm"
-                        className="mt-3 w-full"
-                        onClick={() => onClearNurseAssignments(nurse.id)}
-                      >
-                        Clear assignments
-                      </Button>
+                      <div className="mt-3 flex flex-col gap-2">
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="sm"
+                          className="w-full"
+                          onClick={() => onClearNurseAssignments(nurse.id)}
+                        >
+                          Clear assignments
+                        </Button>
+                        {onRemoveNurseCard ? (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="w-full border-slate-600 text-slate-200"
+                            onClick={() => onRemoveNurseCard(nurse.id)}
+                          >
+                            Remove card
+                          </Button>
+                        ) : null}
+                      </div>
                     </div>
                   );
                 })}

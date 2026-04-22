@@ -21,6 +21,45 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["src"],
+  "include": [
+    "src/App.tsx",
+    "src/main.tsx",
+    "src/electron-api.d.ts",
+    "src/components/**/*",
+    "src/hooks/**/*",
+    "src/lib/**/*",
+    "src/services/**/*",
+    "src/types/**/*"
+  ],
+  "exclude": [
+    "src/components/unit-view-client-enhanced.tsx",
+    "src/components/unit-dashboard.tsx",
+    "src/lib/database-auth.ts",
+    "src/lib/database-simple-old.ts",
+    "src/lib/firebase.ts",
+    "src/database-debug.ts",
+    "src/debug-storage.ts",
+    "src/printable-report.tsx",
+    "src/printable-assignments.tsx",
+    "src/unit-view-client.tsx",
+    "src/admit-patient-dialog.tsx",
+    "src/discharge-confirmation-dialog.tsx",
+    "src/add-room-dialog.tsx",
+    "src/add-staff-member-dialog.tsx",
+    "src/app-header.tsx",
+    "src/assign-staff-dialog.tsx",
+    "src/charge-nurse-card.tsx",
+    "src/create-unit-dialog.tsx",
+    "src/edit-room-designation-dialog.tsx",
+    "src/icon-explanation-dialog.tsx",
+    "src/manage-spectra-dialog.tsx",
+    "src/nurse-assignment-card.tsx",
+    "src/patient-block.tsx",
+    "src/patient-care-tech-card.tsx",
+    "src/patient-grid.tsx",
+    "src/report-sheet.tsx",
+    "src/save-layout-dialog.tsx",
+    "src/unit-clerk-card.tsx"
+  ],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

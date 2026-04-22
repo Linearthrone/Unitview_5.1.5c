@@ -3,20 +3,8 @@ import type { Nurse, PatientCareTech, Spectra } from '../types/nurse';
 import type { Patient } from '../types/patient';
 import type { AddStaffMemberFormValues } from '../types/forms';
 import type { LayoutName } from '../types/patient';
-import { NUM_COLS_GRID, NUM_ROWS_GRID } from '../lib/grid-utils';
 import { findCompactEmptySlot, getAvailableSpectra } from './nurseHelpers';
 import * as layoutService from './layoutService';
-
-// Convert data to include layout name
-const nurseWithLayout = (nurse: Nurse, layoutName: LayoutName): Nurse => ({
-  ...nurse,
-  layoutName,
-});
-
-const techWithLayout = (tech: PatientCareTech, layoutName: LayoutName): PatientCareTech => ({
-  ...tech,
-  layoutName,
-});
 
 export async function getNurses(layoutName: LayoutName): Promise<Nurse[]> {
   if (!layoutName) return [];
@@ -39,6 +27,25 @@ export async function getNurses(layoutName: LayoutName): Promise<Nurse[]> {
     return validNurses;
   } catch (error) {
     console.error('Error getting nurses:', error);
+    return [];
+  }
+}
+
+export async function getOncomingNurses(layoutName: LayoutName): Promise<Nurse[]> {
+  if (!layoutName) return [];
+  try {
+    const db = await getDb();
+    const nurses = db.getOncomingNurses(layoutName);
+    const metadata = await layoutService.getLayoutMetadata(layoutName);
+    const nurseCapacity = Math.max(1, metadata.nurseToPatientRatio);
+    return nurses.map(n => ({
+      ...n,
+      assignedPatientIds: Array.from({ length: nurseCapacity }, (_, index) => (
+        Array.isArray(n.assignedPatientIds) ? (n.assignedPatientIds[index] ?? null) : null
+      )),
+    }));
+  } catch (error) {
+    console.error('Error getting oncoming nurses:', error);
     return [];
   }
 }
@@ -69,6 +76,16 @@ export async function saveNurses(layoutName: LayoutName, nurses: Nurse[]): Promi
   }
 }
 
+export async function saveOncomingNurses(layoutName: LayoutName, nurses: Nurse[]): Promise<void> {
+  try {
+    const db = await getDb();
+    db.saveOncomingNurses(layoutName, nurses);
+  } catch (error) {
+    console.error('Error saving oncoming nurses:', error);
+    throw error;
+  }
+}
+
 export async function saveTechs(layoutName: LayoutName, techs: PatientCareTech[]): Promise<void> {
   try {
     const db = await getDb();
@@ -88,22 +105,22 @@ export async function addStaffMember(
   currentPatients: Patient[],
   spectraPool: Spectra[]
 ): Promise<{ nurses: Nurse[]; techs: PatientCareTech[] }> {
-  const slot = findCompactEmptySlot(currentNurses, currentTechs);
-  if (!slot) {
-    throw new Error('No empty slot available for new staff member');
-  }
-
   const { name, role, spectra, relief } = staffData;
   const newId = `${role.replace(/\s+/g, '-').toLowerCase()}-${Date.now()}`;
   const metadata = await layoutService.getLayoutMetadata(layoutName);
   const nurseCapacity = Math.max(1, metadata.nurseToPatientRatio);
+  const cardHeight = role === 'Staff Nurse' || role === 'Float Pool Nurse' ? 3 : 1;
+  const slot = findCompactEmptySlot(currentPatients, currentNurses, currentTechs, cardHeight, 1);
+  if (!slot) {
+    throw new Error('No empty slot available for new staff member');
+  }
 
-  let newNurses = [...currentNurses];
-  let newTechs = [...currentTechs];
+  const newNurses = [...currentNurses];
+  const newTechs = [...currentTechs];
 
   if (role === 'Staff Nurse' || role === 'Float Pool Nurse' || role === 'Charge Nurse' || role === 'Unit Clerk') {
-    const availableSpectra = getAvailableSpectra(spectraPool);
-    const assignedSpectra = availableSpectra.length > 0 ? availableSpectra[0] : '';
+    const availableSpectra = getAvailableSpectra(spectraPool, currentNurses, currentTechs);
+    const assignedSpectra = spectra || availableSpectra[0]?.id || '';
 
     const newNurse: Nurse = {
       id: newId,
@@ -122,9 +139,10 @@ export async function addStaffMember(
     const newTech: PatientCareTech = {
       id: newId,
       name,
+      spectra: spectra || '',
+      assignmentGroup: '',
       gridRow: slot.row,
       gridColumn: slot.col,
-      roomRange: '',
     };
 
     newTechs.push(newTech);
@@ -234,4 +252,9 @@ export async function clearNurseAssignments(
     console.error('Error clearing nurse assignments:', error);
     throw error;
   }
+}
+
+export async function activateOncomingShift(layoutName: LayoutName): Promise<void> {
+  const db = await getDb();
+  db.activateOncomingShift(layoutName);
 }

@@ -6,13 +6,20 @@ import type { Nurse, PatientCareTech, Spectra } from '../types/nurse';
 import type { User, UnitSettings } from '../types/auth';
 import { getConfiguredDataSource } from './data-source';
 
+// Stored rows include layoutName so one array can hold all layouts.
+type StoredPatient = Patient & { layoutName: LayoutName };
+type StoredNurse = Nurse & { layoutName: LayoutName };
+type StoredPatientCareTech = PatientCareTech & { layoutName: LayoutName };
+
 // Data storage interfaces
 interface DatabaseSchema {
   user_preferences: { [key: string]: string };
   layouts: ({ name: string; created_at: string; updated_at: string } & Partial<UnitLayoutMetadata>)[];
-  patients: Patient[];
-  nurses: Nurse[];
-  patient_care_techs: PatientCareTech[];
+  patients: StoredPatient[];
+  nurses: StoredNurse[];
+  /** Draft nurse cards + assignments for the upcoming shift (same row shape as `nurses`; isolated until activation). */
+  nurses_oncoming: StoredNurse[];
+  patient_care_techs: StoredPatientCareTech[];
   spectra_pool: Spectra[];
   assignment_sets: AssignmentSet[];
   users: User[];
@@ -30,6 +37,7 @@ export class SimpleDatabase {
     layouts: [],
     patients: [],
     nurses: [],
+    nurses_oncoming: [],
     patient_care_techs: [],
     spectra_pool: [],
     assignment_sets: [],
@@ -84,6 +92,7 @@ export class SimpleDatabase {
         if (!this.data.global_theme) this.data.global_theme = 'light';
         if (!this.data.action_history) this.data.action_history = [];
         if (!this.data.history_index) this.data.history_index = -1;
+        if (!this.data.nurses_oncoming) this.data.nurses_oncoming = [];
         // Save updated structure
         this.saveToLocalStorage();
       } else {
@@ -244,7 +253,10 @@ export class SimpleDatabase {
   }
 
   getUserPreferences(): UserPreferences {
-    return this.data.user_preferences;
+    return {
+      lastSelectedLayout: this.data.user_preferences.lastSelectedLayout ?? 'North-South View',
+      isLayoutLocked: this.data.user_preferences.isLayoutLocked === 'true',
+    };
   }
 
   // Layouts
@@ -267,6 +279,7 @@ export class SimpleDatabase {
     this.data.layouts = this.data.layouts.filter(l => l.name !== layoutName);
     this.data.patients = this.data.patients.filter(p => p.layoutName !== layoutName);
     this.data.nurses = this.data.nurses.filter(n => n.layoutName !== layoutName);
+    this.data.nurses_oncoming = this.data.nurses_oncoming.filter(n => n.layoutName !== layoutName);
     this.data.patient_care_techs = this.data.patient_care_techs.filter(t => t.layoutName !== layoutName);
     this.data.assignment_sets = this.data.assignment_sets.filter(a => a.layoutName !== layoutName);
     this.saveToLocalStorage();
@@ -290,7 +303,9 @@ export class SimpleDatabase {
 
   // Patients
   getPatients(layoutName: LayoutName): Patient[] {
-    return this.data.patients.filter(p => p.layoutName === layoutName);
+    return this.data.patients
+      .filter(p => p.layoutName === layoutName)
+      .map(({ layoutName: _layoutName, ...patient }) => patient);
   }
 
   savePatients(layoutName: LayoutName, patients: Patient[]): void {
@@ -303,7 +318,9 @@ export class SimpleDatabase {
 
   // Nurses
   getNurses(layoutName: LayoutName): Nurse[] {
-    return this.data.nurses.filter(n => n.layoutName === layoutName);
+    return this.data.nurses
+      .filter(n => n.layoutName === layoutName)
+      .map(({ layoutName: _layoutName, ...nurse }) => nurse);
   }
 
   saveNurses(layoutName: LayoutName, nurses: Nurse[]): void {
@@ -314,9 +331,32 @@ export class SimpleDatabase {
     this.saveToLocalStorage();
   }
 
+  getOncomingNurses(layoutName: LayoutName): Nurse[] {
+    return this.data.nurses_oncoming
+      .filter(n => n.layoutName === layoutName)
+      .map(({ layoutName: _layoutName, ...nurse }) => nurse);
+  }
+
+  saveOncomingNurses(layoutName: LayoutName, nurses: Nurse[]): void {
+    this.data.nurses_oncoming = this.data.nurses_oncoming.filter(n => n.layoutName !== layoutName);
+    this.data.nurses_oncoming.push(...nurses.map(n => ({ ...n, layoutName })));
+    this.saveToLocalStorage();
+  }
+
+  /** Promote oncoming draft to active shift nurses and clear the draft for this layout. */
+  activateOncomingShift(layoutName: LayoutName): void {
+    const incoming = this.data.nurses_oncoming.filter(n => n.layoutName === layoutName);
+    const asCurrent: Nurse[] = incoming.map(({ layoutName: _l, ...rest }) => rest);
+    this.saveNurses(layoutName, asCurrent);
+    this.data.nurses_oncoming = this.data.nurses_oncoming.filter(n => n.layoutName !== layoutName);
+    this.saveToLocalStorage();
+  }
+
   // Techs
   getTechs(layoutName: LayoutName): PatientCareTech[] {
-    return this.data.patient_care_techs.filter(t => t.layoutName === layoutName);
+    return this.data.patient_care_techs
+      .filter(t => t.layoutName === layoutName)
+      .map(({ layoutName: _layoutName, ...tech }) => tech);
   }
 
   saveTechs(layoutName: LayoutName, techs: PatientCareTech[]): void {

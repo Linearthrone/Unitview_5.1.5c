@@ -18,8 +18,8 @@ import SpectralinkDeviceTable from './spectralink-device-table';
 import AddRoomDialog from './add-room-dialog';
 import CreateUnitDialog from './create-unit-dialog';
 import EditRoomDesignationDialog from './edit-room-designation-dialog';
-import ChargeNurseCard from './charge-nurse-card';
-import UnitClerkCard from './unit-clerk-card';
+import { Button } from './ui/button';
+import { Plus } from 'lucide-react';
 // Hooks and utils
 import { useToast } from "../hooks/use-toast";
 import { NUM_ROWS_GRID } from '../lib/grid-utils';
@@ -41,6 +41,9 @@ import * as patientService from '../services/patientService';
 import * as nurseService from '../services/nurseService';
 import * as spectraService from '../services/spectraService';
 import * as assignmentService from '../services/assignmentService';
+import { getDb } from '../lib/database-simple';
+import { syncPatientsAssignedNurseFromNurses } from '../lib/nurse-assignment-sync';
+import { findCompactEmptySlot, getAvailableSpectra } from '../services/nurseHelpers';
 
 
 interface DraggingPatientInfo {
@@ -83,17 +86,19 @@ export default function UnitViewClient({
     initialTechs,
     initialSpectraPool,
     onBackToDashboard,
-    currentUser
+    currentUser: _currentUser
 }: UnitViewClientProps) {
   const [isLayoutLocked, setIsLayoutLocked] = useState(initialIsLayoutLocked);
   const [currentYear, setCurrentYear] = useState<number | null>(null);
   const [currentLayoutName, setCurrentLayoutName] = useState<LayoutName>(initialLayoutName);
-  const [availableLayouts, setAvailableLayouts] = useState<LayoutName[]>(initialAvailableLayouts);
+  const [availableLayouts] = useState<LayoutName[]>(initialAvailableLayouts);
 
   const [patients, setPatients] = useState<Patient[]>(initialPatients);
   const [nurses, setNurses] = useState<Nurse[]>(initialNurses);
   const [techs, setTechs] = useState<PatientCareTech[]>(initialTechs);
   const [spectraPool, setSpectraPool] = useState<Spectra[]>(initialSpectraPool);
+  /** Draft shift (isolated from active board until activation). */
+  const [oncomingNurses, setOncomingNurses] = useState<Nurse[]>([]);
   
   const [draggingPatientInfo, setDraggingPatientInfo] = useState<DraggingPatientInfo | null>(null);
   const [draggingNurseInfo, setDraggingNurseInfo] = useState<DraggingNurseInfo | null>(null);
@@ -114,11 +119,86 @@ export default function UnitViewClient({
   const [isCreateUnitDialogOpen, setIsCreateUnitDialogOpen] = useState(false);
   const [isShiftMakerOpen, setIsShiftMakerOpen] = useState(false);
   const [isOncomingShiftSetup, setIsOncomingShiftSetup] = useState(false);
+  const [patientToDischarge, setPatientToDischarge] = useState<Patient | null>(null);
+  const [patientToEditDesignation, setPatientToEditDesignation] = useState<Patient | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const rows = await nurseService.getOncomingNurses(currentLayoutName);
+      if (!cancelled) setOncomingNurses(rows);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [currentLayoutName]);
+
+  const handleImportData = useCallback(async () => {
+    if (!window.electronAPI) return;
+    try {
+      const result = await window.electronAPI.importData();
+      if (!result.success || !result.data) {
+        toast({
+          variant: 'destructive',
+          title: 'Import Failed',
+          description: result.error ?? 'Unable to import data.',
+        });
+        return;
+      }
+
+      const database = await getDb();
+      database.importData(result.data as ReturnType<typeof database.exportData>);
+      toast({
+        title: 'Import Complete',
+        description: 'Data imported successfully. Reloading…',
+      });
+      window.location.href = '/';
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unexpected error while importing data.';
+      toast({
+        variant: 'destructive',
+        title: 'Import Failed',
+        description: message,
+      });
+    }
+  }, [toast]);
+
+  const handleExportData = useCallback(async () => {
+    if (!window.electronAPI) return;
+    try {
+      const database = await getDb();
+      const result = await window.electronAPI.exportData(database.exportData());
+      if (!result.success) {
+        toast({
+          variant: 'destructive',
+          title: 'Export Failed',
+          description: result.error ?? 'Unable to export data.',
+        });
+        return;
+      }
+
+      toast({
+        title: 'Export Complete',
+        description: result.path ? `Backup saved to ${result.path}` : 'Backup saved successfully.',
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unexpected error while exporting data.';
+      toast({
+        variant: 'destructive',
+        title: 'Export Failed',
+        description: message,
+      });
+    }
+  }, [toast]);
+
+  const handlePrintReport = useCallback(() => {
+    handlePrint('charge');
+  }, []);
 
   // Electron API integration
   useEffect(() => {
     if (window.electronAPI) {
-      const handleMenuAction = (action: string, data?: any) => {
+      const handleMenuAction = (action: string) => {
         switch (action) {
           case 'new-layout':
             setIsCreateUnitDialogOpen(true);
@@ -130,10 +210,10 @@ export default function UnitViewClient({
             setIsSaveDialogOpen(true);
             break;
           case 'import-data':
-            handleImportData(data);
+            handleImportData();
             break;
           case 'export-data':
-            handleExportData(data);
+            handleExportData();
             break;
           case 'print-report':
             handlePrintReport();
@@ -141,21 +221,19 @@ export default function UnitViewClient({
         }
       };
 
-      window.electronAPI.onMenuAction(handleMenuAction);
+      const unsubscribe = window.electronAPI.onMenuAction(handleMenuAction);
 
       return () => {
-        window.electronAPI.removeAllListeners('menu-action');
+        unsubscribe();
       };
     }
-  }, []);
-  const [patientToDischarge, setPatientToDischarge] = useState<Patient | null>(null);
-  const [patientToEditDesignation, setPatientToEditDesignation] = useState<Patient | null>(null);
+  }, [handleExportData, handleImportData, handlePrintReport]);
 
   const getChargeNurseName = () => {
     return nurses.find(n => n.role === 'Charge Nurse')?.name || 'Unassigned';
   }
 
-  const loadLayoutData = useCallback(async (layoutName: LayoutName) => {
+  const _loadLayoutData = useCallback(async (layoutName: LayoutName) => {
       setIsInitialized(false);
       try {
         const [patientData, nurseData, techData] = await Promise.all([
@@ -240,11 +318,15 @@ export default function UnitViewClient({
   const handleSaveAssignments = async () => {
     try {
       const chargeNurseName = getChargeNurseName();
-      await assignmentService.saveShiftAssignments(currentLayoutName, nurses, patients, chargeNurseName);
+      const archivingOncoming = isOncomingShiftSetup;
+      const nursesForArchive = archivingOncoming ? oncomingNurses : nurses;
+      await assignmentService.saveShiftAssignments(currentLayoutName, nursesForArchive, patients, chargeNurseName);
       setIsOncomingShiftSetup(false);
       toast({
         title: "Assignments Saved",
-        description: "The current shift assignments have been saved for reference.",
+        description: archivingOncoming
+          ? "Oncoming shift assignment snapshot saved for reference."
+          : "The current shift assignments have been saved for reference.",
       });
     } catch (error) {
        console.error("Failed to save assignments:", error);
@@ -253,6 +335,181 @@ export default function UnitViewClient({
           title: "Error Saving Assignments",
           description: "Could not save the current assignments. See console for details.",
        });
+    }
+  };
+
+  const handleSetupOncomingShift = async () => {
+    let draft = await nurseService.getOncomingNurses(currentLayoutName);
+    if (draft.length === 0) {
+      draft = JSON.parse(JSON.stringify(nurses)) as Nurse[];
+      await nurseService.saveOncomingNurses(currentLayoutName, draft);
+    }
+    setOncomingNurses(draft);
+    setIsOncomingShiftSetup(true);
+    setIsShiftMakerOpen(true);
+    toast({
+      title: 'Oncoming shift',
+      description:
+        'Edit the oncoming board here. The active unit map is unchanged until you activate this shift.',
+    });
+  };
+
+  const handleActivateOncomingShift = async () => {
+    try {
+      await nurseService.saveOncomingNurses(currentLayoutName, oncomingNurses);
+      await nurseService.activateOncomingShift(currentLayoutName);
+      const promoted = await nurseService.getNurses(currentLayoutName);
+      setNurses(promoted);
+      setPatients((prev) => syncPatientsAssignedNurseFromNurses(prev, promoted));
+      const cleared = await nurseService.getOncomingNurses(currentLayoutName);
+      setOncomingNurses(cleared);
+      setIsOncomingShiftSetup(false);
+      setIsShiftMakerOpen(false);
+      toast({
+        title: 'Shift activated',
+        description: 'Oncoming shift is now active. Previous active nurse cards were replaced.',
+      });
+    } catch (e) {
+      console.error(e);
+      toast({
+        variant: 'destructive',
+        title: 'Activation failed',
+        description: e instanceof Error ? e.message : 'Could not activate shift.',
+      });
+    }
+  };
+
+  const handleOncomingDropOnNurseSlot = useCallback(
+    (targetNurseId: string, _slotIndex: number) => {
+      if (!draggingPatientInfo) return;
+      const draggedPatientId = draggingPatientInfo.id;
+
+      setOncomingNurses((currentOncoming) => {
+        const draggedPatient = patients.find((p) => p.id === draggedPatientId);
+        const targetNurse = currentOncoming.find((n) => n.id === targetNurseId);
+        if (!draggedPatient || !targetNurse) return currentOncoming;
+
+        const nurseCapacity = Math.max(1, targetNurse.assignedPatientIds.length);
+
+        let next = currentOncoming.map((nurse) => ({
+          ...nurse,
+          assignedPatientIds: nurse.assignedPatientIds.map((id) => (id === draggedPatientId ? null : id)),
+        }));
+
+        const tn = next.find((n) => n.id === targetNurseId);
+        if (!tn) return currentOncoming;
+
+        const currentAssignedIds = tn.assignedPatientIds.filter((id) => id !== null && id !== draggedPatientId);
+        const merged = [...currentAssignedIds, draggedPatientId];
+        const patientMap = new Map(patients.map((p) => [p.id, p]));
+        const sortedPatientIds = merged.sort((idA, idB) => {
+          const pa = patientMap.get(idA!);
+          const pb = patientMap.get(idB!);
+          if (!pa || !pb) return 0;
+          return pa.bedNumber - pb.bedNumber;
+        });
+
+        const finalPaddedIds = Array.from({ length: nurseCapacity }, () => null as string | null);
+        sortedPatientIds.forEach((id, index) => {
+          if (index < nurseCapacity && id) finalPaddedIds[index] = id;
+        });
+
+        next = next.map((nurse) =>
+          nurse.id === targetNurseId ? { ...nurse, assignedPatientIds: finalPaddedIds } : nurse,
+        );
+        return next;
+      });
+
+      setDraggingPatientInfo(null);
+    },
+    [draggingPatientInfo, patients],
+  );
+
+  const handleOncomingClearNurseAssignments = useCallback((nurseId: string) => {
+    setOncomingNurses((prev) =>
+      prev.map((n) =>
+        n.id === nurseId
+          ? {
+              ...n,
+              assignedPatientIds: Array(Math.max(1, n.assignedPatientIds.length)).fill(null) as (string | null)[],
+            }
+          : n,
+      ),
+    );
+  }, []);
+
+  const handleOncomingRemoveNurse = useCallback((nurseId: string) => {
+    let removedName = '';
+    setOncomingNurses((prev) => {
+      const removed = prev.find((n) => n.id === nurseId);
+      removedName = removed?.name ?? '';
+      return prev.filter((n) => n.id !== nurseId);
+    });
+    toast({
+      title: 'Removed from oncoming shift',
+      description: removedName ? `${removedName} removed from the oncoming draft.` : 'Card removed.',
+    });
+  }, [toast]);
+
+  const handleOncomingAddNurseCard = useCallback(async () => {
+    try {
+      const metadata = await layoutService.getLayoutMetadata(currentLayoutName);
+      const nurseCapacity = Math.max(1, metadata.nurseToPatientRatio);
+      const slot = findCompactEmptySlot(patients, [...nurses, ...oncomingNurses], techs, 3, 1);
+      if (!slot) {
+        toast({
+          variant: 'destructive',
+          title: 'No empty space',
+          description: 'Cannot place another nurse card on the grid.',
+        });
+        return;
+      }
+      const availableSpectra = getAvailableSpectra(spectraPool, [...nurses, ...oncomingNurses], techs);
+      const newNurse: Nurse = {
+        id: `staff-nurse-oncoming-${Date.now()}`,
+        name: 'New Staff Nurse',
+        role: 'Staff Nurse',
+        spectra: availableSpectra[0]?.id ?? '',
+        relief: '',
+        assignedPatientIds: Array(nurseCapacity).fill(null) as (string | null)[],
+        gridRow: slot.row,
+        gridColumn: slot.col,
+      };
+      setOncomingNurses((prev) => [...prev, newNurse]);
+      toast({ title: 'Card added', description: 'Staff nurse card added to oncoming shift draft.' });
+    } catch (e) {
+      console.error(e);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: e instanceof Error ? e.message : 'Could not add card.',
+      });
+    }
+  }, [currentLayoutName, nurses, oncomingNurses, patients, spectraPool, techs, toast]);
+
+  const handleOncomingAssignSpectra = async (deviceId: string, staffName: string) => {
+    const result = await spectraService.assignDeviceToStaff(deviceId, staffName, spectraPool);
+    if (result.newPool) {
+      setSpectraPool(result.newPool);
+      setOncomingNurses((prev) =>
+        prev.map((n) => (n.name.trim() === staffName.trim() ? { ...n, spectra: deviceId } : n)),
+      );
+      toast({ title: 'Device Assigned', description: `${deviceId} assigned to ${staffName} (oncoming).` });
+    } else if (result.error) {
+      toast({ variant: 'destructive', title: 'Unable to Assign Device', description: result.error });
+    }
+  };
+
+  const handleOncomingUnassignSpectra = async (deviceId: string) => {
+    const result = await spectraService.unassignDevice(deviceId, spectraPool);
+    if (result.newPool) {
+      setSpectraPool(result.newPool);
+      setOncomingNurses((prev) =>
+        prev.map((n) => (n.spectra === deviceId ? { ...n, spectra: '' } : n)),
+      );
+      toast({ title: 'Device Unassigned', description: `${deviceId} is now unassigned.` });
+    } else if (result.error) {
+      toast({ variant: 'destructive', title: 'Unable to Unassign Device', description: result.error });
     }
   };
 
@@ -339,24 +596,33 @@ export default function UnitViewClient({
 
   
   const handleSaveStaffMember = async (formData: AddStaffMemberFormValues) => {
-    const result = await nurseService.addStaffMember(formData, nurses, techs, patients, spectraPool);
-    
-    setIsAddStaffMemberDialogOpen(false);
+    try {
+      const result = await nurseService.addStaffMember(
+        currentLayoutName,
+        formData,
+        nurses,
+        techs,
+        patients,
+        spectraPool
+      );
 
-    if (result.newNurses) {
-        setNurses(result.newNurses);
+      setIsAddStaffMemberDialogOpen(false);
+
+      if (result.nurses) {
+        setNurses(result.nurses);
         toast({ title: "Staff Added", description: `${formData.name} (${formData.role}) has been added to the unit.` });
-    } else if (result.newTechs) {
-        setTechs(result.newTechs);
+      }
+      if (result.techs) {
+        setTechs(result.techs);
         toast({ title: "Tech Added", description: `${formData.name} (${formData.role}) has been added to the unit.` });
-    } else if (result.success) {
-        toast({ title: "Staff Member Added", description: `${formData.name} (${formData.role}) has been added.` });
-    } else if (result.error) {
-        toast({
-            variant: "destructive",
-            title: "Error Adding Staff",
-            description: result.error,
-        });
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to add staff member.";
+      toast({
+        variant: "destructive",
+        title: "Error Adding Staff",
+        description: message,
+      });
     }
   };
 
@@ -427,7 +693,7 @@ export default function UnitViewClient({
   };
   
   const handleToggleSpectraStatus = async (id: string, inService: boolean) => {
-    const result = await spectraService.toggleSpectraStatus(id, inService, spectraPool, nurses, techs);
+    const result = await spectraService.toggleSpectraStatus(id, inService, spectraPool, [...nurses, ...oncomingNurses], techs);
     if (result.newPool) {
         setSpectraPool(result.newPool);
     } else if (result.error) {
@@ -647,12 +913,6 @@ export default function UnitViewClient({
 
             const patientInTargetCell = newPatients.find(p => p.gridRow === targetRow && p.gridColumn === targetCol && p.id !== draggedPatientId);
             
-            // Store original positions for potential rollback
-            const originalPositions = {
-                draggedPatient: { row: draggedPatient.gridRow, col: draggedPatient.gridColumn },
-                targetPatient: patientInTargetCell ? { row: patientInTargetCell.gridRow, col: patientInTargetCell.gridColumn } : null
-            };
-
             // Update positions
             draggedPatient.gridRow = targetRow;
             draggedPatient.gridColumn = targetCol;
@@ -737,7 +997,7 @@ export default function UnitViewClient({
     setDraggingPatientInfo(null);
     setDraggingNurseInfo(null);
     setDraggingTechInfo(null);
-  }, [draggingPatientInfo, draggingNurseInfo, draggingTechInfo, isLayoutLocked, patients, toast]);
+  }, [draggingPatientInfo, draggingNurseInfo, draggingTechInfo, isLayoutLocked, patients, toast, currentLayoutName]);
   
   const handleDragEnd = useCallback(() => {
     setDraggingPatientInfo(null);
@@ -750,11 +1010,12 @@ export default function UnitViewClient({
     await Promise.all([
       patientService.savePatients(currentLayoutName, patients),
       nurseService.saveNurses(currentLayoutName, nurses),
+      nurseService.saveOncomingNurses(currentLayoutName, oncomingNurses),
       nurseService.saveTechs(currentLayoutName, techs),
     ]);
-  }, [patients, nurses, techs, isLayoutLocked, currentLayoutName, isInitialized]);
+  }, [patients, nurses, oncomingNurses, techs, isLayoutLocked, currentLayoutName, isInitialized]);
 
-  const handleDropOnNurseSlot = useCallback((targetNurseId: string, slotIndex: number) => {
+  const handleDropOnNurseSlot = useCallback((targetNurseId: string, _slotIndex: number) => {
     if (!draggingPatientInfo) return;
     const { id: draggedPatientId } = draggingPatientInfo;
 
@@ -857,7 +1118,7 @@ export default function UnitViewClient({
     if (isInitialized && !isLayoutLocked) {
       handleAutoSave();
     }
-  }, [patients, nurses, techs, isInitialized, isLayoutLocked, handleAutoSave]);
+  }, [patients, nurses, oncomingNurses, techs, isInitialized, isLayoutLocked, handleAutoSave]);
 
   useEffect(() => {
     const admittedPatients = patients
@@ -959,15 +1220,7 @@ export default function UnitViewClient({
         onAddRoom={() => setIsAddRoomDialogOpen(true)}
         onInsertMockData={handleInsertMockData}
         onSaveAssignments={handleSaveAssignments}
-        onSetupOncomingShift={() => {
-          setIsOncomingShiftSetup(true);
-          setIsShiftMakerOpen(true);
-          toast({
-            title: 'Oncoming shift',
-            description:
-              'Review the shift board, then assign nurses on the map and save shift assignments when ready.',
-          });
-        }}
+        onSetupOncomingShift={handleSetupOncomingShift}
         onLeaveUnit={onBackToDashboard}
       />
       <main className="flex-grow flex flex-col overflow-auto print-hide">
@@ -1001,6 +1254,16 @@ export default function UnitViewClient({
               onQuickAddStaff={handleQuickAddStaff}
               onRemoveStaff={handleRemoveStaff}
             />
+        </div>
+        <div className="border-t px-4 py-2 flex justify-end">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleQuickAddStaff('Staff Nurse')}
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Add Nurse Card
+          </Button>
         </div>
         <div className="border-t p-4">
           <SpectralinkDeviceTable
@@ -1098,18 +1361,21 @@ export default function UnitViewClient({
       <ShiftMakerDialog
         open={isShiftMakerOpen}
         onOpenChange={setIsShiftMakerOpen}
-        nurses={nurses}
+        nurses={oncomingNurses}
         patients={patients}
         onPatientDragStart={handlePatientDragStart}
         onDragEnd={handleDragEnd}
-        onDropOnNurseSlot={handleDropOnNurseSlot}
-        onClearNurseAssignments={handleClearNurseAssignments}
+        onDropOnNurseSlot={handleOncomingDropOnNurseSlot}
+        onClearNurseAssignments={handleOncomingClearNurseAssignments}
         spectraPool={spectraPool}
         techs={techs}
-        onAssignSpectra={handleAssignSpectraToStaff}
-        onUnassignSpectra={handleUnassignSpectra}
+        onAssignSpectra={handleOncomingAssignSpectra}
+        onUnassignSpectra={handleOncomingUnassignSpectra}
         onSetSpectraStatus={handleSetSpectraStatus}
         onAddSpectraLog={handleAddSpectraLog}
+        onActivateOncomingShift={handleActivateOncomingShift}
+        onAddNurseCard={handleOncomingAddNurseCard}
+        onRemoveNurseCard={handleOncomingRemoveNurse}
       />
       <footer className="text-center p-4 text-sm text-muted-foreground border-t print-hide">
         UnitView &copy; {currentYear !== null ? currentYear : 'Loading...'}

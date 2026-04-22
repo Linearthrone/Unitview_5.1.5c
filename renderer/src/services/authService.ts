@@ -1,31 +1,38 @@
 import { User, LoginCredentials, AuthState, UnitSettings, defaultUsers, defaultPasswords } from '../types/auth';
-import { SimpleDatabase } from '../lib/database-simple';
+import { SimpleDatabase, getDb } from '../lib/database-simple';
 
 class AuthService {
-  private db: SimpleDatabase;
+  private db: SimpleDatabase | null = null;
 
-  constructor() {
-    this.db = new SimpleDatabase();
+  private requireDb(): SimpleDatabase {
+    if (!this.db) {
+      throw new Error('Auth database is not initialized. Call initializeAuth() first.');
+    }
+    return this.db;
   }
 
   async initializeAuth(): Promise<void> {
+    this.db = await getDb();
+    const database = this.requireDb();
+
     // Initialize default users if none exist
-    const existingUsers = this.db.getUsers();
+    const existingUsers = database.getUsers();
     if (existingUsers.length === 0) {
       defaultUsers.forEach(user => {
-        this.db.saveUser(user);
+        database.saveUser(user);
       });
     }
 
     // Initialize default passwords
     Object.entries(defaultPasswords).forEach(([employeeNumber, password]) => {
-      this.db.savePassword(employeeNumber, password);
+      database.savePassword(employeeNumber, password);
     });
   }
 
   async login(credentials: LoginCredentials): Promise<AuthState> {
     try {
-      const user = this.db.getUserByEmployeeNumber(credentials.employeeNumber);
+      const database = this.requireDb();
+      const user = database.getUserByEmployeeNumber(credentials.employeeNumber);
       
       if (!user) {
         return {
@@ -45,7 +52,7 @@ class AuthService {
         };
       }
 
-      const storedPassword = this.db.getPassword(credentials.employeeNumber);
+      const storedPassword = database.getPassword(credentials.employeeNumber);
       if (storedPassword !== credentials.password) {
         return {
           isAuthenticated: false,
@@ -57,7 +64,7 @@ class AuthService {
 
       // Update last login
       user.lastLogin = new Date();
-      this.db.saveUser(user);
+      database.saveUser(user);
 
       return {
         isAuthenticated: true,
@@ -96,12 +103,13 @@ class AuthService {
 
   // Admin user management
   getAllUsers(): User[] {
-    return this.db.getUsers();
+    return this.requireDb().getUsers();
   }
 
   addUser(user: Omit<User, 'id' | 'createdAt'>, password: string): boolean {
     try {
-      const existingUser = this.db.getUserByEmployeeNumber(user.employeeNumber);
+      const database = this.requireDb();
+      const existingUser = database.getUserByEmployeeNumber(user.employeeNumber);
       if (existingUser) {
         return false; // User already exists
       }
@@ -112,8 +120,8 @@ class AuthService {
         createdAt: new Date(),
       };
 
-      this.db.saveUser(newUser);
-      this.db.savePassword(user.employeeNumber, password);
+      database.saveUser(newUser);
+      database.savePassword(user.employeeNumber, password);
       return true;
     } catch (error) {
       return false;
@@ -122,7 +130,7 @@ class AuthService {
 
   updateUser(user: User): boolean {
     try {
-      this.db.saveUser(user);
+      this.requireDb().saveUser(user);
       return true;
     } catch (error) {
       return false;
@@ -131,10 +139,11 @@ class AuthService {
 
   deactivateUser(userId: string): boolean {
     try {
-      const user = this.db.getUser(userId);
+      const database = this.requireDb();
+      const user = database.getUser(userId);
       if (user) {
         user.isActive = false;
-        this.db.saveUser(user);
+        database.saveUser(user);
         return true;
       }
       return false;
@@ -145,10 +154,11 @@ class AuthService {
 
   activateUser(userId: string): boolean {
     try {
-      const user = this.db.getUser(userId);
+      const database = this.requireDb();
+      const user = database.getUser(userId);
       if (user) {
         user.isActive = true;
-        this.db.saveUser(user);
+        database.saveUser(user);
         return true;
       }
       return false;
@@ -159,7 +169,7 @@ class AuthService {
 
   changePassword(employeeNumber: string, newPassword: string): boolean {
     try {
-      this.db.savePassword(employeeNumber, newPassword);
+      this.requireDb().savePassword(employeeNumber, newPassword);
       return true;
     } catch (error) {
       return false;
@@ -168,13 +178,13 @@ class AuthService {
 
   // Unit settings management
   getUnitSettings(): UnitSettings[] {
-    return this.db.getUnitSettings();
+    return this.requireDb().getUnitSettings();
   }
 
   saveUnitSettings(settings: UnitSettings): boolean {
     try {
       settings.lastModified = new Date();
-      this.db.saveUnitSettings(settings);
+      this.requireDb().saveUnitSettings(settings);
       return true;
     } catch (error) {
       return false;
@@ -183,7 +193,7 @@ class AuthService {
 
   deleteUnitSettings(settingsId: string): boolean {
     try {
-      this.db.deleteUnitSettings(settingsId);
+      this.requireDb().deleteUnitSettings(settingsId);
       return true;
     } catch (error) {
       return false;

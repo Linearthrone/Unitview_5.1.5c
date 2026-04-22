@@ -42,7 +42,7 @@ export class SimpleDatabase {
     try {
       // Load data from electron main process
       if (window.electronAPI) {
-        const userDataPath = await window.electronAPI.getUserDataPath();
+        await window.electronAPI.getUserDataPath();
         // For now, we'll use localStorage for simplicity
         // In a production app, you'd want to use proper file storage via IPC
         this.loadFromLocalStorage();

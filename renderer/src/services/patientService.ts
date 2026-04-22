@@ -2,14 +2,8 @@ import { getDb } from '../lib/database-simple';
 import type { Patient, LayoutName } from '../types/patient';
 import type { AdmitPatientFormValues } from '../types/forms';
 import { mockPatientData } from '../lib/mock-patients';
-import { NUM_COLS_GRID, NUM_ROWS_GRID, getPerimeterCells } from '../lib/grid-utils';
+import { NUM_COLS_GRID, NUM_ROWS_GRID } from '../lib/grid-utils';
 import type { Nurse, PatientCareTech } from '../types/nurse';
-
-// Convert patient data to include layout name
-const patientWithLayout = (patient: Patient, layoutName: LayoutName): Patient => ({
-  ...patient,
-  layoutName,
-});
 
 export async function getPatients(layoutName: LayoutName): Promise<Patient[]> {
   if (!layoutName) return [];

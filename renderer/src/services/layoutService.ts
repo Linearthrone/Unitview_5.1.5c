@@ -107,6 +107,53 @@ export async function deleteLayout(layoutName: LayoutName): Promise<void> {
   }
 }
 
+export async function renameLayout(oldLayoutName: LayoutName, newLayoutName: LayoutName): Promise<void> {
+  const trimmedOld = oldLayoutName.trim();
+  const trimmedNew = newLayoutName.trim();
+  if (!trimmedOld || !trimmedNew) {
+    throw new Error('Layout name cannot be empty.');
+  }
+  if (trimmedOld === trimmedNew) return;
+
+  const db = await getDb();
+  const existingLayouts = db.getAvailableLayouts();
+  if (!existingLayouts.includes(trimmedOld)) {
+    throw new Error(`Layout "${trimmedOld}" does not exist.`);
+  }
+  if (existingLayouts.includes(trimmedNew)) {
+    throw new Error(`Layout "${trimmedNew}" already exists.`);
+  }
+
+  const oldLayoutMeta = db.getLayout(trimmedOld);
+  const oldPatients = db.getPatients(trimmedOld);
+  const oldNurses = db.getNurses(trimmedOld);
+  const oldTechs = db.getTechs(trimmedOld);
+  const oldAssignmentSets = db.getAssignmentSets(trimmedOld);
+
+  db.createLayout(trimmedNew);
+  if (oldLayoutMeta) {
+    db.setLayoutMetadata(trimmedNew, sanitizeMetadata(oldLayoutMeta));
+  }
+
+  db.savePatients(trimmedNew, oldPatients);
+  db.saveNurses(trimmedNew, oldNurses);
+  db.saveTechs(trimmedNew, oldTechs);
+
+  oldAssignmentSets.forEach((assignment) => {
+    db.saveAssignmentSet({
+      ...assignment,
+      id: `${trimmedNew}-${assignment.shift}-${new Date(assignment.date).toISOString()}`,
+      layoutName: trimmedNew,
+    });
+  });
+
+  db.deleteLayout(trimmedOld);
+
+  if (db.getUserPreference('lastSelectedLayout') === trimmedOld) {
+    db.setUserPreference('lastSelectedLayout', trimmedNew);
+  }
+}
+
 export async function saveAssignmentSet(assignmentSet: AssignmentSet): Promise<void> {
   try {
     const db = await getDb();
@@ -148,7 +195,7 @@ export async function createNewUnitLayout(payload: CreateUnitPayload): Promise<v
   db.setLayoutMetadata(designation, sanitizeMetadata(payload));
 }
 
-function mapCardPlacement(placement: LayoutCardPlacement, index: number): { gridRow: number; gridColumn: number } {
+function mapCardPlacement(placement: LayoutCardPlacement): { gridRow: number; gridColumn: number } {
   return {
     gridRow: Math.max(1, Math.min(NUM_ROWS_GRID, placement.row)),
     gridColumn: Math.max(1, Math.min(NUM_COLS_GRID, placement.column)),
@@ -207,7 +254,7 @@ export async function createFullUnitFromPayload(data: CreateUnitPayload): Promis
   };
 
   const newRooms: Patient[] = roomPlacements.map((placement) => {
-    const mapped = mapCardPlacement(placement, 0);
+    const mapped = mapCardPlacement(placement);
     const idx = placement.roomIndex;
     const displayNum = displayForIndex(idx);
     return {
@@ -237,7 +284,7 @@ export async function createFullUnitFromPayload(data: CreateUnitPayload): Promis
   });
 
   const staffNurses: Nurse[] = nursePlacements.map((placement, index) => {
-    const mapped = mapCardPlacement(placement, index);
+    const mapped = mapCardPlacement(placement);
     return {
       id: `nurse-${index + 1}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       name: `RN ${index + 1}`,
@@ -251,7 +298,7 @@ export async function createFullUnitFromPayload(data: CreateUnitPayload): Promis
   });
 
   const unitClerkNurses: Nurse[] = clerkPlacements.map((placement) => {
-    const mapped = mapCardPlacement(placement, 0);
+    const mapped = mapCardPlacement(placement);
     return {
       id: `unit-clerk-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       name: 'Unit Clerk',
@@ -267,7 +314,7 @@ export async function createFullUnitFromPayload(data: CreateUnitPayload): Promis
   const seedNurses: Nurse[] = [...staffNurses, ...unitClerkNurses];
 
   const seedTechs: PatientCareTech[] = pctPlacements.map((placement, index) => {
-    const mapped = mapCardPlacement(placement, index);
+    const mapped = mapCardPlacement(placement);
     return {
       id: `tech-${index + 1}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       name: `PCT ${index + 1}`,

@@ -21,18 +21,70 @@ import {
   BedDouble,
   Users,
   ShieldAlert,
+  Pencil,
 } from 'lucide-react';
 import { User, UnitSettings } from '../types/auth';
-import type { CreateUnitPayload } from '../types/patient';
+import type { CreateUnitPayload, UnitType } from '../types/patient';
 import { authService } from '../services/authService';
 import * as layoutService from '../services/layoutService';
 import { computeFacilityStatistics, type FacilityStatistics } from '../services/facilityStatsService';
 import { getLastOpenedUnitName } from '../lib/last-unit-storage';
 import CreateUnitDialog from './create-unit-dialog';
 import UserDashboardSettings from './user-dashboard-settings';
+import EditUnitDialog, { type EditUnitValues } from './edit-unit-dialog';
+import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from './ui/context-menu';
 
 /** Placeholder unit created in older versions; not shown on the dashboard. */
 const isPlaceholderDefaultUnit = (u: UnitSettings) => u.id === 'default';
+
+type MockUnitSeed = {
+  name: string;
+  theme: UnitSettings['theme'];
+  unitType: UnitType;
+  firstRoomNumber: number;
+};
+
+const DEV_MOCK_UNITS: MockUnitSeed[] = [
+  { name: 'Mock ICU East', theme: 'blue', unitType: 'ICU', firstRoomNumber: 101 },
+  { name: 'Mock Med-Surg West', theme: 'green', unitType: 'Med-Surg', firstRoomNumber: 201 },
+  { name: 'Mock Telemetry North', theme: 'purple', unitType: 'Telemetry', firstRoomNumber: 301 },
+];
+
+function buildMockUnitPayload(seed: MockUnitSeed): CreateUnitPayload {
+  const numRooms = 12;
+  const roomDisplayNumbers = Array.from({ length: numRooms }, (_, idx) => seed.firstRoomNumber + idx);
+
+  const roomPlacements = Array.from({ length: numRooms }, (_, idx) => {
+    const row = Math.floor(idx / 6) + 1;
+    const column = (idx % 6) + 1;
+    return {
+      id: `room-${idx + 1}`,
+      kind: 'Room' as const,
+      roomIndex: idx + 1,
+      row,
+      column,
+    };
+  });
+
+  return {
+    designation: seed.name,
+    numRooms,
+    bedsPerRoom: 1,
+    baselineNursesPerShift: 3,
+    baselinePctsPerShift: 1,
+    nurseToPatientRatio: 4,
+    unitType: seed.unitType,
+    roomDisplayNumbers,
+    cardPlacements: [
+      ...roomPlacements,
+      { id: 'nurse-1', kind: 'Staff Nurse', row: 3, column: 1 },
+      { id: 'nurse-2', kind: 'Staff Nurse', row: 3, column: 3 },
+      { id: 'nurse-3', kind: 'Staff Nurse', row: 3, column: 5 },
+      { id: 'pct-1', kind: 'Patient Care Tech', row: 3, column: 6 },
+      { id: 'unit-clerk', kind: 'Unit Clerk', row: 3, column: 2 },
+    ],
+  };
+}
 
 function sortUnitsWithLastFirst(units: UnitSettings[], lastName: string | null): UnitSettings[] {
   const copy = [...units];
@@ -63,6 +115,8 @@ export default function UserDashboard({ user, onLogout, onBackToLogin, onEnterUn
   const [isCreateUnitOpen, setIsCreateUnitOpen] = useState(false);
   const [availableLayoutNames, setAvailableLayoutNames] = useState<string[]>([]);
   const [screen, setScreen] = useState<'main' | 'settings'>('main');
+  const [isEditUnitOpen, setIsEditUnitOpen] = useState(false);
+  const [unitToEdit, setUnitToEdit] = useState<UnitSettings | null>(null);
 
   const [currentTheme, setCurrentTheme] = useState<'light' | 'dark' | 'blue' | 'green' | 'purple'>('light');
 
@@ -103,10 +157,36 @@ export default function UserDashboard({ user, onLogout, onBackToLogin, onEnterUn
     setIsLoading(true);
     setStatsLoading(true);
     try {
-      const [allUnits, layouts] = await Promise.all([
+      let [allUnits, layouts] = await Promise.all([
         Promise.resolve(authService.getUnitSettings()),
         layoutService.getAvailableLayouts(),
       ]);
+
+      const hasVisibleUnits = allUnits.some((u) => !isPlaceholderDefaultUnit(u));
+      if (!hasVisibleUnits) {
+        for (const seed of DEV_MOCK_UNITS) {
+          if (!layouts.includes(seed.name)) {
+            await layoutService.createFullUnitFromPayload(buildMockUnitPayload(seed));
+          }
+          const existsInSettings = allUnits.some((u) => u.name === seed.name);
+          if (!existsInSettings) {
+            const now = new Date();
+            authService.saveUnitSettings({
+              id: `mock-unit-${seed.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
+              name: seed.name,
+              theme: seed.theme,
+              createdAt: now,
+              lastModified: now,
+            });
+          }
+        }
+
+        [allUnits, layouts] = await Promise.all([
+          Promise.resolve(authService.getUnitSettings()),
+          layoutService.getAvailableLayouts(),
+        ]);
+      }
+
       setUnits(allUnits);
       setAvailableLayoutNames(layouts);
 
@@ -182,6 +262,42 @@ export default function UserDashboard({ user, onLogout, onBackToLogin, onEnterUn
   const handleThemeChange = (theme: 'light' | 'dark' | 'blue' | 'green' | 'purple') => {
     setCurrentTheme(theme);
     applyTheme(theme);
+  };
+
+  const handleOpenEditUnit = (unit: UnitSettings) => {
+    setUnitToEdit(unit);
+    setIsEditUnitOpen(true);
+  };
+
+  const handleSaveEditedUnit = async (values: EditUnitValues) => {
+    if (!unitToEdit) return;
+    const oldName = unitToEdit.name;
+    const nextName = values.name.trim();
+    const renameRequested = oldName !== nextName;
+
+    if (renameRequested) {
+      await layoutService.renameLayout(oldName, nextName);
+    }
+
+    const success = authService.saveUnitSettings({
+      ...unitToEdit,
+      name: nextName,
+      theme: values.theme,
+      lastModified: new Date(),
+    });
+
+    if (!success) {
+      throw new Error('Unable to save updated unit settings.');
+    }
+
+    if (selectedUnit === oldName) {
+      setSelectedUnit(nextName);
+    }
+
+    setIsEditUnitOpen(false);
+    setUnitToEdit(null);
+    await loadInitialData();
+    showMessage('success', `Unit "${nextName}" updated.`);
   };
 
   const getThemeIcon = (theme: string) => {
@@ -440,44 +556,53 @@ export default function UserDashboard({ user, onLogout, onBackToLogin, onEnterUn
                   {sortedUnits.map((unit) => {
                     const isLastOpened = lastOpenedName === unit.name;
                     return (
-                      <div
-                        key={unit.id}
-                        role="button"
-                        tabIndex={0}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault();
-                            setSelectedUnit(unit.name);
-                          }
-                        }}
-                        className={`p-3 rounded-lg border cursor-pointer transition-colors hover:bg-gray-50 ${
-                          selectedUnit === unit.name
-                            ? 'border-blue-500 bg-blue-50 ring-1 ring-blue-200'
-                            : 'border-gray-200'
-                        } ${isLastOpened ? 'shadow-sm' : ''}`}
-                        onClick={() => setSelectedUnit(unit.name)}
-                      >
-                        <div className="flex items-center justify-between gap-2 flex-wrap">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <div
-                              className={`w-3 h-3 rounded-full shrink-0 ${getThemeColor(unit.theme).split(' ')[0]}`}
-                            />
-                            <span className="font-medium truncate">{unit.name}</span>
-                            {isLastOpened && (
-                              <Badge className="bg-amber-100 text-amber-900 hover:bg-amber-100 shrink-0">
-                                Last opened
-                              </Badge>
-                            )}
+                      <ContextMenu key={unit.id}>
+                        <ContextMenuTrigger asChild>
+                          <div
+                            role="button"
+                            tabIndex={0}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                setSelectedUnit(unit.name);
+                              }
+                            }}
+                            className={`p-3 rounded-lg border cursor-pointer transition-colors hover:bg-gray-50 ${
+                              selectedUnit === unit.name
+                                ? 'border-blue-500 bg-blue-50 ring-1 ring-blue-200'
+                                : 'border-gray-200'
+                            } ${isLastOpened ? 'shadow-sm' : ''}`}
+                            onClick={() => setSelectedUnit(unit.name)}
+                          >
+                            <div className="flex items-center justify-between gap-2 flex-wrap">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <div
+                                  className={`w-3 h-3 rounded-full shrink-0 ${getThemeColor(unit.theme).split(' ')[0]}`}
+                                />
+                                <span className="font-medium truncate">{unit.name}</span>
+                                {isLastOpened && (
+                                  <Badge className="bg-amber-100 text-amber-900 hover:bg-amber-100 shrink-0">
+                                    Last opened
+                                  </Badge>
+                                )}
+                              </div>
+                              <div className="flex items-center text-sm text-gray-500 shrink-0">
+                                {getThemeIcon(unit.theme)}
+                                <span className="ml-1 capitalize">{unit.theme}</span>
+                              </div>
+                            </div>
+                            <div className="text-xs text-gray-500 mt-1">
+                              Created {new Date(unit.createdAt).toLocaleDateString()}
+                            </div>
                           </div>
-                          <div className="flex items-center text-sm text-gray-500 shrink-0">
-                            {getThemeIcon(unit.theme)}
-                            <span className="ml-1 capitalize">{unit.theme}</span>
-                          </div>
-                        </div>
-                        <div className="text-xs text-gray-500 mt-1">
-                          Created {new Date(unit.createdAt).toLocaleDateString()}
-                        </div>
-                      </div>
+                        </ContextMenuTrigger>
+                        <ContextMenuContent>
+                          <ContextMenuItem onClick={() => handleOpenEditUnit(unit)}>
+                            <Pencil className="w-4 h-4 mr-2" />
+                            Edit unit
+                          </ContextMenuItem>
+                        </ContextMenuContent>
+                      </ContextMenu>
                     );
                   })}
                 </div>
@@ -486,6 +611,16 @@ export default function UserDashboard({ user, onLogout, onBackToLogin, onEnterUn
           </CardContent>
         </Card>
       </main>
+      <EditUnitDialog
+        open={isEditUnitOpen}
+        onOpenChange={(open) => {
+          setIsEditUnitOpen(open);
+          if (!open) setUnitToEdit(null);
+        }}
+        initialValues={unitToEdit ? { name: unitToEdit.name, theme: unitToEdit.theme } : null}
+        existingLayoutNames={availableLayoutNames}
+        onSave={handleSaveEditedUnit}
+      />
     </div>
   );
 }

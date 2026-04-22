@@ -62,7 +62,7 @@ function App() {
   }
 
   return (
-    <UndoRedoProvider>
+    <UndoRedoProvider initialState={{}}>
       <AuthContainer />
     </UndoRedoProvider>
   );

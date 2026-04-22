@@ -113,7 +113,7 @@ const PrintableReport: React.FC<PrintableReportProps> = ({ patients }) => {
               {alerts.length > 0 && <div className="border-t border-black/50 mt-1 pt-1 flex items-center gap-2">
                  <span className="font-semibold">Alerts:</span>
                  <div className="flex flex-wrap gap-1.5">
-                    {alerts.map(a => <a.Icon key={a.label} title={a.label} className={cn("h-4 w-4", a.colorClass)} />)}
+                    {alerts.map(a => <a.Icon key={a.label} aria-label={a.label} className={cn("h-4 w-4", a.colorClass)} />)}
                  </div>
               </div>}
             </div>

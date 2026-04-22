@@ -3,7 +3,7 @@ import LoginScreen from './login-screen';
 import AdminDashboard from './admin-dashboard';
 import UserDashboard from './user-dashboard';
 import UnitViewClient from './unit-view-client';
-import type { AuthState, User } from '../types/auth';
+import type { AuthState } from '../types/auth';
 import { authService } from '../services/authService';
 import * as patientService from '../services/patientService';
 import * as nurseService from '../services/nurseService';

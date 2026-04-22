@@ -1,5 +1,4 @@
 import { useEffect, useRef, useCallback } from 'react';
-import { SimpleDatabase } from '../lib/database-simple';
 
 interface AutosaveConfig {
   interval?: number;
@@ -12,7 +11,7 @@ export function useAutosave<T extends Record<string, any>>(
 ) {
   const { interval = 5000, onSave } = config;
   const previousDataRef = useRef<T>();
-  const saveTimeoutRef = useRef<NodeJS.Timeout>();
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
 
   const save = useCallback(async () => {
     try {

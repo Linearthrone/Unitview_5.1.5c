@@ -9,7 +9,8 @@
     "dev:renderer": "cd renderer && npm run dev",
     "dev:main": "tsc -p tsconfig.main.json && electron dist/main.js",
     "build": "npm run build:renderer && npm run build:main",
-    "build:renderer": "cd renderer && npm run build:no-check",
+    "build:renderer": "cd renderer && npm run build",
+    "build:renderer:fast": "cd renderer && npm run build:no-check",
     "build:main": "tsc -p tsconfig.main.json",
     "build:all": "npm run build && electron-builder",
     "preview": "cd renderer && npm run preview",
@@ -17,7 +18,8 @@
     "pack": "electron-builder --dir",
     "dist": "npm run build && electron-builder",
     "dist:win": "npm run build && electron-builder --win",
-    "postinstall": "cd renderer && npm install"
+    "postinstall": "cd renderer && npm install",
+    "test:fresh": "git pull && npm install && cd renderer && npm install && cd .. && npm run build && npm run electron"
   },
   "keywords": [
     "healthcare",
@@ -30,9 +32,10 @@
   "license": "MIT",
   "devDependencies": {
     "@types/node": "^20",
+    "baseline-browser-mapping": "^2.10.16",
     "concurrently": "^8.2.2",
     "electron": "^39.2.2",
-    "electron-builder": "^24.9.1",
+    "electron-builder": "^26.8.1",
     "typescript": "^5"
   },
   "dependencies": {

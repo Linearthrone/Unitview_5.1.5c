@@ -75,25 +75,20 @@ added XXX packages in XXs
 
 ## Building the Application
 
-### Option 1: Quick Build (Recommended)
+### Option 1: Full Build (Release Path, Recommended)
 
 ```bash
 # From the main directory (unitview-windows)
-
-# Build renderer (without TypeScript checking for speed)
-cd renderer
-npm run build:no-check
-cd ..
-
-# Build main process
-npm run build:main
+# Renderer typecheck + renderer bundle + main process compile
+npm run build
 ```
 
-### Option 2: Full Build (with TypeScript checking)
+### Option 2: Fast Local Build (No Renderer Typecheck)
 
 ```bash
-# Build everything with type checking
-npm run build
+# Use only for local iteration speed; not for release validation
+npm run build:renderer:fast
+npm run build:main
 ```
 
 ### Build Output
@@ -228,10 +223,10 @@ cd ..
 
 #### Error: "TypeScript compilation failed"
 ```bash
-# Solution: Use no-check build
-cd renderer
-npm run build:no-check
-cd ..
+# Fix type errors for release builds.
+# Temporary local fallback (not release-safe):
+npm run build:renderer:fast
+npm run build:main
 ```
 
 #### Error: "ENOENT: no such file or directory"
@@ -360,7 +355,8 @@ npm run preview         # Preview built app
 ### Full Build Scripts
 
 ```bash
-npm run build           # Build everything
+npm run build           # Release-safe build (renderer typecheck enforced)
+npm run build:renderer:fast # Fast renderer build (no renderer typecheck)
 npm run dist            # Build + create installer
 npm run dist:win        # Build + create Windows installer
 npm run pack            # Create unpacked directory
@@ -371,7 +367,7 @@ npm run pack            # Create unpacked directory
 ## Performance Tips
 
 ### Faster Builds
-1. Use `build:no-check` for renderer
+1. Use `npm run build:renderer:fast` for renderer-only local iteration
 2. Close unnecessary applications
 3. Use SSD for better I/O performance
 4. Disable antivirus temporarily during build

@@ -330,6 +330,7 @@ export const mockPatientData: MockPatientData[] = [
     isSeizureRisk: false,
     isAspirationRisk: true,
     isIsolation: false,
+    isInRestraints: false,
     isComfortCareDNR: true,
     notes: "Hospice consult. Focus on comfort measures.",
   },

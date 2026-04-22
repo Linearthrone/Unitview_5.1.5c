@@ -15,17 +15,28 @@ export const electronAPI = {
   
   // Menu events
   onMenuAction: (callback: (action: string, data?: any) => void) => {
-    ipcRenderer.on('menu-new-layout', () => callback('new-layout'));
-    ipcRenderer.on('menu-open-layout', () => callback('open-layout'));
-    ipcRenderer.on('menu-save-layout', () => callback('save-layout'));
-    ipcRenderer.on('menu-import-data', (event, filePath) => callback('import-data', filePath));
-    ipcRenderer.on('menu-export-data', (event, filePath) => callback('export-data', filePath));
-    ipcRenderer.on('menu-print-report', () => callback('print-report'));
-  },
-  
-  // Remove listeners
-  removeAllListeners: (channel: string) => {
-    ipcRenderer.removeAllListeners(channel);
+    const onNewLayout = () => callback('new-layout');
+    const onOpenLayout = () => callback('open-layout');
+    const onSaveLayout = () => callback('save-layout');
+    const onImportData = (_event: unknown, filePath?: string) => callback('import-data', filePath);
+    const onExportData = (_event: unknown, filePath?: string) => callback('export-data', filePath);
+    const onPrintReport = () => callback('print-report');
+
+    ipcRenderer.on('menu-new-layout', onNewLayout);
+    ipcRenderer.on('menu-open-layout', onOpenLayout);
+    ipcRenderer.on('menu-save-layout', onSaveLayout);
+    ipcRenderer.on('menu-import-data', onImportData);
+    ipcRenderer.on('menu-export-data', onExportData);
+    ipcRenderer.on('menu-print-report', onPrintReport);
+
+    return () => {
+      ipcRenderer.removeListener('menu-new-layout', onNewLayout);
+      ipcRenderer.removeListener('menu-open-layout', onOpenLayout);
+      ipcRenderer.removeListener('menu-save-layout', onSaveLayout);
+      ipcRenderer.removeListener('menu-import-data', onImportData);
+      ipcRenderer.removeListener('menu-export-data', onExportData);
+      ipcRenderer.removeListener('menu-print-report', onPrintReport);
+    };
   },
 };
 
