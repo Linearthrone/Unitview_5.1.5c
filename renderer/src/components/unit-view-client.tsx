@@ -573,7 +573,7 @@ export default function UnitViewClient({
       setPatients(prev => prev.filter(p => p.id !== patientId));
       
       // Remove from database
-      patientService.deletePatient(patientId);
+      patientService.deletePatient(currentLayoutName, patientId);
       
       // Show success message
       toast({
@@ -1295,6 +1295,10 @@ export default function UnitViewClient({
           }
         }}
         onDischarge={handleDischargeRequest}
+        onEditPatient={(patient) => {
+          setSelectedPatient(null);
+          handleOpenUpdateDialog(patient);
+        }}
       />
       <SaveLayoutDialog
         open={isSaveDialogOpen}

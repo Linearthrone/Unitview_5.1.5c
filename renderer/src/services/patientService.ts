@@ -73,7 +73,7 @@ async function seedNorthSouthLayout(): Promise<Patient[]> {
   });
 
   // Custom top row layout
-  const topRowRoomOrder = [826, 825, 824, 823, 822, 821, 820, 819, null, 818, 817, 816, 815, 814, 813, 812, 811];
+  const topRowRoomOrder = [826, 825, 824, 823, 822, 821, 820, 819, null, 818, 817, 816, 815, 814, 813, 812, null];
   topRowRoomOrder.forEach((roomNumber, index) => {
     if (roomNumber) {
       layoutPatients.push(createRoom(roomNumber, 1, index + 1));
@@ -257,22 +257,15 @@ const shuffleArray = (array: any[]) => {
   return array;
 };
 
-export async function deletePatient(patientId: string): Promise<void> {
+export async function deletePatient(layoutName: LayoutName, patientId: string): Promise<void> {
     try {
       const db = await getDb();
-      // Get all layouts to find which one contains this patient
-      const layouts = db.getAllLayouts();
-      
-      for (const layoutName of layouts) {
-        const patients = db.getPatients(layoutName);
-        const patientIndex = patients.findIndex(p => p.id === patientId);
-        
-        if (patientIndex !== -1) {
-          // Remove the patient from this layout
-          patients.splice(patientIndex, 1);
-          db.savePatients(layoutName, patients);
-          break;
-        }
+      const patients = db.getPatients(layoutName);
+      const patientIndex = patients.findIndex(p => p.id === patientId);
+
+      if (patientIndex !== -1) {
+        patients.splice(patientIndex, 1);
+        db.savePatients(layoutName, patients);
       }
     } catch (error) {
       console.error(`Error deleting patient ${patientId}:`, error);

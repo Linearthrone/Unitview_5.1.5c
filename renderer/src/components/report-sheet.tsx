@@ -39,6 +39,7 @@ interface ReportSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onDischarge: (patient: Patient) => void;
+  onEditPatient: (patient: Patient) => void;
 }
 
 const mobilityIcons: Record<MobilityStatus, LucideIcon> = {
@@ -47,7 +48,7 @@ const mobilityIcons: Record<MobilityStatus, LucideIcon> = {
   'Independent': Footprints,
 };
 
-const ReportSheet: React.FC<ReportSheetProps> = ({ patient, open, onOpenChange, onDischarge }) => {
+const ReportSheet: React.FC<ReportSheetProps> = ({ patient, open, onOpenChange, onDischarge, onEditPatient }) => {
   if (!patient) return null;
 
   const MobilityIcon = mobilityIcons[patient.mobility] || Footprints;
@@ -187,15 +188,25 @@ const ReportSheet: React.FC<ReportSheetProps> = ({ patient, open, onOpenChange, 
         )}
         
         <div className="p-4 border-t mt-auto bg-card">
-          <Button
-            variant="destructive"
-            className="w-full"
-            onClick={() => onDischarge(patient)}
-            disabled={isVacant || isBlocked}
-          >
-            <UserMinus className="mr-2 h-4 w-4" />
-            Discharge / Transfer-Out Patient
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              className="flex-1 bg-sky-500 hover:bg-sky-400 text-white"
+              onClick={() => onEditPatient(patient)}
+              disabled={isBlocked}
+            >
+              <Info className="mr-2 h-4 w-4" />
+              Edit / Add Patient Information
+            </Button>
+            <Button
+              variant="destructive"
+              className="flex-1"
+              onClick={() => onDischarge(patient)}
+              disabled={isVacant || isBlocked}
+            >
+              <UserMinus className="mr-2 h-4 w-4" />
+              Discharge / Transfer-Out Patient
+            </Button>
+          </div>
         </div>
       </SheetContent>
     </Sheet>
