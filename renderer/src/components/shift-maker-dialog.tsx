@@ -9,6 +9,8 @@ import { NUM_COLS_GRID, NUM_ROWS_GRID } from "@/lib/grid-utils";
 import type { Nurse, PatientCareTech, Spectra, SpectraStatus } from "@/types/nurse";
 import type { Patient } from "@/types/patient";
 import SpectralinkDeviceTable from "./spectralink-device-table";
+import AssignStaffMemberButton from "./assign-staff-member-button";
+import { isStaffUnassigned } from "@/lib/roles";
 
 interface ShiftMakerDialogProps {
   open: boolean;
@@ -29,6 +31,7 @@ interface ShiftMakerDialogProps {
   onActivateOncomingShift?: () => void | Promise<void>;
   onAddNurseCard?: () => void;
   onRemoveNurseCard?: (nurseId: string) => void;
+  onAssignNurse?: (nurseId: string) => void;
 }
 
 function selectShiftBoardNurses(nurses: Nurse[]): Nurse[] {
@@ -66,6 +69,7 @@ const ShiftMakerDialog: React.FC<ShiftMakerDialogProps> = ({
   onActivateOncomingShift,
   onAddNurseCard,
   onRemoveNurseCard,
+  onAssignNurse,
 }) => {
   const boardNurses = useMemo(() => selectShiftBoardNurses(nurses), [nurses]);
   const boardPatients = useMemo(() => patients.filter((p) => isOccupiedBed(p.name) && !p.isBlocked), [patients]);
@@ -111,12 +115,12 @@ const ShiftMakerDialog: React.FC<ShiftMakerDialogProps> = ({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950 text-slate-100">
+    <div className="fixed inset-0 z-50 bg-background text-foreground">
       <div className="flex h-full min-h-0 flex-col">
-        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 px-6 py-3">
+        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-6 py-3 bg-card">
           <div>
             <h2 className="text-xl font-semibold tracking-wide">Oncoming Shift Blackboard</h2>
-            <p className="text-sm text-slate-300">
+            <p className="text-sm text-muted-foreground">
               Drag room lines from the left onto nurse assignment slots. Edits here do not change the active unit map until activation.
             </p>
           </div>
@@ -142,8 +146,8 @@ const ShiftMakerDialog: React.FC<ShiftMakerDialogProps> = ({
         </header>
 
         <div className="flex min-h-0 flex-1">
-          <aside className="w-[24rem] shrink-0 overflow-y-auto border-r border-slate-800 bg-slate-900/60 p-4">
-            <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-slate-300">Rooms</h3>
+          <aside className="w-[24rem] shrink-0 overflow-y-auto border-r border-border bg-muted/30 p-4">
+            <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground">Rooms</h3>
             <div className="space-y-2">
               {sortedRoomsForList.map((patient) => {
                 const roomAssigned = assignedPatientIds.has(patient.id);
@@ -310,6 +314,12 @@ const ShiftMakerDialog: React.FC<ShiftMakerDialogProps> = ({
                       </div>
 
                       <div className="mt-3 flex flex-col gap-2">
+                        {onAssignNurse && isStaffUnassigned(nurse.name) && (
+                          <AssignStaffMemberButton
+                            onClick={() => onAssignNurse(nurse.id)}
+                            className="w-full"
+                          />
+                        )}
                         <Button
                           type="button"
                           variant="destructive"

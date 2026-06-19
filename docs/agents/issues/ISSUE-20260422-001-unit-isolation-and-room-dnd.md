@@ -2,7 +2,7 @@
 issue_id: ISSUE-20260422-001
 found_at: 2026-04-22
 severity: P0
-status: Open
+status: Fix delivered — pending QA validation (TASK-20260422-012)
 reported_by: User
 owner: PM-01
 ---

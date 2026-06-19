@@ -18,41 +18,41 @@ input, button, select, textarea {
 }
 
 /* Make headings proportionally larger */
-h1 { font-size: 3rem; } /* 48px - doubled from 24px */
-h2 { font-size: 2.5rem; } /* 40px - doubled from 20px */
-h3 { font-size: 2rem; } /* 32px - doubled from 16px */
-h4 { font-size: 1.75rem; } /* 28px - doubled from 14px */
-h5 { font-size: 1.5rem; } /* 24px - doubled from 12px */
-h6 { font-size: 1.25rem; } /* 20px - doubled from 10px */
+h1 { font-size: 2.25rem; }
+h2 { font-size: 1.875rem; }
+h3 { font-size: 1.5rem; }
+h4 { font-size: 1.25rem; }
+h5 { font-size: 1.125rem; }
+h6 { font-size: 1rem; }
 
 @layer base {
   :root {
     --background: 210 25% 96.5%; /* Light Gray #F0F4F8 */
-    --foreground: 222.2 84% 4.9%; /* Default dark text for better contrast */
+    --foreground: 222 47% 8%; /* Darker body text for stronger contrast */
 
     --card: 0 0% 100%; /* White cards */
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 222 47% 8%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover-foreground: 222 47% 8%;
 
     --primary: 207 88% 68%; /* Soft Blue #64B5F6 */
-    --primary-foreground: 210 40% 98%; /* Light text on primary */
+    --primary-foreground: 222 47% 11%; /* Dark text on primary for readability */
 
     --secondary: 210 30% 92%; /* Slightly darker than background for subtle secondary elements */
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary-foreground: 222 47% 12%;
 
     --muted: 210 30% 90%;
-    --muted-foreground: 215 20.2% 65.1%;
+    --muted-foreground: 215 25% 32%; /* Darker muted labels on light surfaces */
 
     --accent: 36 100% 50%; /* Orange #FF9800 */
-    --accent-foreground: 0 0% 98%; /* Light text on accent */
+    --accent-foreground: 222 47% 11%; /* Dark text on accent */
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
+    --border: 214 25% 82%; /* Slightly stronger borders */
+    --input: 214 25% 82%;
     --ring: 207 88% 60%; /* Ring color based on primary */
 
     --chart-1: 12 76% 61%;
@@ -74,34 +74,34 @@ h6 { font-size: 1.25rem; } /* 20px - doubled from 10px */
   }
 
   .dark {
-    /* Improved dark mode with better readability */
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%; /* Keep very light for main text */
+    /* Clinical dark with stronger text/background separation */
+    --background: 222 47% 6%;
+    --foreground: 210 40% 98%;
 
-    --card: 222.2 84% 8%; /* Slightly lighter cards */
+    --card: 222 35% 11%;
     --card-foreground: 210 40% 98%;
 
-    --popover: 222.2 84% 8%;
+    --popover: 222 35% 11%;
     --popover-foreground: 210 40% 98%;
 
-    --primary: 207 80% 70%; /* Brighter blue for better visibility */
-    --primary-foreground: 222.2 47.4% 11.2%;
+    --primary: 207 80% 70%;
+    --primary-foreground: 222 47% 11%;
 
-    --secondary: 217.2 32.6% 22%; /* Lighter secondary */
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 217 28% 20%;
+    --secondary-foreground: 210 40% 96%;
 
-    --muted: 217.2 32.6% 22%; /* Lighter muted */
-    --muted-foreground: 215 20.2% 85%; /* Much lighter muted text - excellent readability */
+    --muted: 217 28% 18%;
+    --muted-foreground: 215 25% 78%; /* Brighter muted text on dark surfaces */
 
-    --accent: 36 90% 60%; /* Brighter orange */
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: 36 90% 60%;
+    --accent-foreground: 222 47% 11%;
 
-    --destructive: 0 62.8% 40%; /* Brighter red */
+    --destructive: 0 62.8% 40%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 217.2 32.6% 25%; /* Lighter borders */
-    --input: 217.2 32.6% 25%; /* Lighter input backgrounds */
-    --ring: 207 80% 60%; /* Brighter ring */
+    --border: 217 24% 32%;
+    --input: 217 24% 32%;
+    --ring: 207 80% 60%;
 
     /* Sidebar vars for dark mode */
     --sidebar-background: 240 5.9% 12%;

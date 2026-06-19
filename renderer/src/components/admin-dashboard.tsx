@@ -21,8 +21,9 @@ import {
   AlertCircle,
   CheckCircle
 } from 'lucide-react';
-import { User } from '../types/auth';
+import { User, defaultPasswords } from '../types/auth';
 import { authService } from '../services/authService';
+import { APP_ROLES, formatAppRoleLabel, type AppRole } from '@/lib/roles';
 
 interface AdminDashboardProps {
   onLogout: () => void;
@@ -44,12 +45,14 @@ export default function AdminDashboard({ onLogout, onBackToLogin }: AdminDashboa
     employeeNumber: '',
     username: '',
     role: 'user' as 'user' | 'admin',
+    appRole: 'Nurse' as AppRole,
     password: '',
   });
 
   const [editUser, setEditUser] = useState({
     username: '',
     role: 'user' as 'user' | 'admin',
+    appRole: 'Nurse' as AppRole,
   });
 
   const [newPassword, setNewPassword] = useState('');
@@ -85,6 +88,7 @@ export default function AdminDashboard({ onLogout, onBackToLogin }: AdminDashboa
         employeeNumber: newUser.employeeNumber,
         username: newUser.username,
         role: newUser.role,
+        appRole: newUser.appRole,
         isActive: true,
       },
       newUser.password
@@ -92,7 +96,7 @@ export default function AdminDashboard({ onLogout, onBackToLogin }: AdminDashboa
 
     if (success) {
       showMessage('success', 'User added successfully');
-      setNewUser({ employeeNumber: '', username: '', role: 'user', password: '' });
+      setNewUser({ employeeNumber: '', username: '', role: 'user', appRole: 'Nurse', password: '' });
       setIsAddUserOpen(false);
       loadUsers();
     } else {
@@ -107,6 +111,7 @@ export default function AdminDashboard({ onLogout, onBackToLogin }: AdminDashboa
       ...selectedUser,
       username: editUser.username,
       role: editUser.role,
+      appRole: editUser.appRole,
     };
 
     const success = authService.updateUser(updatedUser);
@@ -169,6 +174,7 @@ export default function AdminDashboard({ onLogout, onBackToLogin }: AdminDashboa
     setEditUser({
       username: user.username,
       role: user.role,
+      appRole: user.appRole ?? (user.role === 'admin' ? 'Entity Admin' : 'Nurse'),
     });
     setIsEditUserOpen(true);
   };
@@ -186,23 +192,23 @@ export default function AdminDashboard({ onLogout, onBackToLogin }: AdminDashboa
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+      <div className="min-h-screen bg-background flex items-center justify-center dark">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background text-foreground dark">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b">
+      <header className="bg-card shadow-sm border-b border-border">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
             <div className="flex items-center space-x-3">
-              <Shield className="w-8 h-8 text-blue-600" />
+              <Shield className="w-8 h-8 text-primary" />
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
-                <p className="text-sm text-gray-500">User Management</p>
+                <h1 className="text-2xl font-bold">Admin Dashboard</h1>
+                <p className="text-sm text-muted-foreground">User Management</p>
               </div>
             </div>
             <div className="flex space-x-2">
@@ -218,7 +224,23 @@ export default function AdminDashboard({ onLogout, onBackToLogin }: AdminDashboa
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Demo credentials</CardTitle>
+            <CardDescription>
+              Reference accounts for development — not shown on the login screen.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="text-sm space-y-1 font-mono">
+            {Object.entries(defaultPasswords).map(([emp, pw]) => (
+              <p key={emp}>
+                {emp} / {pw}
+              </p>
+            ))}
+          </CardContent>
+        </Card>
+
         {message && (
           <Alert className={`mb-6 ${message.type === 'error' ? 'border-red-200 bg-red-50' : 'border-green-200 bg-green-50'}`}>
             <AlertDescription className="flex items-center">
@@ -279,7 +301,25 @@ export default function AdminDashboard({ onLogout, onBackToLogin }: AdminDashboa
                       />
                     </div>
                     <div>
-                      <Label htmlFor="role">Role</Label>
+                      <Label htmlFor="app-role">Application role</Label>
+                      <Select
+                        value={newUser.appRole}
+                        onValueChange={(value: AppRole) => setNewUser({ ...newUser, appRole: value })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {APP_ROLES.map((role) => (
+                            <SelectItem key={role} value={role}>
+                              {role}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="role">Legacy access</Label>
                       <Select value={newUser.role} onValueChange={(value: 'user' | 'admin') => setNewUser({...newUser, role: value})}>
                         <SelectTrigger>
                           <SelectValue />
@@ -319,7 +359,8 @@ export default function AdminDashboard({ onLogout, onBackToLogin }: AdminDashboa
                 <TableRow>
                   <TableHead>Employee #</TableHead>
                   <TableHead>Name</TableHead>
-                  <TableHead>Role</TableHead>
+                  <TableHead>App role</TableHead>
+                  <TableHead>Access</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Created</TableHead>
                   <TableHead>Actions</TableHead>
@@ -331,8 +372,13 @@ export default function AdminDashboard({ onLogout, onBackToLogin }: AdminDashboa
                     <TableCell className="font-medium">{user.employeeNumber}</TableCell>
                     <TableCell>{user.username}</TableCell>
                     <TableCell>
-                      <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
-                        {user.role === 'admin' ? 'Administrator' : 'User'}
+                      <Badge variant="secondary">
+                        {formatAppRoleLabel(user.role, user.appRole)}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={user.role === 'admin' ? 'default' : 'outline'}>
+                        {user.role === 'admin' ? 'Admin' : 'User'}
                       </Badge>
                     </TableCell>
                     <TableCell>
@@ -403,7 +449,25 @@ export default function AdminDashboard({ onLogout, onBackToLogin }: AdminDashboa
               />
             </div>
             <div>
-              <Label htmlFor="edit-role">Role</Label>
+              <Label htmlFor="edit-app-role">Application role</Label>
+              <Select
+                value={editUser.appRole}
+                onValueChange={(value: AppRole) => setEditUser({ ...editUser, appRole: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {APP_ROLES.map((role) => (
+                    <SelectItem key={role} value={role}>
+                      {role}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="edit-role">Legacy access</Label>
               <Select value={editUser.role} onValueChange={(value: 'user' | 'admin') => setEditUser({...editUser, role: value})}>
                 <SelectTrigger>
                   <SelectValue />

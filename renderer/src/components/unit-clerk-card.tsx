@@ -3,8 +3,7 @@
 
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ClipboardList, Phone, User, UserPlus, UserX } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { ClipboardList, Phone, User, UserX } from 'lucide-react';
 import {
   ContextMenu,
   ContextMenuContent,
@@ -13,19 +12,29 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import type { StaffRole } from '@/types/patient';
+import { isStaffUnassigned } from '@/lib/roles';
+import AssignStaffMemberButton from '@/components/assign-staff-member-button';
+import { UserPlus } from 'lucide-react';
 
 interface UnitClerkCardProps {
   name: string;
   onAssign: (role: StaffRole) => void;
   onRemove: (role: StaffRole) => void;
+  isReadOnly?: boolean;
 }
 
-const UnitClerkCard: React.FC<UnitClerkCardProps> = ({ name, onAssign, onRemove }) => {
-  const isUnassigned = name.trim().toLowerCase() === 'unassigned';
+const UnitClerkCard: React.FC<UnitClerkCardProps> = ({
+  name,
+  onAssign,
+  onRemove,
+  isReadOnly = false,
+}) => {
+  const unassigned = isStaffUnassigned(name);
+
   return (
     <ContextMenu>
-      <ContextMenuTrigger>
-        <Card className="flex flex-col h-full shadow-md bg-secondary/50 border-accent/50">
+      <ContextMenuTrigger disabled={isReadOnly}>
+        <Card className="flex flex-col h-full shadow-md bg-card border-l-4 border-l-accent">
           <CardHeader className="p-3">
             <CardTitle className="text-lg flex items-center gap-2">
               <ClipboardList className="h-5 w-5 text-accent" />
@@ -35,49 +44,43 @@ const UnitClerkCard: React.FC<UnitClerkCardProps> = ({ name, onAssign, onRemove 
           <CardContent className="p-3 flex-grow flex flex-col justify-center items-center text-center">
             <div className="space-y-2">
                 <div>
-                    <p className="font-bold text-lg flex items-center gap-2">
+                    <p className="font-bold text-lg flex items-center justify-center gap-2">
                       <User className="h-4 w-4" />
                       <span>{name}</span>
                     </p>
                 </div>
-                 {!isUnassigned && (
+                 {!unassigned && (
                     <div>
-                        <p className="font-bold text-lg flex items-center gap-2">
+                        <p className="font-bold text-lg flex items-center justify-center gap-2">
                             <Phone className="h-4 w-4"/>
                             <span>(555) 123-4567</span>
                         </p>
                     </div>
                  )}
-                {isUnassigned && (
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => onAssign('Unit Clerk')}
-                  >
-                    <UserPlus className="mr-2 h-4 w-4" />
-                    + Assign staff
-                  </Button>
+                {!isReadOnly && unassigned && (
+                  <AssignStaffMemberButton onClick={() => onAssign('Unit Clerk')} />
                 )}
             </div>
           </CardContent>
         </Card>
       </ContextMenuTrigger>
-      <ContextMenuContent>
-        <ContextMenuItem onClick={() => onAssign('Unit Clerk')}>
-          <UserPlus className="mr-2 h-4 w-4" />
-          Assign Unit Clerk
-        </ContextMenuItem>
-        <ContextMenuSeparator />
-        <ContextMenuItem
-          className="text-destructive focus:text-destructive"
-          onClick={() => onRemove('Unit Clerk')}
-          disabled={isUnassigned}
-        >
-          <UserX className="mr-2 h-4 w-4" />
-          Remove Unit Clerk
-        </ContextMenuItem>
-      </ContextMenuContent>
+      {!isReadOnly && (
+        <ContextMenuContent>
+          <ContextMenuItem onClick={() => onAssign('Unit Clerk')}>
+            <UserPlus className="mr-2 h-4 w-4" />
+            Assign Unit Clerk
+          </ContextMenuItem>
+          <ContextMenuSeparator />
+          <ContextMenuItem
+            className="text-destructive focus:text-destructive"
+            onClick={() => onRemove('Unit Clerk')}
+            disabled={unassigned}
+          >
+            <UserX className="mr-2 h-4 w-4" />
+            Remove Unit Clerk
+          </ContextMenuItem>
+        </ContextMenuContent>
+      )}
     </ContextMenu>
   );
 };

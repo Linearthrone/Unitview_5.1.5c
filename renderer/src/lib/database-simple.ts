@@ -2,6 +2,7 @@
 // This uses a JSON-based storage system that works in the renderer process
 
 import type { Patient, LayoutName, UserPreferences, AssignmentSet, UnitLayoutMetadata } from '../types/patient';
+import type { AssignmentPrintLayoutConfig } from '../types/assignment-print-layout';
 import type { Nurse, PatientCareTech, Spectra } from '../types/nurse';
 import type { User, UnitSettings } from '../types/auth';
 import { getConfiguredDataSource } from './data-source';
@@ -14,7 +15,9 @@ type StoredPatientCareTech = PatientCareTech & { layoutName: LayoutName };
 // Data storage interfaces
 interface DatabaseSchema {
   user_preferences: { [key: string]: string };
-  layouts: ({ name: string; created_at: string; updated_at: string } & Partial<UnitLayoutMetadata>)[];
+  layouts: ({ name: string; created_at: string; updated_at: string } & Partial<UnitLayoutMetadata> & {
+    assignmentPrintLayout?: AssignmentPrintLayoutConfig;
+  })[];
   patients: StoredPatient[];
   nurses: StoredNurse[];
   /** Draft nurse cards + assignments for the upcoming shift (same row shape as `nurses`; isolated until activation). */
@@ -289,7 +292,9 @@ export class SimpleDatabase {
     return this.getAvailableLayouts();
   }
 
-  getLayout(layoutName: LayoutName): (({ name: string; created_at: string; updated_at: string } & Partial<UnitLayoutMetadata>) | undefined) {
+  getLayout(layoutName: LayoutName): (({ name: string; created_at: string; updated_at: string } & Partial<UnitLayoutMetadata> & {
+    assignmentPrintLayout?: AssignmentPrintLayoutConfig;
+  }) | undefined) {
     return this.data.layouts.find(l => l.name === layoutName);
   }
 
@@ -297,6 +302,14 @@ export class SimpleDatabase {
     const layout = this.data.layouts.find(l => l.name === layoutName);
     if (!layout) return;
     Object.assign(layout, metadata);
+    layout.updated_at = new Date().toISOString();
+    this.saveToLocalStorage();
+  }
+
+  setLayoutAssignmentPrintLayout(layoutName: LayoutName, config: AssignmentPrintLayoutConfig): void {
+    const layout = this.data.layouts.find(l => l.name === layoutName);
+    if (!layout) return;
+    layout.assignmentPrintLayout = config;
     layout.updated_at = new Date().toISOString();
     this.saveToLocalStorage();
   }

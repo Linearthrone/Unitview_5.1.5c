@@ -156,7 +156,6 @@ export default function AuthContainer() {
       return (
         <LoginScreen
           onLogin={handleLogin}
-          onAdminLogin={() => setCurrentView('admin')}
           isLoading={authState.isLoading}
           error={authState.error}
         />
@@ -175,7 +174,6 @@ export default function AuthContainer() {
         <UserDashboard
           user={authState.user}
           onLogout={handleLogout}
-          onBackToLogin={handleBackToLogin}
           onEnterUnit={handleEnterUnit}
         />
       ) : null;
@@ -190,6 +188,6 @@ export default function AuthContainer() {
       ) : null;
 
     default:
-      return <LoginScreen onLogin={handleLogin} onAdminLogin={() => setCurrentView('admin')} />;
+      return <LoginScreen onLogin={handleLogin} />;
   }
 }

@@ -16,14 +16,20 @@ import { Label } from "@/components/ui/label";
 import { UserPlus } from 'lucide-react';
 import type { StaffRole } from '@/types/patient';
 
+export interface AssignStaffTarget {
+  role: StaffRole;
+  nurseId?: string;
+  techId?: string;
+}
+
 interface AssignStaffDialogProps {
   open: boolean;
   onOpenChange: () => void;
-  role: StaffRole | null;
-  onSave: (name: string, role: StaffRole) => void;
+  target: AssignStaffTarget | null;
+  onSave: (name: string, target: AssignStaffTarget) => void;
 }
 
-export default function AssignStaffDialog({ open, onOpenChange, role, onSave }: AssignStaffDialogProps) {
+export default function AssignStaffDialog({ open, onOpenChange, target, onSave }: AssignStaffDialogProps) {
   const [name, setName] = useState('');
   const [error, setError] = useState<string | null>(null);
 
@@ -34,7 +40,7 @@ export default function AssignStaffDialog({ open, onOpenChange, role, onSave }: 
     }
   }, [open]);
 
-  if (!role) return null;
+  if (!target) return null;
 
   const handleSave = () => {
     const trimmedName = name.trim();
@@ -42,14 +48,14 @@ export default function AssignStaffDialog({ open, onOpenChange, role, onSave }: 
       setError('Staff name cannot be empty.');
       return;
     }
-    onSave(trimmedName, role);
+    onSave(trimmedName, target);
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Assign {role}</DialogTitle>
+          <DialogTitle>Assign {target.role}</DialogTitle>
           <DialogDescription>
             Enter the name of the person to assign to this role.
           </DialogDescription>

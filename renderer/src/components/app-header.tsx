@@ -1,22 +1,15 @@
 
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Stethoscope,
-  Lock,
-  Unlock,
   LayoutGrid,
   Printer,
-  Save,
   UserPlus,
   HelpCircle,
-  ListTodo,
-  PlusSquare,
-  Building2,
-  TestTube,
-  Users,
   ClipboardSignature,
+  Users,
   HeartHandshake,
   Ban,
   Droplet,
@@ -25,6 +18,13 @@ import {
   ShieldAlert,
   UserRound,
   FileWarning,
+  Activity,
+  UtensilsCrossed,
+  ChevronDown,
+  ChevronUp,
+  TestTube,
+  Building2,
+  PlusSquare,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -52,24 +52,26 @@ interface AppHeaderProps {
   isolationCount: number;
   sitterCount: number;
   involuntaryHoldCount: number;
+  centralLineCount?: number;
+  tubeFeedCount?: number;
   nameAlertGroups: NameAlertGroup[];
-  isLayoutLocked: boolean;
-  onToggleLayoutLock: () => void;
+  onAcknowledgeNameAlerts?: () => void;
+  /** When false, admit/staff/oncoming and admin tools are hidden. */
+  canEdit?: boolean;
+  /** Admin-only dev tools (create unit, mock patients, etc.). */
+  showAdminTools?: boolean;
   currentLayoutName: LayoutName;
   onSelectLayout?: (layoutName: LayoutName) => void;
   availableLayouts?: LayoutName[];
   onPrint: (reportType: 'charge' | 'assignments') => void;
-  onSaveLayout?: () => void;
-  onSaveCurrentLayout: () => void;
+  onConfigureAssignmentPrint?: () => void;
   onAdmitPatient: () => void;
   onAddStaffMember: () => void;
-  onManageSpectra: () => void;
-  onAddRoom: () => void;
+  onAddRoom?: () => void;
   onCreateUnit?: () => void;
   onInsertMockData?: () => void;
   onSaveAssignments: () => void;
   onSetupOncomingShift?: () => void;
-  onLeaveUnit?: () => void;
 }
 
 const CompactStat: React.FC<{
@@ -110,27 +112,30 @@ const AppHeader: React.FC<AppHeaderProps> = ({
   isolationCount,
   sitterCount,
   involuntaryHoldCount,
+  centralLineCount = 0,
+  tubeFeedCount = 0,
   nameAlertGroups,
-  isLayoutLocked,
-  onToggleLayoutLock,
+  onAcknowledgeNameAlerts,
+  canEdit = true,
+  showAdminTools = false,
   currentLayoutName,
   onSelectLayout,
   availableLayouts,
   onPrint,
-  onSaveLayout,
-  onSaveCurrentLayout,
+  onConfigureAssignmentPrint,
   onAdmitPatient,
   onAddStaffMember,
-  onManageSpectra,
   onAddRoom,
   onCreateUnit,
   onInsertMockData,
   onSaveAssignments,
   onSetupOncomingShift,
-  onLeaveUnit,
 }) => {
   const [isExplanationOpen, setIsExplanationOpen] = useState(false);
   const [currentTime, setCurrentTime] = useState<Date | null>(null);
+  const [isActionBarSticky, setIsActionBarSticky] = useState(false);
+  const [statsCollapsed, setStatsCollapsed] = useState(false);
+  const sentinelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setCurrentTime(new Date());
@@ -138,11 +143,22 @@ const AppHeader: React.FC<AppHeaderProps> = ({
     return () => clearInterval(timer);
   }, []);
 
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setIsActionBarSticky(!entry.isIntersecting),
+      { threshold: 0, rootMargin: '-1px 0px 0px 0px' }
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, []);
+
   return (
     <>
-      <header className="bg-card text-card-foreground shadow-md sticky top-0 z-50 print-hide border-b">
+      <header className="bg-card text-card-foreground shadow-md z-40 print-hide border-b">
+        {/* Row 1 — scrolls away with page content */}
         <div className="px-3 sm:px-5 py-3 space-y-3 max-w-[100vw]">
-          {/* Row 1: identity, census, stats, time / leave */}
           <div className="flex flex-wrap items-start gap-x-6 gap-y-3 justify-between">
             <div className="flex items-start gap-3 min-w-0">
               <Stethoscope className="h-10 w-10 sm:h-12 sm:w-12 text-primary shrink-0 mt-0.5" />
@@ -161,6 +177,99 @@ const AppHeader: React.FC<AppHeaderProps> = ({
               </div>
             </div>
 
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-xs text-muted-foreground"
+                onClick={() => setStatsCollapsed((v) => !v)}
+              >
+                {statsCollapsed ? (
+                  <>
+                    <ChevronDown className="h-3.5 w-3.5 mr-1" />
+                    Show stats
+                  </>
+                ) : (
+                  <>
+                    <ChevronUp className="h-3.5 w-3.5 mr-1" />
+                    Hide stats
+                  </>
+                )}
+              </Button>
+            </div>
+
+            {/* Time & navigation — print lives here per checklist §3.3 / §3.5 */}
+            <div className="flex items-center gap-2 ml-auto sm:ml-0 flex-wrap justify-end">
+              {availableLayouts && onSelectLayout && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="shrink-0">
+                      <LayoutGrid className="mr-2 h-4 w-4" />
+                      <span className="max-w-[10rem] truncate">
+                        {getFriendlyLayoutName(currentLayoutName)}
+                      </span>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuLabel>Select unit layout</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    {availableLayouts.map((layoutName) => (
+                      <DropdownMenuItem
+                        key={layoutName}
+                        onClick={() => onSelectLayout(layoutName)}
+                        disabled={layoutName === currentLayoutName}
+                      >
+                        {getFriendlyLayoutName(layoutName)}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="shrink-0">
+                    <Printer className="h-4 w-4 mr-1.5" />
+                    Print
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => onPrint('charge')}>
+                    <Printer className="mr-2 h-4 w-4" />
+                    Charge report
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => onPrint('assignments')}>
+                    <ClipboardSignature className="mr-2 h-4 w-4" />
+                    Assignments
+                  </DropdownMenuItem>
+                  {onConfigureAssignmentPrint && (
+                    <DropdownMenuItem onClick={onConfigureAssignmentPrint}>
+                      <LayoutGrid className="mr-2 h-4 w-4" />
+                      Configure assignment layout…
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <div className="text-right shrink-0 tabular-nums">
+                <div className="font-semibold text-lg leading-none">
+                  {currentTime
+                    ? currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                    : '—'}
+                </div>
+                <div className="text-xs text-muted-foreground mt-1 max-w-[9rem] sm:max-w-none">
+                  {currentTime
+                    ? currentTime.toLocaleDateString([], {
+                        weekday: 'short',
+                        month: 'short',
+                        day: 'numeric',
+                      })
+                    : ''}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {!statsCollapsed && (
             <div className="flex flex-wrap items-center gap-2 max-w-full">
               <CompactStat
                 icon={HeartHandshake}
@@ -193,71 +302,40 @@ const AppHeader: React.FC<AppHeaderProps> = ({
                 className="text-sky-700 dark:text-sky-400"
               />
               <CompactStat icon={Droplet} label="Foleys" value={foleyCount} className="text-blue-600" />
+              <CompactStat
+                icon={Activity}
+                label="Central lines"
+                value={centralLineCount}
+                className="text-teal-700 dark:text-teal-400"
+              />
+              <CompactStat
+                icon={UtensilsCrossed}
+                label="Tube feeds"
+                value={tubeFeedCount}
+                className="text-emerald-700 dark:text-emerald-400"
+              />
             </div>
+          )}
 
-            <div className="flex items-center gap-3 ml-auto sm:ml-0">
-              {!onLeaveUnit && availableLayouts && onSelectLayout && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm" className="shrink-0">
-                      <LayoutGrid className="mr-2 h-4 w-4" />
-                      <span className="max-w-[10rem] truncate">
-                        {getFriendlyLayoutName(currentLayoutName)}
-                      </span>
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuLabel>Select unit layout</DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    {availableLayouts.map((layoutName) => (
-                      <DropdownMenuItem
-                        key={layoutName}
-                        onClick={() => onSelectLayout(layoutName)}
-                        disabled={layoutName === currentLayoutName}
-                      >
-                        {getFriendlyLayoutName(layoutName)}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
-              {onLeaveUnit && (
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={onLeaveUnit}
-                  className="shrink-0 font-semibold"
-                >
-                  <LogOut className="w-4 h-4 mr-2" />
-                  Leave unit
-                </Button>
-              )}
-              <div className="text-right shrink-0 tabular-nums">
-                <div className="font-semibold text-lg leading-none">
-                  {currentTime
-                    ? currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                    : '—'}
-                </div>
-                <div className="text-xs text-muted-foreground mt-1 max-w-[9rem] sm:max-w-none">
-                  {currentTime
-                    ? currentTime.toLocaleDateString([], {
-                        weekday: 'short',
-                        month: 'short',
-                        day: 'numeric',
-                      })
-                    : ''}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Name similarity alerts */}
           {nameAlertGroups.length > 0 && (
             <div
               className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm"
               role="status"
             >
-              <p className="font-semibold text-amber-900 dark:text-amber-100 mb-1">Name alerts</p>
+              <div className="flex flex-wrap items-start justify-between gap-2 mb-1">
+                <p className="font-semibold text-amber-900 dark:text-amber-100">Name alerts</p>
+                {onAcknowledgeNameAlerts && canEdit && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-7 shrink-0 border-amber-600/50 bg-amber-50/80 text-amber-950 hover:bg-amber-100 dark:border-amber-400/40 dark:bg-amber-950/40 dark:text-amber-50 dark:hover:bg-amber-900/60"
+                    onClick={onAcknowledgeNameAlerts}
+                  >
+                    Acknowledge
+                  </Button>
+                )}
+              </div>
               <ul className="space-y-1.5 text-amber-950/90 dark:text-amber-50/90">
                 {nameAlertGroups.map((g) => (
                   <li key={g.key}>
@@ -268,109 +346,85 @@ const AppHeader: React.FC<AppHeaderProps> = ({
               </ul>
             </div>
           )}
+        </div>
 
-          {/* Row 2: primary actions (horizontal bar) */}
-          <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-border/60">
-            <Button variant="default" size="sm" onClick={onAdmitPatient} title="Admit / transfer in">
-              <UserPlus className="h-4 w-4 mr-1.5" />
-              Admit
-            </Button>
-            <Button variant="outline" size="sm" onClick={onAddStaffMember} title="Add staff">
-              <Users className="h-4 w-4 mr-1.5" />
-              Staff
-            </Button>
-            <Button variant="outline" size="sm" onClick={onManageSpectra} title="Spectra pool">
-              <ListTodo className="h-4 w-4 mr-1.5" />
-              Spectra
-            </Button>
-            {onSetupOncomingShift && (
-              <Button variant="outline" size="sm" onClick={onSetupOncomingShift} title="Oncoming shift board">
-                <ClipboardSignature className="h-4 w-4 mr-1.5" />
-                Oncoming shift
-              </Button>
+        {/* Sentinel — when this scrolls out of view, action bar becomes sticky */}
+        <div ref={sentinelRef} className="h-px w-full" aria-hidden />
+
+        {/* Row 2 — sticky action bar only (§3.7.4) */}
+        <div
+          className={cn(
+            'px-3 sm:px-5 py-2 border-t border-border/60 bg-card/95 backdrop-blur-sm transition-shadow',
+            isActionBarSticky && 'sticky top-0 z-50 shadow-md'
+          )}
+        >
+          <div className="flex flex-wrap items-center gap-2">
+            {canEdit && (
+              <>
+                <Button variant="default" size="sm" onClick={onAdmitPatient} title="Admit / transfer in">
+                  <UserPlus className="h-4 w-4 mr-1.5" />
+                  Admit
+                </Button>
+                <Button variant="outline" size="sm" onClick={onAddStaffMember} title="Add staff">
+                  <Users className="h-4 w-4 mr-1.5" />
+                  Staff
+                </Button>
+                {onSetupOncomingShift && (
+                  <Button variant="outline" size="sm" onClick={onSetupOncomingShift} title="Oncoming shift board">
+                    <ClipboardSignature className="h-4 w-4 mr-1.5" />
+                    Oncoming shift
+                  </Button>
+                )}
+              </>
             )}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm">
-                  <Printer className="h-4 w-4 mr-1.5" />
-                  Print
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start">
-                <DropdownMenuItem onClick={() => onPrint('charge')}>
-                  <Printer className="mr-2 h-4 w-4" />
-                  Charge report
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onPrint('assignments')}>
-                  <ClipboardSignature className="mr-2 h-4 w-4" />
-                  Assignments
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-
-            <Separator orientation="vertical" className="h-7 hidden sm:block" />
-
-            <Button
-              variant="outline"
-              size="icon"
-              className="shrink-0 h-8 w-8"
-              onClick={onToggleLayoutLock}
-              title={isLayoutLocked ? 'Unlock layout' : 'Lock layout'}
-            >
-              {isLayoutLocked ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
+            <Button variant="outline" size="sm" onClick={onSaveAssignments} title="Save shift assignments">
+              <Archive className="h-4 w-4 mr-1.5" />
+              Save assignments
             </Button>
             <Button
               variant="outline"
-              size="icon"
-              className="shrink-0 h-8 w-8"
-              onClick={onSaveCurrentLayout}
-              disabled={isLayoutLocked}
-              title="Save current layout"
+              size="sm"
+              onClick={() => setIsExplanationOpen(true)}
+              title="Icon explanation"
             >
-              <Save className="h-4 w-4" />
+              <HelpCircle className="h-4 w-4 mr-1.5" />
+              Icons
             </Button>
 
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="shrink-0 h-8 w-8" title="More tools">
-                  <TestTube className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuLabel>Admin &amp; dev</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                {onCreateUnit && (
-                  <DropdownMenuItem onClick={onCreateUnit}>
-                    <Building2 className="mr-2 h-4 w-4" />
-                    Create new unit
-                  </DropdownMenuItem>
-                )}
-                <DropdownMenuItem onClick={onAddRoom}>
-                  <PlusSquare className="mr-2 h-4 w-4" />
-                  Create new room
-                </DropdownMenuItem>
-                {onSaveLayout && (
-                  <DropdownMenuItem onClick={onSaveLayout} disabled={isLayoutLocked}>
-                    <Save className="mr-2 h-4 w-4" />
-                    Save layout as…
-                  </DropdownMenuItem>
-                )}
-                {onInsertMockData && (
-                  <DropdownMenuItem onClick={onInsertMockData}>
-                    <UserPlus className="mr-2 h-4 w-4" />
-                    Insert mock patients
-                  </DropdownMenuItem>
-                )}
-                <DropdownMenuItem onClick={onSaveAssignments}>
-                  <Archive className="mr-2 h-4 w-4" />
-                  Save shift assignments
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setIsExplanationOpen(true)}>
-                  <HelpCircle className="mr-2 h-4 w-4" />
-                  Icon explanation
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {showAdminTools && (
+              <>
+                <Separator orientation="vertical" className="h-7 hidden sm:block" />
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="shrink-0 h-8 w-8" title="Admin tools">
+                      <TestTube className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuLabel>Admin</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    {onCreateUnit && (
+                      <DropdownMenuItem onClick={onCreateUnit}>
+                        <Building2 className="mr-2 h-4 w-4" />
+                        Create new unit
+                      </DropdownMenuItem>
+                    )}
+                    {onAddRoom && (
+                      <DropdownMenuItem onClick={onAddRoom}>
+                        <PlusSquare className="mr-2 h-4 w-4" />
+                        Create new room
+                      </DropdownMenuItem>
+                    )}
+                    {onInsertMockData && (
+                      <DropdownMenuItem onClick={onInsertMockData}>
+                        <UserPlus className="mr-2 h-4 w-4" />
+                        Insert mock patients
+                      </DropdownMenuItem>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </>
+            )}
           </div>
         </div>
       </header>

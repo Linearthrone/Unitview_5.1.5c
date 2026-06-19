@@ -8,38 +8,48 @@ import { Wrench, Users, XSquare } from 'lucide-react';
 import type { PatientCareTech } from '@/types/nurse';
 import type { StaffRole } from '@/types/patient';
 import { cn } from '@/lib/utils';
+import { isStaffUnassigned } from '@/lib/roles';
+import AssignStaffMemberButton from '@/components/assign-staff-member-button';
+
+export interface TechAssignContext {
+  techId: string;
+  role: StaffRole;
+}
 
 interface PatientCareTechCardProps {
   tech: PatientCareTech;
   onRemoveTech: (techId: string) => void;
-  onQuickAddStaff?: (role: StaffRole) => void;
+  onAssignStaff?: (context: TechAssignContext) => void;
   isEffectivelyLocked: boolean;
+  isReadOnly?: boolean;
 }
 
 const PatientCareTechCard: React.FC<PatientCareTechCardProps> = ({
   tech,
   onRemoveTech,
-  onQuickAddStaff,
+  onAssignStaff,
   isEffectivelyLocked,
+  isReadOnly = false,
 }) => {
-  const isUnassigned = tech.name.trim().toLowerCase() === 'unassigned';
+  const unassigned = isStaffUnassigned(tech.name);
+  const locked = isEffectivelyLocked || isReadOnly;
 
   const handleRemoveClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (isEffectivelyLocked) return;
+    if (locked) return;
     onRemoveTech(tech.id);
-  }
+  };
 
   return (
     <Card className={cn(
-        "flex flex-col h-full shadow-lg bg-rose-200 dark:bg-rose-900 border-rose-400 dark:border-rose-600 relative",
-        !isEffectivelyLocked && "cursor-grab"
+        "flex flex-col h-full shadow-lg bg-card border-l-4 border-l-rose-500 relative",
+        !locked && "cursor-grab"
     )}>
-       {!isEffectivelyLocked && (
+       {!locked && (
         <Button
           variant="ghost"
           size="icon"
-          className="absolute top-1 right-1 h-6 w-6 text-rose-900/70 dark:text-rose-200/70 hover:text-destructive hover:bg-destructive/10"
+          className="absolute top-1 right-1 h-6 w-6 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
           onClick={handleRemoveClick}
           title={`Remove ${tech.name}`}
         >
@@ -60,16 +70,11 @@ const PatientCareTechCard: React.FC<PatientCareTechCardProps> = ({
             <Users className="h-4 w-4" />
             <span className="font-bold text-sm">{tech.assignmentGroup || 'Unassigned'}</span>
         </div>
-        {isUnassigned && onQuickAddStaff && (
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
+        {!isReadOnly && unassigned && onAssignStaff && (
+          <AssignStaffMemberButton
             className="mt-2"
-            onClick={() => onQuickAddStaff('Patient Care Tech')}
-          >
-            + Assign staff
-          </Button>
+            onClick={() => onAssignStaff({ techId: tech.id, role: 'Patient Care Tech' })}
+          />
         )}
       </CardContent>
     </Card>
@@ -77,5 +82,3 @@ const PatientCareTechCard: React.FC<PatientCareTechCardProps> = ({
 };
 
 export default PatientCareTechCard;
-
-    

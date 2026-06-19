@@ -4,16 +4,22 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Alert, AlertDescription } from './ui/alert';
-import { Loader2, Hospital, Shield } from 'lucide-react';
+import { Loader2, Stethoscope, Building2 } from 'lucide-react';
 
 interface LoginScreenProps {
   onLogin: (credentials: { employeeNumber: string; password: string }) => void;
-  onAdminLogin: () => void;
   isLoading?: boolean;
   error?: string | null;
+  /** Facility branding — placeholder until configured per site. */
+  facilityName?: string;
 }
 
-export default function LoginScreen({ onLogin, onAdminLogin, isLoading = false, error = null }: LoginScreenProps) {
+export default function LoginScreen({
+  onLogin,
+  isLoading = false,
+  error = null,
+  facilityName = 'Your Facility Name',
+}: LoginScreenProps) {
   const [employeeNumber, setEmployeeNumber] = useState('');
   const [password, setPassword] = useState('');
 
@@ -26,22 +32,28 @@ export default function LoginScreen({ onLogin, onAdminLogin, isLoading = false, 
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
-      handleSubmit(e as any);
+      handleSubmit(e as React.FormEvent);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-background flex items-center justify-center p-4 dark">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-20 h-20 bg-blue-600 rounded-full mb-4">
-            <Hospital className="w-12 h-12 text-white" />
+          <div className="inline-flex items-center justify-center w-24 h-24 rounded-xl border-2 border-dashed border-muted-foreground/40 bg-card mb-4 overflow-hidden">
+            <Building2 className="w-10 h-10 text-muted-foreground/60" aria-hidden />
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">UnitView</h1>
-          <p className="text-gray-600">Hospital Patient Management System</p>
+          <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-2">
+            {facilityName}
+          </p>
+          <div className="inline-flex items-center justify-center gap-2 mb-2">
+            <Stethoscope className="w-8 h-8 text-primary" aria-hidden />
+            <h1 className="text-3xl font-bold text-foreground">UnitView</h1>
+          </div>
+          <p className="text-muted-foreground">Hospital Patient Management System</p>
         </div>
 
-        <Card className="shadow-xl">
+        <Card className="shadow-xl border-border bg-card">
           <CardHeader className="text-center">
             <CardTitle className="text-2xl font-semibold">Staff Login</CardTitle>
             <CardDescription>Enter your credentials to access the system</CardDescription>
@@ -56,9 +68,10 @@ export default function LoginScreen({ onLogin, onAdminLogin, isLoading = false, 
                   placeholder="Enter your employee number"
                   value={employeeNumber}
                   onChange={(e) => setEmployeeNumber(e.target.value)}
-                  onKeyPress={handleKeyPress}
+                  onKeyDown={handleKeyPress}
                   disabled={isLoading}
                   required
+                  className="h-11 focus-visible:ring-2 focus-visible:ring-ring"
                 />
               </div>
               <div className="space-y-2">
@@ -69,21 +82,22 @@ export default function LoginScreen({ onLogin, onAdminLogin, isLoading = false, 
                   placeholder="Enter your password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  onKeyPress={handleKeyPress}
+                  onKeyDown={handleKeyPress}
                   disabled={isLoading}
                   required
+                  className="h-11 focus-visible:ring-2 focus-visible:ring-ring"
                 />
               </div>
-              
+
               {error && (
                 <Alert variant="destructive">
                   <AlertDescription>{error}</AlertDescription>
                 </Alert>
               )}
 
-              <Button 
-                type="submit" 
-                className="w-full" 
+              <Button
+                type="submit"
+                className="w-full h-11"
                 disabled={isLoading || !employeeNumber || !password}
               >
                 {isLoading ? (
@@ -98,23 +112,6 @@ export default function LoginScreen({ onLogin, onAdminLogin, isLoading = false, 
             </form>
           </CardContent>
         </Card>
-
-        <div className="text-center mt-6">
-          <button
-            onClick={onAdminLogin}
-            className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 transition-colors"
-          >
-            <Shield className="w-4 h-4 mr-1" />
-            Administrator Login
-          </button>
-        </div>
-
-        <div className="text-center mt-4 text-xs text-gray-500">
-          <p>Default Users:</p>
-          <p>Admin: admin / password</p>
-          <p>Nurse: 1001 / nurse123</p>
-          <p>Tech: 1002 / tech123</p>
-        </div>
       </div>
     </div>
   );

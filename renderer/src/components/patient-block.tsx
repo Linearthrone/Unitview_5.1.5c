@@ -28,6 +28,10 @@ import {
   Lock,
   Unlock,
   Trash2,
+  Check,
+  Mars,
+  Venus,
+  StickyNote,
   type LucideIcon
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -49,6 +53,10 @@ interface PatientBlockProps {
   onToggleBlock: (patientId: string) => void;
   onEditDesignation: (patient: Patient) => void;
   onDeleteRoom?: (patientId: string) => void;
+  onQuickNote?: (patient: Patient) => void;
+  /** WALLDISPLAY and privacy — hide patient names/PHI. */
+  canSeePatientIdentifiers?: boolean;
+  isReadOnly?: boolean;
 }
 
 
@@ -69,6 +77,9 @@ const PatientBlock: React.FC<PatientBlockProps> = ({
   onToggleBlock,
   onEditDesignation,
   onDeleteRoom,
+  onQuickNote,
+  canSeePatientIdentifiers = true,
+  isReadOnly = false,
 }) => {
   const isVacant = patient.name === 'Vacant';
   const { isBlocked } = patient;
@@ -81,10 +92,10 @@ const PatientBlock: React.FC<PatientBlockProps> = ({
   if (isVacant && !isBlocked) {
     return (
        <ContextMenu>
-        <ContextMenuTrigger disabled={isEffectivelyLocked}>
+        <ContextMenuTrigger disabled={isEffectivelyLocked || isReadOnly}>
           <Card 
             onClick={handleCardClick}
-            className="flex flex-col h-full shadow-lg bg-green-200 dark:bg-green-900 border-green-400 cursor-pointer"
+            className="flex flex-col h-full shadow-lg bg-muted/40 border-border cursor-pointer"
             title={`View report for ${patient.roomDesignation}`}
           >
             <CardHeader className="p-3">
@@ -99,6 +110,8 @@ const PatientBlock: React.FC<PatientBlockProps> = ({
           </Card>
         </ContextMenuTrigger>
         <ContextMenuContent>
+          {!isReadOnly && (
+            <>
           <ContextMenuItem onClick={() => onAdmit(patient)}>
             <UserPlus className="mr-2 h-4 w-4" /> Admit Patient
           </ContextMenuItem>
@@ -116,6 +129,8 @@ const PatientBlock: React.FC<PatientBlockProps> = ({
           >
             <Trash2 className="mr-2 h-4 w-4" /> Delete Room
           </ContextMenuItem>
+            </>
+          )}
         </ContextMenuContent>
       </ContextMenu>
     );
@@ -136,14 +151,20 @@ const PatientBlock: React.FC<PatientBlockProps> = ({
     if (patient.isComfortCareDNR) {
       return "bg-purple-300 dark:bg-purple-900 border-purple-500 dark:border-purple-700 text-purple-900 dark:text-purple-100";
     }
-    if (patient.gender === 'Male') {
-      return "bg-sky-300 dark:bg-sky-900 border-sky-500 dark:border-sky-700 text-sky-900 dark:text-sky-100";
-    }
-    if (patient.gender === 'Female') {
-      return "bg-pink-300 dark:bg-pink-900 border-pink-500 dark:border-pink-700 text-pink-900 dark:text-pink-100";
-    }
-    return "bg-slate-300 dark:bg-slate-600 text-slate-800 dark:text-slate-200";
+    return "bg-card border-border text-foreground";
   };
+
+  const GenderIcon = patient.gender === 'Male' ? Mars : patient.gender === 'Female' ? Venus : null;
+  const genderIconColor =
+    patient.gender === 'Male'
+      ? 'text-sky-600 dark:text-sky-400'
+      : patient.gender === 'Female'
+        ? 'text-pink-600 dark:text-pink-400'
+        : 'text-muted-foreground';
+
+  const ldaText = (patient.ldas ?? []).join(' ').toLowerCase();
+  const hasCentralLine = ldaText.includes('central') || ldaText.includes('picc') || ldaText.includes('midline');
+  const hasTubeFeed = ldaText.includes('tube feed') || ldaText.includes('ng') || ldaText.includes('peg');
 
 
   const alerts: AlertDisplayInfo[] = [];
@@ -165,21 +186,32 @@ const PatientBlock: React.FC<PatientBlockProps> = ({
   if (patient.isComfortCareDNR) {
     alerts.push({ IconComponent: HeartHandshake, colorClass: 'text-purple-600 dark:text-purple-400', tooltipText: 'Comfort Care / DNR' });
   }
-  
+  if (hasCentralLine) {
+    alerts.push({ IconComponent: AlertTriangle, colorClass: 'text-teal-600 dark:text-teal-400', tooltipText: 'Central line' });
+  }
+  if (hasTubeFeed) {
+    alerts.push({ IconComponent: AlertTriangle, colorClass: 'text-emerald-600 dark:text-emerald-400', tooltipText: 'Tube feed' });
+  }
+
   return (
     <ContextMenu>
-      <ContextMenuTrigger disabled={isEffectivelyLocked}>
+      <ContextMenuTrigger disabled={isEffectivelyLocked || isReadOnly}>
         <Card 
           onClick={handleCardClick}
           className={cn(
             "relative flex flex-col h-full shadow-lg hover:shadow-xl transition-shadow duration-200",
-            isBlocked ? "cursor-not-allowed bg-black dark:bg-gray-900 border-gray-700" : "cursor-pointer bg-gray-200 dark:bg-gray-800",
+            isBlocked ? "cursor-not-allowed bg-black dark:bg-gray-900 border-gray-700" : "cursor-pointer bg-card border-border",
             !isBlocked && !!patient.assignedNurse && "opacity-70",
             isDragging ? "opacity-50 ring-2 ring-primary" : ""
           )}
           data-patient-id={patient.id}
-          title={isBlocked ? `${patient.roomDesignation} is blocked` : `View report for ${patient.name} in ${patient.roomDesignation}`}
+          title={isBlocked ? `${patient.roomDesignation} is blocked` : `View report for ${patient.roomDesignation}`}
         >
+          {GenderIcon && canSeePatientIdentifiers && (
+            <div className={cn("absolute top-1.5 left-1.5 z-[1]", genderIconColor)} aria-hidden>
+              <GenderIcon className="h-4 w-4" strokeWidth={2.5} />
+            </div>
+          )}
           {isBlocked && (
             <div className="absolute inset-0 bg-black/30 flex items-center justify-center z-10 rounded-lg">
               <Ban className="h-12 w-12 text-white/80" />
@@ -205,18 +237,24 @@ const PatientBlock: React.FC<PatientBlockProps> = ({
                     )}
                 </div>
                  <div className="pt-1">
-                    <Badge
-                      variant={"outline"}
-                      className={cn(
-                        "font-semibold text-base truncate block w-full text-center py-1 px-2 border",
-                        getNameBadgeColor()
-                      )}
-                      title={patient.name}
-                    >
-                        {patient.name}
-                    </Badge>
+                    {canSeePatientIdentifiers ? (
+                      <Badge
+                        variant={"outline"}
+                        className={cn(
+                          "font-semibold text-base truncate block w-full text-center py-1 px-2 border",
+                          getNameBadgeColor()
+                        )}
+                        title={patient.name}
+                      >
+                          {patient.name}
+                      </Badge>
+                    ) : (
+                      <Badge variant="secondary" className="font-semibold text-base block w-full text-center py-1">
+                        Occupied
+                      </Badge>
+                    )}
                 </div>
-                {patient.assignedNurse && (
+                {canSeePatientIdentifiers && patient.assignedNurse && (
                   <div className="text-center text-xs font-medium text-card-foreground/90 pt-1">
                     {patient.assignedNurse}
                   </div>
@@ -239,7 +277,7 @@ const PatientBlock: React.FC<PatientBlockProps> = ({
                     </Tooltip>
                   </TooltipProvider>
                 </div>
-                {patient.notes && (
+                {patient.notes && canSeePatientIdentifiers && (
                   <p className="text-xs pt-1 border-t mt-2 italic">
                     <span className="font-semibold not-italic">Notes: </span>
                     {patient.notes.length > 50 ? `${patient.notes.substring(0, 47)}...` : patient.notes}
@@ -273,10 +311,10 @@ const PatientBlock: React.FC<PatientBlockProps> = ({
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <div className="w-4 h-4 bg-black rounded-sm border border-white/50" />
+                      <Check className="h-5 w-5 text-green-600 dark:text-green-400" strokeWidth={3} />
                     </TooltipTrigger>
                     <TooltipContent>
-                      <p>Assigned to {patient.assignedNurse}</p>
+                      <p>{canSeePatientIdentifiers ? `Assigned to ${patient.assignedNurse}` : 'Nurse assigned'}</p>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
@@ -298,10 +336,13 @@ const PatientBlock: React.FC<PatientBlockProps> = ({
       </ContextMenuTrigger>
       <ContextMenuContent>
         {isBlocked ? (
+          !isReadOnly && (
           <ContextMenuItem onClick={() => onToggleBlock(patient.id)}>
             <Unlock className="mr-2 h-4 w-4" /> Unblock Room
           </ContextMenuItem>
+          )
         ) : (
+          !isReadOnly && (
           <>
             <ContextMenuItem onClick={() => onUpdate(patient)} disabled={isVacant}>
               <Edit className="mr-2 h-4 w-4" /> Update Info
@@ -312,6 +353,11 @@ const PatientBlock: React.FC<PatientBlockProps> = ({
             <ContextMenuItem onClick={() => onDischarge(patient)} disabled={isVacant}>
               <UserMinus className="mr-2 h-4 w-4" /> Discharge Patient
             </ContextMenuItem>
+            {onQuickNote && !isVacant && (
+              <ContextMenuItem onClick={() => onQuickNote(patient)}>
+                <StickyNote className="mr-2 h-4 w-4" /> Quick note
+              </ContextMenuItem>
+            )}
             <ContextMenuSeparator />
             <ContextMenuItem onClick={() => onEditDesignation(patient)}>
               <Edit className="mr-2 h-4 w-4" /> Change Designation
@@ -327,6 +373,7 @@ const PatientBlock: React.FC<PatientBlockProps> = ({
               <Trash2 className="mr-2 h-4 w-4" /> Delete Room
             </ContextMenuItem>
           </>
+          )
         )}
       </ContextMenuContent>
     </ContextMenu>

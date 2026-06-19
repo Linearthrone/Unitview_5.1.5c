@@ -12,18 +12,24 @@ import SaveLayoutDialog from './save-layout-dialog';
 import AdmitPatientDialog from './admit-patient-dialog';
 import DischargeConfirmationDialog from './discharge-confirmation-dialog';
 import AddStaffMemberDialog from './add-staff-member-dialog';
-import AssignStaffDialog from './assign-staff-dialog';
+import AssignStaffDialog, { type AssignStaffTarget } from './assign-staff-dialog';
+import type { NurseAssignContext } from './nurse-assignment-card';
+import type { TechAssignContext } from './patient-care-tech-card';
+import { getRoleCapabilities } from '@/lib/roles';
 import ManageSpectraDialog from './manage-spectra-dialog';
 import SpectralinkDeviceTable from './spectralink-device-table';
 import AddRoomDialog from './add-room-dialog';
 import CreateUnitDialog from './create-unit-dialog';
 import EditRoomDesignationDialog from './edit-room-designation-dialog';
+import AssignmentPrintLayoutDialog from './assignment-print-layout-dialog';
+import QuickNoteDialog from './quick-note-dialog';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from './ui/sheet';
 import { Button } from './ui/button';
-import { Plus } from 'lucide-react';
+import { Plus, LogOut, Radio } from 'lucide-react';
 // Hooks and utils
 import { useToast } from "../hooks/use-toast";
 import { NUM_ROWS_GRID } from '../lib/grid-utils';
-import { computeNameAlertGroups } from '@/lib/name-alerts';
+import { computeNameAlertGroups, getNameAlertSignature } from '@/lib/name-alerts';
 import {
   isOccupiedBed,
   patientHasInvoluntaryHoldKeywords,
@@ -41,7 +47,10 @@ import * as patientService from '../services/patientService';
 import * as nurseService from '../services/nurseService';
 import * as spectraService from '../services/spectraService';
 import * as assignmentService from '../services/assignmentService';
+import * as printLayoutService from '../services/printLayoutService';
 import { getDb } from '../lib/database-simple';
+import { openPrintWindowWithElectronFallback } from '../lib/print-utils';
+import { createDefaultAssignmentPrintLayout, type AssignmentPrintLayoutConfig } from '../types/assignment-print-layout';
 import { syncPatientsAssignedNurseFromNurses } from '../lib/nurse-assignment-sync';
 import { findCompactEmptySlot, getAvailableSpectra } from '../services/nurseHelpers';
 
@@ -86,9 +95,18 @@ export default function UnitViewClient({
     initialTechs,
     initialSpectraPool,
     onBackToDashboard,
-    currentUser: _currentUser
+    currentUser
 }: UnitViewClientProps) {
   const [isLayoutLocked, setIsLayoutLocked] = useState(initialIsLayoutLocked);
+  const roleCaps = useMemo(
+    () =>
+      currentUser
+        ? getRoleCapabilities(currentUser.role, currentUser.appRole)
+        : getRoleCapabilities('user', 'Nurse'),
+    [currentUser]
+  );
+
+  const isEffectivelyLocked = isLayoutLocked || roleCaps.isReadOnly;
   const [currentYear, setCurrentYear] = useState<number | null>(null);
   const [currentLayoutName, setCurrentLayoutName] = useState<LayoutName>(initialLayoutName);
   const [availableLayouts] = useState<LayoutName[]>(initialAvailableLayouts);
@@ -113,14 +131,52 @@ export default function UnitViewClient({
   const [isAddStaffMemberDialogOpen, setIsAddStaffMemberDialogOpen] = useState(false);
   const [quickAddRole, setQuickAddRole] = useState<StaffRole>('Staff Nurse');
   const [isAssignStaffDialogOpen, setIsAssignStaffDialogOpen] = useState(false);
-  const [staffRoleToAssign, setStaffRoleToAssign] = useState<StaffRole | null>(null);
+  const [assignTarget, setAssignTarget] = useState<AssignStaffTarget | null>(null);
   const [isManageSpectraDialogOpen, setIsManageSpectraDialogOpen] = useState(false);
   const [isAddRoomDialogOpen, setIsAddRoomDialogOpen] = useState(false);
   const [isCreateUnitDialogOpen, setIsCreateUnitDialogOpen] = useState(false);
   const [isShiftMakerOpen, setIsShiftMakerOpen] = useState(false);
   const [isOncomingShiftSetup, setIsOncomingShiftSetup] = useState(false);
+  const [quickNotePatient, setQuickNotePatient] = useState<Patient | null>(null);
+  const [isSpectraMobileOpen, setIsSpectraMobileOpen] = useState(false);
   const [patientToDischarge, setPatientToDischarge] = useState<Patient | null>(null);
   const [patientToEditDesignation, setPatientToEditDesignation] = useState<Patient | null>(null);
+  const [acknowledgedNameAlertSignatures, setAcknowledgedNameAlertSignatures] = useState<Set<string>>(
+    () => new Set()
+  );
+  const [assignmentPrintLayout, setAssignmentPrintLayout] = useState<AssignmentPrintLayoutConfig>(
+    () => createDefaultAssignmentPrintLayout(),
+  );
+  const [isPrintLayoutDialogOpen, setIsPrintLayoutDialogOpen] = useState(false);
+
+  useEffect(() => {
+    setAcknowledgedNameAlertSignatures(new Set());
+  }, [currentLayoutName]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const config = await printLayoutService.getAssignmentPrintLayout(currentLayoutName);
+      if (!cancelled) setAssignmentPrintLayout(config);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [currentLayoutName]);
+
+  const handlePrint = useCallback(async (reportType: 'charge' | 'assignments') => {
+    const printTarget =
+      reportType === 'charge' ? 'printable-charge-report' : 'printable-assignments-report';
+    const title = reportType === 'charge' ? 'Charge Report' : 'Shift Assignments';
+    const result = await openPrintWindowWithElectronFallback(printTarget, title);
+    if (!result.ok) {
+      toast({
+        variant: 'destructive',
+        title: 'Print failed',
+        description: result.error ?? 'Unable to open the print dialog.',
+      });
+    }
+  }, [toast]);
 
   useEffect(() => {
     let cancelled = false;
@@ -192,8 +248,8 @@ export default function UnitViewClient({
   }, [toast]);
 
   const handlePrintReport = useCallback(() => {
-    handlePrint('charge');
-  }, []);
+    void handlePrint('charge');
+  }, [handlePrint]);
 
   // Electron API integration
   useEffect(() => {
@@ -657,20 +713,89 @@ export default function UnitViewClient({
   };
 
   const handleAssignStaff = (role: StaffRole) => {
-    setStaffRoleToAssign(role);
+    setAssignTarget({ role });
     setIsAssignStaffDialogOpen(true);
-  }
+  };
+
+  const handleAssignNurse = (context: NurseAssignContext) => {
+    setAssignTarget({ role: context.role, nurseId: context.nurseId });
+    setIsAssignStaffDialogOpen(true);
+  };
+
+  const handleAssignTech = (context: TechAssignContext) => {
+    setAssignTarget({ role: context.role, techId: context.techId });
+    setIsAssignStaffDialogOpen(true);
+  };
 
   const handleQuickAddStaff = (role: StaffRole) => {
     setQuickAddRole(role);
     setIsAddStaffMemberDialogOpen(true);
   };
 
-  const handleSaveAssignedStaff = (name: string, role: StaffRole) => {
-      setNurses(prev => prev.map(n => n.role === role ? { ...n, name } : n));
-      toast({ title: "Staff Assigned", description: `${name} has been assigned as the ${role}.` });
+  const handleSaveAssignedStaff = (name: string, target: AssignStaffTarget) => {
+      if (target.techId) {
+        setTechs((prev) => prev.map((t) => (t.id === target.techId ? { ...t, name } : t)));
+      } else if (target.nurseId) {
+        const updater = (prev: Nurse[]) =>
+          prev.map((n) => (n.id === target.nurseId ? { ...n, name } : n));
+        if (isOncomingShiftSetup) {
+          setOncomingNurses(updater);
+        } else {
+          setNurses(updater);
+        }
+      } else {
+        setNurses((prev) => prev.map((n) => (n.role === target.role ? { ...n, name } : n)));
+      }
+      toast({ title: "Staff Assigned", description: `${name} has been assigned as the ${target.role}.` });
       setIsAssignStaffDialogOpen(false);
-  }
+      setAssignTarget(null);
+  };
+
+  const handleOncomingAssignNurse = (nurseId: string) => {
+    const nurse = oncomingNurses.find((n) => n.id === nurseId);
+    if (!nurse) return;
+    setAssignTarget({ role: nurse.role, nurseId });
+    setIsAssignStaffDialogOpen(true);
+  };
+
+  const handleShiftMakerOpenChange = async (open: boolean) => {
+    if (!open && isOncomingShiftSetup) {
+      try {
+        await nurseService.saveOncomingNurses(currentLayoutName, oncomingNurses);
+        toast({
+          title: 'Oncoming draft saved',
+          description: 'Assignments are preserved until you activate the shift.',
+        });
+      } catch (e) {
+        console.error(e);
+        toast({
+          variant: 'destructive',
+          title: 'Save failed',
+          description: 'Could not save oncoming shift draft.',
+        });
+      }
+    }
+    setIsShiftMakerOpen(open);
+  };
+
+  const handleQuickNote = (patient: Patient) => {
+    setQuickNotePatient(patient);
+  };
+
+  const handleAcceptQuickNote = async (patientId: string, noteText: string) => {
+    const employeeId = currentUser?.employeeNumber ?? 'unknown';
+    const stamp = new Date().toLocaleString();
+    const entry = `[${stamp} - ${employeeId}] ${noteText}`;
+    const updated = patients.map((p) => {
+      if (p.id !== patientId) return p;
+      const existing = p.notes?.trim();
+      return { ...p, notes: existing ? `${existing}\n${entry}` : entry };
+    });
+    setPatients(updated);
+    await patientService.savePatients(currentLayoutName, updated);
+    setQuickNotePatient(null);
+    toast({ title: 'Note added', description: 'Quick note appended to patient chart.' });
+  };
 
   const handleRemoveStaff = (role: StaffRole) => {
     setNurses(prev => prev.map(n => {
@@ -796,69 +921,15 @@ export default function UnitViewClient({
     }
   };
 
-  const handlePrint = (reportType: 'charge' | 'assignments') => {
-    const printTarget = reportType === 'charge' ? 'printable-charge-report' : 'printable-assignments-report';
-    const content = document.getElementById(printTarget);
-    if (!content) return;
+  const handleSaveAssignmentPrintLayout = useCallback(
+    async (config: AssignmentPrintLayoutConfig) => {
+      await printLayoutService.saveAssignmentPrintLayout(currentLayoutName, config);
+      setAssignmentPrintLayout(config);
+      toast({ title: 'Print layout saved', description: 'Assignment print layout updated for this unit.' });
+    },
+    [currentLayoutName, toast],
+  );
 
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
-
-    const bodyHtml = content.innerHTML.replace(/<\/script/gi, '<\\/script');
-    printWindow.document.write(`
-        <html>
-        <head>
-          <meta charset="utf-8" />
-          <title>Print Report</title>
-          <style>
-              body { margin: 0; font-family: Arial, Helvetica, sans-serif; font-size: 10pt; color: #000; }
-              #printable-assignments-report,
-              #printable-charge-report {
-                display: block !important;
-                position: static !important;
-                left: auto !important;
-                top: auto !important;
-                width: 100% !important;
-                max-width: 100% !important;
-                height: auto !important;
-                overflow: visible !important;
-                opacity: 1 !important;
-              }
-              .uv-print-assignments-layout {
-                display: grid !important;
-                grid-template-columns: 1fr 18rem;
-                gap: 12px;
-                align-items: start;
-              }
-              .uv-print-nurse-row { display: grid !important; gap: 8px; }
-              .uv-print-pct-row { display: grid !important; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
-              @media print {
-                  body { font-size: 10pt; }
-                  .print-hide { display: none !important; }
-                  .page-break-inside-avoid { page-break-inside: avoid; }
-                  h1 { font-size: 16pt; font-weight: bold; text-align: center; margin-bottom: 0.5rem; }
-                  .report-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem; font-size: 9pt; }
-                  .report-header .unit-name { font-size: 20pt; font-weight: bold; text-align: center; width: 100%; position: absolute; top: 0; left: 0; }
-              }
-          </style>
-          <link rel="stylesheet" href="/globals.css">
-          <script src="https://cdn.tailwindcss.com"></script>
-        </head>
-        <body>
-          ${bodyHtml}
-          <script>
-            setTimeout(function () {
-              window.focus();
-              window.print();
-              window.close();
-            }, 400);
-          </script>
-        </body>
-        </html>
-    `);
-    printWindow.document.close();
-  };
-  
   const handlePatientDragStart = useCallback((
     e: React.DragEvent<HTMLDivElement>,
     patientId: string,
@@ -1178,6 +1249,30 @@ export default function UnitViewClient({
   const dnrCount = patients.filter(p => p.isComfortCareDNR).length;
   const restraintCount = patients.filter(p => p.isInRestraints).length;
   const foleyCount = patients.filter(p => Array.isArray(p.ldas) && p.ldas.some(lda => lda.toLowerCase().includes('foley'))).length;
+  const centralLineCount = useMemo(
+    () =>
+      patients.filter(
+        (p) =>
+          isOccupiedBed(p.name) &&
+          (p.ldas ?? []).some((lda) => {
+            const l = lda.toLowerCase();
+            return l.includes('central') || l.includes('picc') || l.includes('midline');
+          })
+      ).length,
+    [patients]
+  );
+  const tubeFeedCount = useMemo(
+    () =>
+      patients.filter(
+        (p) =>
+          isOccupiedBed(p.name) &&
+          (p.ldas ?? []).some((lda) => {
+            const l = lda.toLowerCase();
+            return l.includes('tube feed') || l.includes('ng') || l.includes('peg');
+          })
+      ).length,
+    [patients]
+  );
   const isolationCount = useMemo(
     () => patients.filter((p) => isOccupiedBed(p.name) && p.isIsolation).length,
     [patients]
@@ -1190,7 +1285,20 @@ export default function UnitViewClient({
     () => countPatientsWithSitterNurse(patients, nurses),
     [patients, nurses]
   );
-  const nameAlertGroups = useMemo(() => computeNameAlertGroups(patients), [patients]);
+  const nameAlertGroups = useMemo(() => {
+    const groups = computeNameAlertGroups(patients);
+    return groups.filter((g) => !acknowledgedNameAlertSignatures.has(getNameAlertSignature(g)));
+  }, [patients, acknowledgedNameAlertSignatures]);
+
+  const handleAcknowledgeNameAlerts = useCallback(() => {
+    setAcknowledgedNameAlertSignatures((prev) => {
+      const next = new Set(prev);
+      for (const group of computeNameAlertGroups(patients)) {
+        next.add(getNameAlertSignature(group));
+      }
+      return next;
+    });
+  }, [patients]);
 
   return (
     <div className="flex flex-col min-h-screen bg-background">
@@ -1199,38 +1307,39 @@ export default function UnitViewClient({
         unitName={`${getFriendlyLayoutName(currentLayoutName)}${isOncomingShiftSetup ? ' (Oncoming shift setup)' : ''}`}
         activePatientCount={activePatientCount}
         totalRoomCount={totalRoomCount}
-        isLayoutLocked={isLayoutLocked}
         dnrCount={dnrCount}
         restraintCount={restraintCount}
         foleyCount={foleyCount}
         isolationCount={isolationCount}
         sitterCount={sitterCount}
         involuntaryHoldCount={involuntaryHoldCount}
-        nameAlertGroups={nameAlertGroups}
-        onToggleLayoutLock={toggleLayoutLock}
+        centralLineCount={centralLineCount}
+        tubeFeedCount={tubeFeedCount}
+        nameAlertGroups={roleCaps.canSeePatientIdentifiers ? nameAlertGroups : []}
+        onAcknowledgeNameAlerts={handleAcknowledgeNameAlerts}
+        canEdit={!roleCaps.isReadOnly}
+        showAdminTools={roleCaps.isAdmin}
         currentLayoutName={currentLayoutName}
         onSelectLayout={handleSelectLayout}
         availableLayouts={availableLayouts}
-        onPrint={handlePrint}
-        onSaveLayout={handleOpenSaveDialog}
-        onSaveCurrentLayout={handleSaveCurrentLayout}
+        onPrint={(type) => void handlePrint(type)}
+        onConfigureAssignmentPrint={() => setIsPrintLayoutDialogOpen(true)}
         onAdmitPatient={() => handleOpenAdmitDialog(null)}
         onAddStaffMember={() => setIsAddStaffMemberDialogOpen(true)}
-        onManageSpectra={() => setIsManageSpectraDialogOpen(true)}
-        onAddRoom={() => setIsAddRoomDialogOpen(true)}
-        onInsertMockData={handleInsertMockData}
+        onAddRoom={roleCaps.isAdmin ? () => setIsAddRoomDialogOpen(true) : undefined}
+        onCreateUnit={roleCaps.isAdmin ? () => setIsCreateUnitDialogOpen(true) : undefined}
+        onInsertMockData={roleCaps.isAdmin ? handleInsertMockData : undefined}
         onSaveAssignments={handleSaveAssignments}
-        onSetupOncomingShift={handleSetupOncomingShift}
-        onLeaveUnit={onBackToDashboard}
+        onSetupOncomingShift={roleCaps.isReadOnly ? undefined : handleSetupOncomingShift}
       />
-      <main className="flex-grow flex flex-col overflow-auto print-hide">
-        <div className="flex-grow flex items-stretch">
+      <main className="flex-grow flex overflow-hidden print-hide relative pb-14">
+        <div className="flex-grow flex flex-col min-w-0 overflow-hidden">
             <PatientGrid
               patients={patients}
               nurses={nurses}
               techs={techs}
               isInitialized={isInitialized}
-              isEffectivelyLocked={isLayoutLocked}
+              isEffectivelyLocked={isEffectivelyLocked}
               draggingPatientInfo={draggingPatientInfo}
               draggingNurseInfo={draggingNurseInfo}
               draggingTechInfo={draggingTechInfo}
@@ -1251,11 +1360,16 @@ export default function UnitViewClient({
               onDeleteRoom={handleDeleteRoom}
               onRemoveTech={handleRemoveTech}
               onAssignStaff={handleAssignStaff}
+              onAssignNurse={handleAssignNurse}
+              onAssignTech={handleAssignTech}
               onQuickAddStaff={handleQuickAddStaff}
               onRemoveStaff={handleRemoveStaff}
+              onQuickNote={roleCaps.isReadOnly ? undefined : handleQuickNote}
+              canSeePatientIdentifiers={roleCaps.canSeePatientIdentifiers}
+              isReadOnly={roleCaps.isReadOnly}
             />
-        </div>
-        <div className="border-t px-4 py-2 flex justify-end">
+        {!roleCaps.isReadOnly && (
+        <div className="border-t px-4 py-2 flex justify-end shrink-0">
           <Button
             variant="outline"
             size="sm"
@@ -1265,9 +1379,11 @@ export default function UnitViewClient({
             Add Nurse Card
           </Button>
         </div>
-        <div className="border-t p-4">
+        )}
+        </div>
+        <aside className="hidden lg:flex w-1/3 max-w-md min-w-[16rem] border-l shrink-0 flex-col min-h-0">
           <SpectralinkDeviceTable
-            title="Unit Spectralink Device Table"
+            title="Spectra"
             spectraPool={spectraPool}
             nurses={nurses}
             techs={techs}
@@ -1275,8 +1391,54 @@ export default function UnitViewClient({
             onUnassignDevice={handleUnassignSpectra}
             onSetStatus={handleSetSpectraStatus}
             onAddLog={handleAddSpectraLog}
+            onManageSpectra={roleCaps.canManageSpectra ? () => setIsManageSpectraDialogOpen(true) : undefined}
+            canManageSpectra={roleCaps.canManageSpectra}
+            canManageDeviceLogs={roleCaps.isAdmin}
           />
-        </div>
+        </aside>
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          className="lg:hidden fixed bottom-16 right-4 z-40 shadow-lg print-hide"
+          onClick={() => setIsSpectraMobileOpen(true)}
+        >
+          <Radio className="w-4 h-4 mr-2" />
+          Spectra ({spectraPool.length})
+        </Button>
+        <Sheet open={isSpectraMobileOpen} onOpenChange={setIsSpectraMobileOpen}>
+          <SheetContent side="right" className="w-full sm:max-w-md p-0 flex flex-col">
+            <SheetHeader className="p-4 border-b">
+              <SheetTitle>Spectralink devices</SheetTitle>
+            </SheetHeader>
+            <div className="flex-1 min-h-0 overflow-hidden">
+              <SpectralinkDeviceTable
+                title="Spectra"
+                spectraPool={spectraPool}
+                nurses={nurses}
+                techs={techs}
+                onAssignDevice={handleAssignSpectraToStaff}
+                onUnassignDevice={handleUnassignSpectra}
+                onSetStatus={handleSetSpectraStatus}
+                onAddLog={handleAddSpectraLog}
+                onManageSpectra={roleCaps.canManageSpectra ? () => setIsManageSpectraDialogOpen(true) : undefined}
+                canManageSpectra={roleCaps.canManageSpectra}
+                canManageDeviceLogs={roleCaps.isAdmin}
+              />
+            </div>
+          </SheetContent>
+        </Sheet>
+        {onBackToDashboard && (
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={onBackToDashboard}
+            className="fixed bottom-4 right-4 z-50 shadow-lg font-semibold print-hide"
+          >
+            <LogOut className="w-4 h-4 mr-2" />
+            Leave unit
+          </Button>
+        )}
       </main>
       <PrintableReport patients={patients} />
       <PrintableAssignments 
@@ -1285,6 +1447,7 @@ export default function UnitViewClient({
         nurses={nurses}
         techs={techs}
         patients={patients}
+        layoutConfig={assignmentPrintLayout}
       />
       <ReportSheet
         patient={selectedPatient}
@@ -1299,6 +1462,8 @@ export default function UnitViewClient({
           setSelectedPatient(null);
           handleOpenUpdateDialog(patient);
         }}
+        canSeePatientIdentifiers={roleCaps.canSeePatientIdentifiers}
+        isReadOnly={roleCaps.isReadOnly}
       />
       <SaveLayoutDialog
         open={isSaveDialogOpen}
@@ -1326,8 +1491,11 @@ export default function UnitViewClient({
       />
        <AssignStaffDialog
         open={isAssignStaffDialogOpen}
-        onOpenChange={() => setIsAssignStaffDialogOpen(false)}
-        role={staffRoleToAssign}
+        onOpenChange={() => {
+          setIsAssignStaffDialogOpen(false);
+          setAssignTarget(null);
+        }}
+        target={assignTarget}
         onSave={handleSaveAssignedStaff}
       />
       <AddRoomDialog
@@ -1364,7 +1532,7 @@ export default function UnitViewClient({
       />
       <ShiftMakerDialog
         open={isShiftMakerOpen}
-        onOpenChange={setIsShiftMakerOpen}
+        onOpenChange={(open) => void handleShiftMakerOpenChange(open)}
         nurses={oncomingNurses}
         patients={patients}
         onPatientDragStart={handlePatientDragStart}
@@ -1380,9 +1548,32 @@ export default function UnitViewClient({
         onActivateOncomingShift={handleActivateOncomingShift}
         onAddNurseCard={handleOncomingAddNurseCard}
         onRemoveNurseCard={handleOncomingRemoveNurse}
+        onAssignNurse={handleOncomingAssignNurse}
       />
-      <footer className="text-center p-4 text-sm text-muted-foreground border-t print-hide">
-        UnitView &copy; {currentYear !== null ? currentYear : 'Loading...'}
+      <QuickNoteDialog
+        patient={quickNotePatient}
+        open={!!quickNotePatient}
+        onOpenChange={(open) => !open && setQuickNotePatient(null)}
+        onAccept={handleAcceptQuickNote}
+      />
+      <AssignmentPrintLayoutDialog
+        open={isPrintLayoutDialogOpen}
+        onOpenChange={setIsPrintLayoutDialogOpen}
+        layoutName={currentLayoutName}
+        unitDisplayName={getFriendlyLayoutName(currentLayoutName)}
+        chargeNurseName={getChargeNurseName()}
+        nurses={nurses}
+        techs={techs}
+        patients={patients}
+        initialConfig={assignmentPrintLayout}
+        onSave={handleSaveAssignmentPrintLayout}
+        onPrint={(config) => {
+          setAssignmentPrintLayout(config);
+          window.setTimeout(() => void handlePrint('assignments'), 50);
+        }}
+      />
+      <footer className="text-center py-2 px-4 text-xs text-muted-foreground border-t print-hide">
+        UnitView &copy; {currentYear !== null ? currentYear : ''}
       </footer>
     </div>
   );

@@ -51,3 +51,12 @@ export function computeNameAlertGroups(patients: Patient[]): NameAlertGroup[] {
 
   return groups.sort((a, b) => a.entries[0]!.room.localeCompare(b.entries[0]!.room, undefined, { numeric: true }));
 }
+
+/** Stable id for an alert group; changes when patients in the group change. */
+export function getNameAlertSignature(group: NameAlertGroup): string {
+  const entrySig = group.entries
+    .map((e) => `${e.room}:${e.name.trim().toLowerCase()}`)
+    .sort()
+    .join('|');
+  return `${group.key}|${entrySig}`;
+}

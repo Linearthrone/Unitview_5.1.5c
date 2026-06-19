@@ -1,17 +1,23 @@
 
 "use client";
 
-import React from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { Patient, StaffRole } from '@/types/patient';
 import type { Nurse, PatientCareTech } from '@/types/nurse';
+import { ZoomIn, ZoomOut } from 'lucide-react';
 import PatientBlock from './patient-block';
-import NurseAssignmentCard from './nurse-assignment-card';
-import PatientCareTechCard from './patient-care-tech-card';
+import NurseAssignmentCard, { type NurseAssignContext } from './nurse-assignment-card';
+import PatientCareTechCard, { type TechAssignContext } from './patient-care-tech-card';
 import ChargeNurseCard from './charge-nurse-card';
 import UnitClerkCard from './unit-clerk-card';
 import { Skeleton } from './ui/skeleton';
+import { Button } from './ui/button';
 import { cn } from '@/lib/utils';
 import { NUM_COLS_GRID, NUM_ROWS_GRID } from '@/lib/grid-utils';
+
+const ZOOM_STEP = 0.08;
+const MIN_ZOOM_FLOOR = 0.2;
+const MAX_ZOOM_CEILING = 2;
 
 interface DraggingPatientInfo {
   id: string;
@@ -51,8 +57,13 @@ interface PatientGridProps {
   onDeleteRoom: (patientId: string) => void;
   onRemoveTech: (techId: string) => void;
   onAssignStaff: (role: StaffRole) => void;
+  onAssignNurse?: (context: NurseAssignContext) => void;
+  onAssignTech?: (context: TechAssignContext) => void;
   onQuickAddStaff?: (role: StaffRole) => void;
   onRemoveStaff: (role: StaffRole) => void;
+  onQuickNote?: (patient: Patient) => void;
+  canSeePatientIdentifiers?: boolean;
+  isReadOnly?: boolean;
 }
 
 const PatientGrid: React.FC<PatientGridProps> = ({
@@ -80,10 +91,108 @@ const PatientGrid: React.FC<PatientGridProps> = ({
   onRemoveNurse,
   onRemoveTech,
   onAssignStaff,
+  onAssignNurse,
+  onAssignTech,
   onQuickAddStaff,
   onRemoveStaff,
   onDeleteRoom,
+  onQuickNote,
+  canSeePatientIdentifiers = true,
+  isReadOnly = false,
 }) => {
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const gridRef = useRef<HTMLDivElement>(null);
+  const userAdjustedZoomRef = useRef(false);
+  const [fitZoom, setFitZoom] = useState(1);
+  const [zoom, setZoom] = useState(1);
+  const [contentSize, setContentSize] = useState({ width: 0, height: 0 });
+
+  const clampZoom = useCallback(
+    (value: number) => Math.min(MAX_ZOOM_CEILING, Math.max(MIN_ZOOM_FLOOR, value)),
+    [],
+  );
+
+  const updateContentSize = useCallback(() => {
+    const grid = gridRef.current;
+    if (!grid) return;
+    setContentSize({
+      width: grid.offsetWidth,
+      height: grid.offsetHeight,
+    });
+  }, []);
+
+  const measureFitZoom = useCallback(() => {
+    const viewport = viewportRef.current;
+    const grid = gridRef.current;
+    if (!viewport || !grid) return null;
+
+    const availW = Math.max(viewport.clientWidth - 16, 1);
+    const availH = Math.max(viewport.clientHeight - 16, 1);
+    const contentW = Math.max(grid.offsetWidth, 1);
+    const contentH = Math.max(grid.offsetHeight, 1);
+
+    const nextFit = Math.min(availW / contentW, availH / contentH);
+    return clampZoom(nextFit);
+  }, [clampZoom]);
+
+  useEffect(() => {
+    userAdjustedZoomRef.current = false;
+  }, [patients, nurses, techs]);
+
+  useLayoutEffect(() => {
+    if (!isInitialized) return;
+
+    updateContentSize();
+
+    const applyFit = (resetToFit: boolean) => {
+      const nextFit = measureFitZoom();
+      if (nextFit === null) return;
+      setFitZoom(nextFit);
+      if (resetToFit || !userAdjustedZoomRef.current) {
+        setZoom(nextFit);
+      }
+    };
+
+    applyFit(true);
+
+    const viewport = viewportRef.current;
+    const grid = gridRef.current;
+    if (!viewport || !grid) return;
+
+    const observer = new ResizeObserver(() => {
+      updateContentSize();
+      const nextFit = measureFitZoom();
+      if (nextFit === null) return;
+      setFitZoom(nextFit);
+      if (!userAdjustedZoomRef.current) {
+        setZoom(nextFit);
+      }
+    });
+
+    observer.observe(viewport);
+    observer.observe(grid);
+    return () => observer.disconnect();
+  }, [isInitialized, measureFitZoom, updateContentSize, patients, nurses, techs]);
+
+  const zoomIn = useCallback(() => {
+    userAdjustedZoomRef.current = true;
+    setZoom((current) => clampZoom(Number((current + ZOOM_STEP).toFixed(2))));
+  }, [clampZoom]);
+
+  const zoomOut = useCallback(() => {
+    userAdjustedZoomRef.current = true;
+    setZoom((current) => clampZoom(Number((current - ZOOM_STEP).toFixed(2))));
+  }, [clampZoom]);
+
+  const resetZoom = useCallback(() => {
+    userAdjustedZoomRef.current = false;
+    setZoom(fitZoom);
+  }, [fitZoom]);
+
+  const atFitZoom = Math.abs(zoom - fitZoom) < 0.02;
+  const canZoomIn = zoom < MAX_ZOOM_CEILING - 0.01;
+  const canZoomOut = zoom > MIN_ZOOM_FLOOR + 0.01;
+
   const handleDragOverCell = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     if ((draggingPatientInfo || draggingNurseInfo || draggingTechInfo) && !isEffectivelyLocked) {
@@ -142,8 +251,10 @@ const PatientGrid: React.FC<PatientGridProps> = ({
               >
                 <PatientBlock 
                   patient={patientInCell} 
-                  isDragging={draggingPatientInfo?.id === patientInCell.id && !isEffectivelyLocked}
-                  isEffectivelyLocked={isEffectivelyLocked}
+                  isDragging={draggingPatientInfo?.id === patientInCell.id && !isEffectivelyLocked && !isReadOnly}
+                  isEffectivelyLocked={isEffectivelyLocked || isReadOnly}
+                  canSeePatientIdentifiers={canSeePatientIdentifiers}
+                  isReadOnly={isReadOnly}
                   onSelectPatient={onSelectPatient}
                   onAdmit={onAdmitPatient}
                   onUpdate={onUpdatePatient}
@@ -151,6 +262,7 @@ const PatientGrid: React.FC<PatientGridProps> = ({
                   onToggleBlock={onToggleBlockRoom}
                   onEditDesignation={onEditDesignation}
                   onDeleteRoom={onDeleteRoom}
+                  onQuickNote={onQuickNote}
                 />
               </div>
             )}
@@ -196,6 +308,7 @@ const PatientGrid: React.FC<PatientGridProps> = ({
             name={nurse.name}
             onAssign={onAssignStaff}
             onRemove={onRemoveStaff}
+            isReadOnly={isReadOnly}
           />
         );
       case 'Unit Clerk':
@@ -204,6 +317,7 @@ const PatientGrid: React.FC<PatientGridProps> = ({
             name={nurse.name}
             onAssign={onAssignStaff}
             onRemove={onRemoveStaff}
+            isReadOnly={isReadOnly}
           />
         );
       case 'Staff Nurse':
@@ -215,8 +329,9 @@ const PatientGrid: React.FC<PatientGridProps> = ({
             onDropOnSlot={handleDropOnNurseSlot}
             onClearAssignments={onClearNurseAssignments}
             onRemoveNurse={onRemoveNurse}
-            onQuickAddStaff={onQuickAddStaff}
+            onAssignStaff={onAssignNurse}
             isEffectivelyLocked={isEffectivelyLocked}
+            isReadOnly={isReadOnly}
           />
         );
       default:
@@ -227,36 +342,79 @@ const PatientGrid: React.FC<PatientGridProps> = ({
   return (
     <div className="relative flex-grow flex min-h-[min(24rem,50vh)]">
       <div
-        className="absolute left-1 sm:left-2 top-0 bottom-0 z-10 pointer-events-none flex flex-col py-4 w-6 sm:w-8"
-        aria-hidden
+        className="absolute right-2 top-2 z-20 flex items-center gap-1 rounded-md border border-border bg-background/95 px-1.5 py-1 text-xs shadow-sm"
+        role="group"
+        aria-label="Unit map zoom controls"
       >
-        <div className="flex-1 flex items-center justify-center min-h-0">
-          <span className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-wide text-center [writing-mode:vertical-rl] rotate-180">
-            North side
-          </span>
-        </div>
-        <div className="flex-1 flex items-center justify-center min-h-0">
-          <span className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-wide text-center [writing-mode:vertical-rl] rotate-180">
-            South side / section
-          </span>
-        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          className="h-8 w-8"
+          onClick={zoomOut}
+          disabled={!canZoomOut}
+          aria-label="Zoom out"
+          title="Zoom out"
+        >
+          <ZoomOut className="h-4 w-4" />
+        </Button>
+        <button
+          type="button"
+          className="min-w-[3.25rem] px-1 text-center text-foreground font-medium hover:underline disabled:no-underline"
+          onClick={resetZoom}
+          disabled={atFitZoom}
+          aria-label={`Zoom level ${Math.round(zoom * 100)} percent. Reset to fit entire unit.`}
+          title={atFitZoom ? 'Showing entire unit' : 'Reset to fit entire unit'}
+        >
+          {Math.round(zoom * 100)}%
+        </button>
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          className="h-8 w-8"
+          onClick={zoomIn}
+          disabled={!canZoomIn}
+          aria-label="Zoom in"
+          title="Zoom in"
+        >
+          <ZoomIn className="h-4 w-4" />
+        </Button>
       </div>
-      <div className="flex-grow flex overflow-auto p-2 pl-7 sm:pl-10">
       <div
-        className="grid w-full"
-        style={{
-          gridTemplateColumns: `repeat(${NUM_COLS_GRID}, minmax(12rem, 1fr))`,
-          gridTemplateRows: `repeat(${NUM_ROWS_GRID}, minmax(12rem, auto))`,
-          alignContent: 'start',
-          gap: '0.25rem',
-        }}
+        ref={viewportRef}
+        className="flex-grow overflow-auto p-2"
       >
+        <div
+          style={{
+            width: contentSize.width > 0 ? contentSize.width * zoom : 'max-content',
+            height: contentSize.height > 0 ? contentSize.height * zoom : 'max-content',
+            position: 'relative',
+          }}
+        >
+          <div
+            style={{
+              transform: `scale(${zoom})`,
+              transformOrigin: 'top left',
+              width: contentSize.width > 0 ? contentSize.width : 'max-content',
+            }}
+          >
+            <div
+              ref={gridRef}
+              className="grid w-full"
+              style={{
+                gridTemplateColumns: `repeat(${NUM_COLS_GRID}, minmax(12rem, 1fr))`,
+                gridTemplateRows: `repeat(${NUM_ROWS_GRID}, minmax(12rem, auto))`,
+                alignContent: 'start',
+                gap: '0.25rem',
+              }}
+            >
         {renderGridCells()}
         
         {nurses.map(nurse => (
           <div 
             key={nurse.id}
-            draggable={!isEffectivelyLocked}
+            draggable={!isEffectivelyLocked && !isReadOnly}
             onDragStart={(e) => onNurseDragStart(e, nurse.id)}
             onDragEnd={onDragEnd}
             className={cn(
@@ -276,7 +434,7 @@ const PatientGrid: React.FC<PatientGridProps> = ({
         {techs.map(tech => (
           <div 
             key={tech.id}
-            draggable={!isEffectivelyLocked}
+            draggable={!isEffectivelyLocked && !isReadOnly}
             onDragStart={(e) => onTechDragStart(e, tech.id)}
             onDragEnd={onDragEnd}
             className={cn(
@@ -291,12 +449,15 @@ const PatientGrid: React.FC<PatientGridProps> = ({
             <PatientCareTechCard
               tech={tech}
               onRemoveTech={onRemoveTech}
-              onQuickAddStaff={onQuickAddStaff}
+              onAssignStaff={onAssignTech}
               isEffectivelyLocked={isEffectivelyLocked}
+              isReadOnly={isReadOnly}
             />
           </div>
         ))}
-      </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -1,8 +1,9 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import type { Patient } from '@/types/patient';
+import { getIsolationType } from '@/lib/patient-clinical-helpers';
 import type { Nurse, PatientCareTech } from '@/types/nurse';
 import {
   AlertTriangle,
@@ -14,6 +15,12 @@ import {
   UserRound,
   type LucideIcon,
 } from 'lucide-react';
+import {
+  createDefaultAssignmentPrintLayout,
+  sortEnabledSections,
+  type AssignmentPrintLayoutConfig,
+  type AssignmentPrintSectionId,
+} from '@/types/assignment-print-layout';
 
 interface PrintableAssignmentsProps {
   unitName: string;
@@ -21,6 +28,9 @@ interface PrintableAssignmentsProps {
   nurses: Nurse[];
   techs: PatientCareTech[];
   patients: Patient[];
+  layoutConfig?: AssignmentPrintLayoutConfig;
+  /** When true, render on-screen for preview (not off-screen). */
+  previewMode?: boolean;
 }
 
 const alertIcons: { key: keyof Patient, Icon: LucideIcon, label: string }[] = [
@@ -41,31 +51,21 @@ function getLastName(name: string): string {
   return parts.length > 1 ? parts[parts.length - 1] : '';
 }
 
-function getIsolationType(patient: Patient): string | null {
-  if (!patient.isIsolation) return null;
-  const haystack = `${patient.notes || ''} ${patient.chiefComplaint || ''} ${(patient.ldas || []).join(' ')}`.toLowerCase();
-  if (haystack.includes('airborne')) return 'Airborne';
-  if (haystack.includes('droplet')) return 'Droplet';
-  if (haystack.includes('contact')) return 'Contact';
-  return 'Isolation';
-}
-
 const PrintableAssignments: React.FC<PrintableAssignmentsProps> = ({
   unitName,
   chargeNurseName,
   nurses,
   techs,
   patients,
+  layoutConfig,
+  previewMode = false,
 }) => {
   const [shift, setShift] = useState('');
   const [date, setDate] = useState('');
+  const config = layoutConfig ?? createDefaultAssignmentPrintLayout();
 
   useEffect(() => {
-    // This logic is now in useEffect to ensure it only runs on the client,
-    // preventing a hydration mismatch.
     const currentHour = new Date().getHours();
-    // Day shift from 2 AM (2) to 1:59 PM (13)
-    // Night shift from 2 PM (14) to 1:59 AM (1)
     if (currentHour >= 2 && currentHour < 14) {
       setShift('Day Shift');
     } else {
@@ -73,18 +73,36 @@ const PrintableAssignments: React.FC<PrintableAssignmentsProps> = ({
     }
     setDate(new Date().toLocaleDateString('en-US'));
   }, []);
-  
-  const patientMap = new Map(patients.map(p => [p.id, p]));
-  const staffNurses = nurses.filter(n => n.role === 'Staff Nurse' || n.role === 'Float Pool Nurse');
-  const sitterNames = nurses.filter(n => n.role === 'Sitter').map(n => n.name).filter(Boolean);
-  const activePatients = patients.filter(p => p.name !== 'Vacant');
-  const dnrRooms = activePatients.filter(p => p.codeStatus !== 'Full Code' || p.isComfortCareDNR);
-  const isolationRooms = activePatients.filter(p => p.isIsolation);
-  const restraintRooms = activePatients.filter(p => p.isInRestraints);
-  const sitterRooms = activePatients.filter(
-    p => p.assignedNurse && sitterNames.some(sitter => normalizeName(sitter) === normalizeName(p.assignedNurse || ''))
+
+  const patientMap = useMemo(() => new Map(patients.map(p => [p.id, p])), [patients]);
+  const staffNurses = useMemo(
+    () => nurses.filter(n => n.role === 'Staff Nurse' || n.role === 'Float Pool Nurse'),
+    [nurses],
   );
-  const nameSimilarityAlerts = (() => {
+  const sitterNames = useMemo(
+    () => nurses.filter(n => n.role === 'Sitter').map(n => n.name).filter(Boolean),
+    [nurses],
+  );
+  const activePatients = useMemo(() => patients.filter(p => p.name !== 'Vacant'), [patients]);
+  const dnrRooms = useMemo(
+    () => activePatients.filter(p => p.codeStatus !== 'Full Code' || p.isComfortCareDNR),
+    [activePatients],
+  );
+  const isolationRooms = useMemo(
+    () => activePatients.filter(p => p.isIsolation),
+    [activePatients],
+  );
+  const restraintRooms = useMemo(
+    () => activePatients.filter(p => p.isInRestraints),
+    [activePatients],
+  );
+  const sitterRooms = useMemo(
+    () => activePatients.filter(
+      p => p.assignedNurse && sitterNames.some(sitter => normalizeName(sitter) === normalizeName(p.assignedNurse || '')),
+    ),
+    [activePatients, sitterNames],
+  );
+  const nameSimilarityAlerts = useMemo(() => {
     const matches: string[] = [];
     for (let i = 0; i < activePatients.length; i++) {
       for (let j = i + 1; j < activePatients.length; j++) {
@@ -100,187 +118,205 @@ const PrintableAssignments: React.FC<PrintableAssignmentsProps> = ({
       }
     }
     return matches;
-  })();
+  }, [activePatients]);
+
   const topRowNurses = staffNurses.slice(0, Math.ceil(staffNurses.length / 2));
   const secondRowNurses = staffNurses.slice(Math.ceil(staffNurses.length / 2));
 
-  /* Off-screen (not display:none) so cloned print HTML is visible in the print window before Tailwind CDN runs */
+  const renderPatientRows = (nurse: Nurse) =>
+    nurse.assignedPatientIds.map((patientId, idx) => {
+      const patient = patientId ? patientMap.get(patientId) : null;
+      if (!patient) {
+        return <div key={`empty-${nurse.id}-${idx}`} className="uv-print-empty-slot" />;
+      }
+      const activeAlerts = alertIcons.filter(alert => patient[alert.key]);
+      const isolationType = getIsolationType(patient);
+      return (
+        <div key={`${nurse.id}-${patient.id}`} className="uv-print-patient-row">
+          <span className="uv-print-patient-room">{patient.roomDesignation}</span>
+          <div className="uv-print-patient-icons">
+            {isolationType && (
+              <span className="uv-print-isolation-badge">
+                <ShieldAlert className="h-2.5 w-2.5" />
+                {isolationType}
+              </span>
+            )}
+            {patient.isInRestraints && <Ban className="h-3 w-3" aria-label="Restraints" />}
+            {activeAlerts.map(({ Icon, label }) => (
+              <Icon key={`${patient.id}-${label}`} className="h-3 w-3" aria-label={label} />
+            ))}
+          </div>
+        </div>
+      );
+    });
+
+  const renderNurseRow = (rowNurses: Nurse[], keyPrefix: string) => (
+    <div
+      className="uv-print-nurse-row"
+      style={{ gridTemplateColumns: `repeat(${Math.max(1, rowNurses.length)}, minmax(0, 1fr))` }}
+    >
+      {rowNurses.map(nurse => (
+        <div key={`${keyPrefix}-${nurse.id}`} className="uv-print-nurse-card page-break-inside-avoid">
+          <h3>{nurse.name}</h3>
+          <p className="uv-print-spectra">{nurse.spectra || 'No Spectra'}</p>
+          <div>{renderPatientRows(nurse)}</div>
+        </div>
+      ))}
+    </div>
+  );
+
+  const sectionRenderers: Record<AssignmentPrintSectionId, () => React.ReactNode> = {
+    header: () => (
+      <div className="uv-print-header">
+        <div className="uv-print-unit-name">{unitName}</div>
+        <div className="uv-print-header-meta">
+          <div>
+            <p>{date}</p>
+            <p>{shift}</p>
+          </div>
+          <div className="uv-print-right">
+            <p><strong>Charge Nurse:</strong> {chargeNurseName}</p>
+            <p><strong>Spectra:</strong> x5501</p>
+          </div>
+        </div>
+      </div>
+    ),
+    nurseBlocks: () => (
+      <>
+        {renderNurseRow(topRowNurses, 'top')}
+        {secondRowNurses.length > 0 && renderNurseRow(secondRowNurses, 'bottom')}
+      </>
+    ),
+    techBlocks: () => (
+      <div className="uv-print-tech-panel page-break-inside-avoid">
+        <h3>Patient Care Techs</h3>
+        <div className="uv-print-pct-row">
+          {techs.map(tech => (
+            <div key={tech.id} className="uv-print-pct-card">
+              <p className="uv-print-pct-name">{tech.name}</p>
+              <p>{tech.spectra || 'No Spectra'}</p>
+              <p>{tech.assignmentGroup || 'No Group'}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    ),
+    unitStats: () => (
+      <div className="uv-print-sidebar-panel page-break-inside-avoid">
+        <h3>Unit Stats / Alerts</h3>
+        <div className="uv-print-stats-block">
+          <p><strong>Total Active Patients:</strong> {activePatients.length}</p>
+          <p><strong>Sitters:</strong> {sitterNames.length}</p>
+          <p><strong>Sitter Rooms:</strong> {sitterRooms.map(p => p.roomDesignation).join(', ') || 'None'}</p>
+        </div>
+        <div className="uv-print-stats-block">
+          <p className="uv-print-stats-title">Name Similarity Alerts</p>
+          {nameSimilarityAlerts.length === 0 ? (
+            <p>None</p>
+          ) : (
+            <ul className="uv-print-stats-list">
+              {nameSimilarityAlerts.map((alert, idx) => (
+                <li key={`name-alert-${idx}`}>{alert}</li>
+              ))}
+            </ul>
+          )}
+        </div>
+        <div className="uv-print-stats-block">
+          <p className="uv-print-stats-title">DNR/DNI Rooms</p>
+          <p>{dnrRooms.map(p => p.roomDesignation).join(', ') || 'None'}</p>
+        </div>
+        <div className="uv-print-stats-block">
+          <p className="uv-print-stats-title">Isolation Rooms</p>
+          <ul className="uv-print-stats-list">
+            {isolationRooms.length === 0 ? (
+              <li>None</li>
+            ) : (
+              isolationRooms.map(p => (
+                <li key={`iso-${p.id}`}>
+                  {p.roomDesignation} ({getIsolationType(p)})
+                </li>
+              ))
+            )}
+          </ul>
+        </div>
+        <div className="uv-print-stats-block">
+          <p className="uv-print-stats-title">Restraint Rooms</p>
+          <ul className="uv-print-stats-list">
+            {restraintRooms.length === 0 ? (
+              <li>None</li>
+            ) : (
+              restraintRooms.map(p => (
+                <li key={`rst-${p.id}`}>{p.roomDesignation}</li>
+              ))
+            )}
+          </ul>
+        </div>
+      </div>
+    ),
+    legend: () => (
+      <div className="uv-print-legend page-break-inside-avoid">
+        <p className="uv-print-stats-title">Legend</p>
+        <div className="uv-print-legend-items">
+          <span className="uv-print-legend-item"><ShieldAlert className="h-3 w-3" /> Isolation</span>
+          <span className="uv-print-legend-item"><Ban className="h-3 w-3" /> Restraints</span>
+          <span className="uv-print-legend-item"><HeartHandshake className="h-3 w-3" /> DNR/Comfort</span>
+          <span className="uv-print-legend-item"><UserRound className="h-3 w-3" /> Sitter-related</span>
+        </div>
+      </div>
+    ),
+  };
+
+  const enabledSections = sortEnabledSections(config);
+  const fullSections = enabledSections.filter(s => s.region === 'full');
+  const mainSections = enabledSections.filter(s => s.region === 'main');
+  const sidebarSections = enabledSections.filter(s => s.region === 'sidebar');
+
+  const renderSection = (id: AssignmentPrintSectionId) => (
+    <div key={id} data-print-section={id}>
+      {sectionRenderers[id]()}
+    </div>
+  );
+
+  const body = config.columnMode === 'single-column' ? (
+    <div className="uv-print-layout-single">
+      {enabledSections.map(s => renderSection(s.id))}
+    </div>
+  ) : (
+    <>
+      {fullSections.map(s => renderSection(s.id))}
+      {(mainSections.length > 0 || sidebarSections.length > 0) && (
+        <div className="uv-print-layout-two uv-print-assignments-layout">
+          <div className="uv-print-main">
+            {mainSections.map(s => renderSection(s.id))}
+          </div>
+          {sidebarSections.length > 0 && (
+            <div className="uv-print-sidebar">
+              {sidebarSections.map(s => renderSection(s.id))}
+            </div>
+          )}
+        </div>
+      )}
+    </>
+  );
+
   return (
     <div
-      id="printable-assignments-report"
-      className="text-black font-sans p-4 text-[11px]"
-      aria-hidden="true"
-      style={{
-        position: 'absolute',
-        left: '-9999px',
-        top: 0,
-        width: '8.5in',
-        maxWidth: '100vw',
-      }}
+      id={previewMode ? undefined : 'printable-assignments-report'}
+      className="uv-print-root"
+      aria-hidden={previewMode ? undefined : 'true'}
+      style={
+        previewMode
+          ? { width: '100%', maxWidth: '8.5in', margin: '0 auto', background: '#fff', color: '#000' }
+          : {
+              position: 'absolute',
+              left: '-9999px',
+              top: 0,
+              width: '8.5in',
+              maxWidth: '100vw',
+            }
+      }
     >
-      <div className="report-header relative mb-4">
-        <div className="unit-name">{unitName}</div>
-        <div className="flex justify-between w-full">
-            <div>
-              <p>{date}</p>
-              <p>{shift}</p>
-            </div>
-            <div>
-              <p className="text-right"><strong>Charge Nurse:</strong> {chargeNurseName}</p>
-              <p className="text-right"><strong>Spectra:</strong> x5501</p>
-            </div>
-        </div>
-      </div>
-      
-      <div className="grid grid-cols-[1fr_18rem] gap-3 uv-print-assignments-layout">
-        <div className="space-y-3">
-          <div className="grid gap-2 uv-print-nurse-row" style={{ gridTemplateColumns: `repeat(${Math.max(1, topRowNurses.length)}, minmax(0, 1fr))` }}>
-            {topRowNurses.map(nurse => (
-              <div key={nurse.id} className="border border-black p-2 flex flex-col">
-                <h3 className="font-bold text-center border-b border-black pb-1 mb-1">{nurse.name}</h3>
-                <p className="text-center text-[10px] mb-2">{nurse.spectra || 'No Spectra'}</p>
-                <div className="space-y-1">
-                  {nurse.assignedPatientIds.map((patientId, idx) => {
-                    const patient = patientId ? patientMap.get(patientId) : null;
-                    if (!patient) return <div key={`empty-top-${nurse.id}-${idx}`} className="h-5 border-b border-dotted border-black/20" />;
-                    const activeAlerts = alertIcons.filter(alert => patient[alert.key]);
-                    const isolationType = getIsolationType(patient);
-                    return (
-                      <div key={`${nurse.id}-${patient.id}`} className="flex justify-between items-center">
-                        <span className="font-semibold">{patient.roomDesignation}</span>
-                        <div className="flex items-center gap-1">
-                          {isolationType && (
-                            <span className="inline-flex items-center gap-0.5 border border-black rounded px-1 text-[9px]">
-                              <ShieldAlert className="h-2.5 w-2.5" />
-                              {isolationType}
-                            </span>
-                          )}
-                          {patient.isInRestraints && <Ban className="h-3 w-3" aria-label="Restraints" />}
-                          {activeAlerts.map(({ Icon, label }) => <Icon key={`${patient.id}-${label}`} className="h-3 w-3" aria-label={label} />)}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="grid gap-2 uv-print-nurse-row" style={{ gridTemplateColumns: `repeat(${Math.max(1, secondRowNurses.length)}, minmax(0, 1fr))` }}>
-            {secondRowNurses.map(nurse => (
-              <div key={nurse.id} className="border border-black p-2 flex flex-col">
-                <h3 className="font-bold text-center border-b border-black pb-1 mb-1">{nurse.name}</h3>
-                <p className="text-center text-[10px] mb-2">{nurse.spectra || 'No Spectra'}</p>
-                <div className="space-y-1">
-                  {nurse.assignedPatientIds.map((patientId, idx) => {
-                    const patient = patientId ? patientMap.get(patientId) : null;
-                    if (!patient) return <div key={`empty-bottom-${nurse.id}-${idx}`} className="h-5 border-b border-dotted border-black/20" />;
-                    const activeAlerts = alertIcons.filter(alert => patient[alert.key]);
-                    const isolationType = getIsolationType(patient);
-                    return (
-                      <div key={`${nurse.id}-${patient.id}`} className="flex justify-between items-center">
-                        <span className="font-semibold">{patient.roomDesignation}</span>
-                        <div className="flex items-center gap-1">
-                          {isolationType && (
-                            <span className="inline-flex items-center gap-0.5 border border-black rounded px-1 text-[9px]">
-                              <ShieldAlert className="h-2.5 w-2.5" />
-                              {isolationType}
-                            </span>
-                          )}
-                          {patient.isInRestraints && <Ban className="h-3 w-3" aria-label="Restraints" />}
-                          {activeAlerts.map(({ Icon, label }) => <Icon key={`${patient.id}-${label}`} className="h-3 w-3" aria-label={label} />)}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="border border-black p-2">
-            <h3 className="font-bold text-center border-b border-black pb-1 mb-2">Patient Care Techs</h3>
-            <div className="grid grid-cols-3 gap-2 uv-print-pct-row">
-              {techs.map(tech => (
-                <div key={tech.id} className="text-sm border border-black/30 rounded p-1">
-                  <p className="font-bold">{tech.name}</p>
-                  <p className="text-[10px]">{tech.spectra || 'No Spectra'}</p>
-                  <p className="text-[10px]">{tech.assignmentGroup || 'No Group'}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <div className="border border-black p-2 space-y-3">
-          <h3 className="font-bold text-center border-b border-black pb-1">Unit Stats / Alerts</h3>
-          <div>
-            <p><strong>Total Active Patients:</strong> {activePatients.length}</p>
-            <p><strong>Sitters:</strong> {sitterNames.length}</p>
-            <p><strong>Sitter Rooms:</strong> {sitterRooms.map(p => p.roomDesignation).join(', ') || 'None'}</p>
-          </div>
-
-          <div>
-            <p className="font-semibold">Name Similarity Alerts</p>
-            {nameSimilarityAlerts.length === 0 ? (
-              <p>None</p>
-            ) : (
-              <ul className="list-disc pl-4">
-                {nameSimilarityAlerts.map((alert, idx) => (
-                  <li key={`name-alert-${idx}`}>{alert}</li>
-                ))}
-              </ul>
-            )}
-          </div>
-
-          <div>
-            <p className="font-semibold">DNR/DNI Rooms</p>
-            <p>{dnrRooms.map(p => p.roomDesignation).join(', ') || 'None'}</p>
-          </div>
-
-          <div>
-            <p className="font-semibold">Isolation Rooms</p>
-            <ul className="list-disc pl-4">
-              {isolationRooms.length === 0 ? (
-                <li>None</li>
-              ) : (
-                isolationRooms.map(p => (
-                  <li key={`iso-${p.id}`} className="flex items-center gap-1">
-                    <ShieldAlert className="h-3 w-3" />
-                    <span>{p.roomDesignation} ({getIsolationType(p)})</span>
-                  </li>
-                ))
-              )}
-            </ul>
-          </div>
-
-          <div>
-            <p className="font-semibold">Restraint Rooms</p>
-            <ul className="list-disc pl-4">
-              {restraintRooms.length === 0 ? (
-                <li>None</li>
-              ) : (
-                restraintRooms.map(p => (
-                  <li key={`rst-${p.id}`} className="flex items-center gap-1">
-                    <Ban className="h-3 w-3" />
-                    <span>{p.roomDesignation}</span>
-                  </li>
-                ))
-              )}
-            </ul>
-          </div>
-
-          <div className="border-t border-black pt-2 text-[10px]">
-            <p className="font-semibold mb-1">Legend</p>
-            <div className="flex flex-wrap gap-2">
-              <span className="inline-flex items-center gap-1"><ShieldAlert className="h-3 w-3" /> Isolation</span>
-              <span className="inline-flex items-center gap-1"><Ban className="h-3 w-3" /> Restraints</span>
-              <span className="inline-flex items-center gap-1"><HeartHandshake className="h-3 w-3" /> DNR/Comfort</span>
-              <span className="inline-flex items-center gap-1"><UserRound className="h-3 w-3" /> Sitter-related</span>
-            </div>
-          </div>
-        </div>
-      </div>
+      {body}
     </div>
   );
 };

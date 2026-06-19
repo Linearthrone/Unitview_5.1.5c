@@ -1,6 +1,7 @@
 import * as patientService from './patientService';
 import * as nurseService from './nurseService';
 import type { LayoutName } from '../types/patient';
+import { getIsolationType, isOccupiedPatient } from '../lib/patient-clinical-helpers';
 
 export interface FacilityStatistics {
   unitCount: number;
@@ -14,10 +15,9 @@ export interface FacilityStatistics {
   totalTechs: number;
   patientsFallRisk: number;
   patientsIsolation: number;
-}
-
-function isOccupiedBed(name: string): boolean {
-  return name.trim() !== '' && name !== 'Vacant';
+  isolationContact: number;
+  isolationAirborne: number;
+  isolationDroplet: number;
 }
 
 function isSameCalendarDay(dateValue: Date, target: Date): boolean {
@@ -47,6 +47,9 @@ export async function computeFacilityStatistics(layoutNames: LayoutName[]): Prom
       totalTechs: 0,
       patientsFallRisk: 0,
       patientsIsolation: 0,
+      isolationContact: 0,
+      isolationAirborne: 0,
+      isolationDroplet: 0,
     };
   }
 
@@ -58,14 +61,23 @@ export async function computeFacilityStatistics(layoutNames: LayoutName[]): Prom
         nurseService.getTechs(layoutName),
       ]);
       const beds = patients.length;
-      const occupied = patients.filter((p) => isOccupiedBed(p.name)).length;
-      const fall = patients.filter((p) => isOccupiedBed(p.name) && p.isFallRisk).length;
-      const iso = patients.filter((p) => isOccupiedBed(p.name) && p.isIsolation).length;
-      const dischargesDueToday = patients.filter(
-        (p) => isOccupiedBed(p.name) && isSameCalendarDay(new Date(p.dischargeDate), today)
+      const occupiedPatients = patients.filter((p) => isOccupiedPatient(p.name));
+      const occupied = occupiedPatients.length;
+      const fall = occupiedPatients.filter((p) => p.isFallRisk).length;
+      const iso = occupiedPatients.filter((p) => p.isIsolation).length;
+      let isolationContact = 0;
+      let isolationAirborne = 0;
+      let isolationDroplet = 0;
+      for (const p of occupiedPatients) {
+        const type = getIsolationType(p);
+        if (type === 'Contact') isolationContact += 1;
+        else if (type === 'Airborne') isolationAirborne += 1;
+        else if (type === 'Droplet') isolationDroplet += 1;
+      }
+      const dischargesDueToday = occupiedPatients.filter((p) =>
+        isSameCalendarDay(new Date(p.dischargeDate), today)
       ).length;
-      const transfersFlagged = patients.filter((p) => {
-        if (!isOccupiedBed(p.name)) return false;
+      const transfersFlagged = occupiedPatients.filter((p) => {
         const transferText = `${p.chiefComplaint ?? ''} ${p.notes ?? ''}`.toLowerCase();
         return transferText.includes('transfer');
       }).length;
@@ -76,6 +88,9 @@ export async function computeFacilityStatistics(layoutNames: LayoutName[]): Prom
         techs: techs.length,
         fall,
         iso,
+        isolationContact,
+        isolationAirborne,
+        isolationDroplet,
         dischargesDueToday,
         transfersFlagged,
       };
@@ -98,5 +113,8 @@ export async function computeFacilityStatistics(layoutNames: LayoutName[]): Prom
     totalTechs: results.reduce((s, r) => s + r.techs, 0),
     patientsFallRisk: results.reduce((s, r) => s + r.fall, 0),
     patientsIsolation: results.reduce((s, r) => s + r.iso, 0),
+    isolationContact: results.reduce((s, r) => s + r.isolationContact, 0),
+    isolationAirborne: results.reduce((s, r) => s + r.isolationAirborne, 0),
+    isolationDroplet: results.reduce((s, r) => s + r.isolationDroplet, 0),
   };
 }

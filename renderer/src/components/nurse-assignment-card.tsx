@@ -4,11 +4,19 @@
 import React from 'react';
 import type { Nurse } from '@/types/nurse';
 import type { Patient } from '@/types/patient';
+import type { StaffRole } from '@/types/patient';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { User, Shield, Users, Trash2, XSquare } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { isStaffUnassigned } from '@/lib/roles';
+import AssignStaffMemberButton from '@/components/assign-staff-member-button';
+
+export interface NurseAssignContext {
+  nurseId: string;
+  role: StaffRole;
+}
 
 interface NurseAssignmentCardProps {
   nurse: Nurse;
@@ -16,8 +24,9 @@ interface NurseAssignmentCardProps {
   onDropOnSlot: (nurseId: string, slotIndex: number) => void;
   onClearAssignments: (nurseId: string) => void;
   onRemoveNurse: (nurseId: string) => void;
-  onQuickAddStaff?: (role: 'Staff Nurse' | 'Float Pool Nurse') => void;
+  onAssignStaff?: (context: NurseAssignContext) => void;
   isEffectivelyLocked: boolean;
+  isReadOnly?: boolean;
 }
 
 const NurseAssignmentCard: React.FC<NurseAssignmentCardProps> = ({
@@ -26,17 +35,19 @@ const NurseAssignmentCard: React.FC<NurseAssignmentCardProps> = ({
   onDropOnSlot,
   onClearAssignments,
   onRemoveNurse,
-  onQuickAddStaff,
-  isEffectivelyLocked
+  onAssignStaff,
+  isEffectivelyLocked,
+  isReadOnly = false,
 }) => {
   const patientMap = new Map(patients.map(p => [p.id, p]));
   const assignedCount = nurse.assignedPatientIds.filter(id => id !== null).length;
   const isAtCapacity = assignedCount >= nurse.assignedPatientIds.length;
-  const isUnassigned = nurse.name.trim().toLowerCase() === 'unassigned';
+  const unassigned = isStaffUnassigned(nurse.name);
+  const locked = isEffectivelyLocked || isReadOnly;
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
-    if (!isEffectivelyLocked && !isAtCapacity) {
+    if (!locked && !isAtCapacity) {
       e.dataTransfer.dropEffect = 'move';
     } else {
       e.dataTransfer.dropEffect = 'none';
@@ -45,22 +56,22 @@ const NurseAssignmentCard: React.FC<NurseAssignmentCardProps> = ({
 
   const handleDrop = (e: React.DragEvent<HTMLDivElement>, slotIndex: number) => {
     e.preventDefault();
-    if (isEffectivelyLocked || isAtCapacity) return;
+    if (locked || isAtCapacity) return;
     onDropOnSlot(nurse.id, slotIndex);
   };
   
   const handleRemoveClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (isEffectivelyLocked) return;
+    if (locked) return;
     onRemoveNurse(nurse.id);
-  }
+  };
 
   return (
     <Card className={cn(
-      "flex flex-col h-full shadow-lg bg-secondary/50 border-primary/50 relative",
-      !isEffectivelyLocked && "cursor-grab"
+      "flex flex-col h-full shadow-lg bg-card border-l-4 border-l-primary relative",
+      !locked && "cursor-grab"
     )}>
-       {!isEffectivelyLocked && (
+       {!locked && (
         <Button
           variant="ghost"
           size="icon"
@@ -75,6 +86,9 @@ const NurseAssignmentCard: React.FC<NurseAssignmentCardProps> = ({
         <CardTitle className="text-lg flex items-center gap-2">
           <User className="h-5 w-5 text-primary" />
           <span>{nurse.name}</span>
+          <span className="ml-auto text-xs font-normal text-muted-foreground tabular-nums">
+            {assignedCount}/{nurse.assignedPatientIds.length}
+          </span>
         </CardTitle>
         <div className="text-xs text-muted-foreground flex flex-col">
             <div className="flex items-center gap-2">
@@ -90,16 +104,11 @@ const NurseAssignmentCard: React.FC<NurseAssignmentCardProps> = ({
             <div className="pt-1">
               Capacity: {nurse.assignedPatientIds.length} patients
             </div>
-            {isUnassigned && onQuickAddStaff && (
-              <div className="pt-1">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => onQuickAddStaff(nurse.role as 'Staff Nurse' | 'Float Pool Nurse')}
-                >
-                  + Assign staff
-                </Button>
+            {!isReadOnly && unassigned && onAssignStaff && (
+              <div className="pt-2">
+                <AssignStaffMemberButton
+                  onClick={() => onAssignStaff({ nurseId: nurse.id, role: nurse.role })}
+                />
               </div>
             )}
         </div>
@@ -115,7 +124,7 @@ const NurseAssignmentCard: React.FC<NurseAssignmentCardProps> = ({
               onDrop={(e) => handleDrop(e, index)}
               className={cn(
                 "border-2 border-dashed rounded-md flex items-center justify-center text-sm font-semibold h-8",
-                isEffectivelyLocked ? "border-gray-400" : "border-primary/60 hover:bg-primary/10",
+                locked ? "border-gray-400" : "border-primary/60 hover:bg-primary/10",
                 !patient && isAtCapacity && "opacity-60 border-muted-foreground/50 bg-muted/20",
                 patient ? "border-solid bg-card" : ""
               )}
@@ -125,18 +134,20 @@ const NurseAssignmentCard: React.FC<NurseAssignmentCardProps> = ({
           );
         })}
       </CardContent>
-      <CardFooter className="p-2 border-t">
-        <Button
-          variant="destructive"
-          size="sm"
-          className="w-full"
-          onClick={() => onClearAssignments(nurse.id)}
-          disabled={isEffectivelyLocked}
-        >
-          <Trash2 className="mr-2 h-4 w-4" />
-          Clear Assignments
-        </Button>
-      </CardFooter>
+      {!isReadOnly && (
+        <CardFooter className="p-2 border-t">
+          <Button
+            variant="destructive"
+            size="sm"
+            className="w-full"
+            onClick={() => onClearAssignments(nurse.id)}
+            disabled={locked}
+          >
+            <Trash2 className="mr-2 h-4 w-4" />
+            Clear Assignments
+          </Button>
+        </CardFooter>
+      )}
     </Card>
   );
 };
