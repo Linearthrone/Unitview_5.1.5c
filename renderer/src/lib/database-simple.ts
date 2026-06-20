@@ -5,6 +5,8 @@ import type { Patient, LayoutName, UserPreferences, AssignmentSet, UnitLayoutMet
 import type { AssignmentPrintLayoutConfig } from '../types/assignment-print-layout';
 import type { Nurse, PatientCareTech, Spectra } from '../types/nurse';
 import type { User, UnitSettings } from '../types/auth';
+import type { FacilityProfile } from '../types/facility';
+import { defaultFacilityProfile } from '../types/facility';
 import { getConfiguredDataSource } from './data-source';
 
 // Stored rows include layoutName so one array can hold all layouts.
@@ -28,6 +30,7 @@ interface DatabaseSchema {
   users: User[];
   passwords: { [employeeNumber: string]: string };
   unit_settings: UnitSettings[];
+  facility_profile: FacilityProfile;
   global_theme: 'light' | 'dark' | 'blue' | 'green' | 'purple';
   action_history: any[];
   history_index: number;
@@ -47,6 +50,7 @@ export class SimpleDatabase {
     users: [],
     passwords: {},
     unit_settings: [],
+    facility_profile: { ...defaultFacilityProfile },
     global_theme: 'light',
     action_history: [],
     history_index: -1,
@@ -92,6 +96,7 @@ export class SimpleDatabase {
         if (!this.data.users) this.data.users = [];
         if (!this.data.passwords) this.data.passwords = {};
         if (!this.data.unit_settings) this.data.unit_settings = [];
+        if (!this.data.facility_profile) this.data.facility_profile = { ...defaultFacilityProfile };
         if (!this.data.global_theme) this.data.global_theme = 'light';
         if (!this.data.action_history) this.data.action_history = [];
         if (!this.data.history_index) this.data.history_index = -1;
@@ -502,6 +507,15 @@ export class SimpleDatabase {
       this.data.unit_settings = this.data.unit_settings.filter(s => s.id !== id);
       this.saveToLocalStorage();
     }
+  }
+
+  getFacilityProfile(): FacilityProfile {
+    return this.data.facility_profile ?? { ...defaultFacilityProfile };
+  }
+
+  saveFacilityProfile(profile: FacilityProfile): void {
+    this.data.facility_profile = profile;
+    this.saveToLocalStorage();
   }
 
   // Export/Import

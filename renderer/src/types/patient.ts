@@ -24,6 +24,10 @@ export interface Patient {
   codeStatus: CodeStatus;
   orientationStatus: OrientationStatus;
   assignedNurse?: string;
+  /** Nurse assigned at end of previous shift / last save snapshot. */
+  priorShiftNurse?: string;
+  /** PCT assigned at end of previous shift / last save snapshot. */
+  priorShiftTech?: string;
   isFallRisk: boolean;
   isSeizureRisk: boolean;
   isAspirationRisk: boolean;

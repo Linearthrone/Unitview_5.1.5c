@@ -24,13 +24,15 @@ import {
 import { User, defaultPasswords } from '../types/auth';
 import { authService } from '../services/authService';
 import { APP_ROLES, formatAppRoleLabel, type AppRole } from '@/lib/roles';
+import FacilitySettingsForm from './facility-settings-form';
 
 interface AdminDashboardProps {
   onLogout: () => void;
   onBackToLogin: () => void;
+  onBackToFacility?: () => void;
 }
 
-export default function AdminDashboard({ onLogout, onBackToLogin }: AdminDashboardProps) {
+export default function AdminDashboard({ onLogout, onBackToLogin, onBackToFacility }: AdminDashboardProps) {
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -212,6 +214,11 @@ export default function AdminDashboard({ onLogout, onBackToLogin }: AdminDashboa
               </div>
             </div>
             <div className="flex space-x-2">
+              {onBackToFacility && (
+                <Button variant="default" onClick={onBackToFacility}>
+                  Facility dashboard
+                </Button>
+              )}
               <Button variant="outline" onClick={onBackToLogin}>
                 Back to Login
               </Button>
@@ -225,6 +232,8 @@ export default function AdminDashboard({ onLogout, onBackToLogin }: AdminDashboa
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+        <FacilitySettingsForm />
+
         <Card>
           <CardHeader>
             <CardTitle>Demo credentials</CardTitle>

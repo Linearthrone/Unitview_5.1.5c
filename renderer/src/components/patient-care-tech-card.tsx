@@ -9,7 +9,7 @@ import type { PatientCareTech } from '@/types/nurse';
 import type { StaffRole } from '@/types/patient';
 import { cn } from '@/lib/utils';
 import { isStaffUnassigned } from '@/lib/roles';
-import AssignStaffMemberButton from '@/components/assign-staff-member-button';
+import UnassignedStaffNameButton from '@/components/unassigned-staff-name-button';
 
 export interface TechAssignContext {
   techId: string;
@@ -58,11 +58,19 @@ const PatientCareTechCard: React.FC<PatientCareTechCardProps> = ({
       )}
       <CardHeader className="p-2 pr-8">
         <CardTitle className="text-base flex items-center justify-between gap-2">
-          <div className="flex items-center gap-1">
-            <Wrench className="h-4 w-4" />
-            <span>{tech.name}</span>
+          <div className="flex items-center gap-1 min-w-0">
+            <Wrench className="h-4 w-4 shrink-0" />
+            {!isReadOnly && unassigned && onAssignStaff ? (
+              <UnassignedStaffNameButton
+                name={tech.name}
+                onAssign={() => onAssignStaff({ techId: tech.id, role: 'Patient Care Tech' })}
+                className="text-base font-semibold truncate"
+              />
+            ) : (
+              <span className="truncate">{tech.name}</span>
+            )}
           </div>
-          <span className="text-xs font-normal">{tech.spectra}</span>
+          <span className="text-xs font-normal shrink-0">{tech.spectra}</span>
         </CardTitle>
       </CardHeader>
       <CardContent className="p-2 flex-grow flex flex-col justify-center items-center text-center">
@@ -70,12 +78,6 @@ const PatientCareTechCard: React.FC<PatientCareTechCardProps> = ({
             <Users className="h-4 w-4" />
             <span className="font-bold text-sm">{tech.assignmentGroup || 'Unassigned'}</span>
         </div>
-        {!isReadOnly && unassigned && onAssignStaff && (
-          <AssignStaffMemberButton
-            className="mt-2"
-            onClick={() => onAssignStaff({ techId: tech.id, role: 'Patient Care Tech' })}
-          />
-        )}
       </CardContent>
     </Card>
   );

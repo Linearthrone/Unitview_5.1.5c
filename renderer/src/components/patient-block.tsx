@@ -35,6 +35,7 @@ import {
   type LucideIcon
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { isPatientNurseAssigned } from '@/lib/nurse-assignment-sync';
 
 interface AlertDisplayInfo {
   IconComponent: LucideIcon;
@@ -201,7 +202,7 @@ const PatientBlock: React.FC<PatientBlockProps> = ({
           className={cn(
             "relative flex flex-col h-full shadow-lg hover:shadow-xl transition-shadow duration-200",
             isBlocked ? "cursor-not-allowed bg-black dark:bg-gray-900 border-gray-700" : "cursor-pointer bg-card border-border",
-            !isBlocked && !!patient.assignedNurse && "opacity-70",
+            !isBlocked && isPatientNurseAssigned(patient.assignedNurse) && "opacity-70",
             isDragging ? "opacity-50 ring-2 ring-primary" : ""
           )}
           data-patient-id={patient.id}
@@ -254,7 +255,7 @@ const PatientBlock: React.FC<PatientBlockProps> = ({
                       </Badge>
                     )}
                 </div>
-                {canSeePatientIdentifiers && patient.assignedNurse && (
+                {canSeePatientIdentifiers && isPatientNurseAssigned(patient.assignedNurse) && (
                   <div className="text-center text-xs font-medium text-card-foreground/90 pt-1">
                     {patient.assignedNurse}
                   </div>
@@ -307,7 +308,7 @@ const PatientBlock: React.FC<PatientBlockProps> = ({
 
           {!isVacant && !isBlocked && (
             <div className="absolute bottom-1 right-2">
-              {patient.assignedNurse ? (
+              {isPatientNurseAssigned(patient.assignedNurse) ? (
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>

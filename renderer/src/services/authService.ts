@@ -15,17 +15,21 @@ class AuthService {
     this.db = await getDb();
     const database = this.requireDb();
 
-    // Initialize default users if none exist
-    const existingUsers = database.getUsers();
-    if (existingUsers.length === 0) {
-      defaultUsers.forEach(user => {
+    // Seed default users — merge any missing demo accounts (e.g. wall added after first install)
+    const existingEmployeeNumbers = new Set(
+      database.getUsers().map((user) => user.employeeNumber),
+    );
+    defaultUsers.forEach((user) => {
+      if (!existingEmployeeNumbers.has(user.employeeNumber)) {
         database.saveUser(user);
-      });
-    }
+      }
+    });
 
-    // Initialize default passwords
+    // Ensure demo passwords exist and match defaults for reference accounts
     Object.entries(defaultPasswords).forEach(([employeeNumber, password]) => {
-      database.savePassword(employeeNumber, password);
+      if (database.getPassword(employeeNumber) !== password) {
+        database.savePassword(employeeNumber, password);
+      }
     });
   }
 

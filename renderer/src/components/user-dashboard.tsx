@@ -22,6 +22,7 @@ import {
   ChevronDown,
   ChevronUp,
   LogOut,
+  Shield,
   Activity,
 } from 'lucide-react';
 import { User, UnitSettings } from '../types/auth';
@@ -49,9 +50,10 @@ interface UserDashboardProps {
   user: User;
   onLogout: () => void;
   onEnterUnit: (unitName: string) => void | Promise<void>;
+  onOpenUserManagement?: () => void;
 }
 
-export default function UserDashboard({ user, onLogout, onEnterUnit }: UserDashboardProps) {
+export default function UserDashboard({ user, onLogout, onEnterUnit, onOpenUserManagement }: UserDashboardProps) {
   const roleCaps = getRoleCapabilities(user.role, user.appRole);
   const [units, setUnits] = useState<UnitSettings[]>([]);
   const [selectedUnit, setSelectedUnit] = useState('');
@@ -272,6 +274,12 @@ export default function UserDashboard({ user, onLogout, onEnterUnit }: UserDashb
                 Role:{' '}
                 <span className="font-medium text-foreground">{formatAppRoleLabel(user.role, user.appRole)}</span>
               </span>
+              {roleCaps.isAdmin && onOpenUserManagement && (
+                <Button variant="outline" size="sm" onClick={onOpenUserManagement}>
+                  <Shield className="w-4 h-4 mr-2" />
+                  Manage users
+                </Button>
+              )}
               <Button variant="ghost" size="icon" onClick={() => setScreen('settings')} aria-label="Settings">
                 <Settings className="w-5 h-5" />
               </Button>
@@ -400,6 +408,33 @@ export default function UserDashboard({ user, onLogout, onEnterUnit }: UserDashb
           )}
         </section>
 
+        {roleCaps.isAdmin && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <Shield className="w-5 h-5 mr-2" />
+                Facility administration
+              </CardTitle>
+              <CardDescription>
+                Create and configure units for this facility. Room layout and mock data tools are also available
+                inside a unit under Admin.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-wrap gap-2">
+              <Button variant="default" onClick={() => setIsCreateUnitOpen(true)}>
+                <Plus className="w-4 h-4 mr-2" />
+                Create new unit
+              </Button>
+              {onOpenUserManagement && (
+                <Button variant="outline" onClick={onOpenUserManagement}>
+                  <Users className="w-4 h-4 mr-2" />
+                  Manage users
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
         {/* Unit selection */}
         <Card>
           <CardHeader>
@@ -437,22 +472,16 @@ export default function UserDashboard({ user, onLogout, onEnterUnit }: UserDashb
                 Enter unit
                 <ChevronRight className="w-4 h-4 ml-2" />
               </Button>
-
-              {roleCaps.isAdmin && (
-                <>
-                  <Button variant="outline" onClick={() => setIsCreateUnitOpen(true)}>
-                    <Plus className="w-4 h-4 mr-2" />
-                    New unit
-                  </Button>
-                  <CreateUnitDialog
-                    open={isCreateUnitOpen}
-                    onOpenChange={setIsCreateUnitOpen}
-                    onSave={handleCreateUnitWizard}
-                    existingLayoutNames={availableLayoutNames}
-                  />
-                </>
-              )}
             </div>
+
+            {roleCaps.isAdmin && (
+              <CreateUnitDialog
+                open={isCreateUnitOpen}
+                onOpenChange={setIsCreateUnitOpen}
+                onSave={handleCreateUnitWizard}
+                existingLayoutNames={availableLayoutNames}
+              />
+            )}
 
             {sortedUnits.length > 0 && (
               <div className="mt-4">

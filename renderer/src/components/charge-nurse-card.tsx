@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/context-menu";
 import type { StaffRole } from '@/types/patient';
 import { isStaffUnassigned } from '@/lib/roles';
-import AssignStaffMemberButton from '@/components/assign-staff-member-button';
+import UnassignedStaffNameButton from '@/components/unassigned-staff-name-button';
 
 interface ChargeNurseCardProps {
   name: string;
@@ -43,7 +43,15 @@ const ChargeNurseCard: React.FC<ChargeNurseCardProps> = ({
           <CardContent className="p-3 flex-grow flex flex-col justify-center items-center text-center">
             <div className="space-y-2">
                 <div>
-                    <p className="text-xl font-bold">{name}</p>
+                    {!isReadOnly && unassigned ? (
+                      <UnassignedStaffNameButton
+                        name={name}
+                        onAssign={() => onAssign('Charge Nurse')}
+                        className="text-xl font-bold"
+                      />
+                    ) : (
+                      <p className="text-xl font-bold">{name}</p>
+                    )}
                 </div>
                  {!unassigned && (
                      <div>
@@ -52,9 +60,6 @@ const ChargeNurseCard: React.FC<ChargeNurseCardProps> = ({
                             <span>x5501</span>
                         </p>
                     </div>
-                )}
-                {!isReadOnly && unassigned && (
-                  <AssignStaffMemberButton onClick={() => onAssign('Charge Nurse')} />
                 )}
             </div>
           </CardContent>

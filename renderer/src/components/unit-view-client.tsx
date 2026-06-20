@@ -25,7 +25,8 @@ import AssignmentPrintLayoutDialog from './assignment-print-layout-dialog';
 import QuickNoteDialog from './quick-note-dialog';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from './ui/sheet';
 import { Button } from './ui/button';
-import { Plus, LogOut, Radio } from 'lucide-react';
+import { ChevronLeft, Plus, LogOut, Radio } from 'lucide-react';
+import { cn } from '@/lib/utils';
 // Hooks and utils
 import { useToast } from "../hooks/use-toast";
 import { NUM_ROWS_GRID } from '../lib/grid-utils';
@@ -51,7 +52,16 @@ import * as printLayoutService from '../services/printLayoutService';
 import { getDb } from '../lib/database-simple';
 import { openPrintWindowWithElectronFallback } from '../lib/print-utils';
 import { createDefaultAssignmentPrintLayout, type AssignmentPrintLayoutConfig } from '../types/assignment-print-layout';
-import { syncPatientsAssignedNurseFromNurses } from '../lib/nurse-assignment-sync';
+import { syncPatientsAssignedNurseFromNurses, applyDropOnNurseSlot } from '../lib/nurse-assignment-sync';
+import {
+  clampNurseCardRowSpan,
+  getEffectiveNurseCardRowSpan,
+  getNurseRowSpan,
+  isAssignableNurseRole,
+} from '../lib/nurse-card-layout';
+import { snapshotPriorShiftStaff } from '../lib/patient-staff-assignments';
+import { defaultFacilityProfile, getFacilityProfile } from '../services/facilityService';
+import type { FacilityProfile } from '../types/facility';
 import { findCompactEmptySlot, getAvailableSpectra } from '../services/nurseHelpers';
 
 
@@ -139,6 +149,7 @@ export default function UnitViewClient({
   const [isOncomingShiftSetup, setIsOncomingShiftSetup] = useState(false);
   const [quickNotePatient, setQuickNotePatient] = useState<Patient | null>(null);
   const [isSpectraMobileOpen, setIsSpectraMobileOpen] = useState(false);
+  const [isSpectraPanelExpanded, setIsSpectraPanelExpanded] = useState(false);
   const [patientToDischarge, setPatientToDischarge] = useState<Patient | null>(null);
   const [patientToEditDesignation, setPatientToEditDesignation] = useState<Patient | null>(null);
   const [acknowledgedNameAlertSignatures, setAcknowledgedNameAlertSignatures] = useState<Set<string>>(
@@ -148,6 +159,15 @@ export default function UnitViewClient({
     () => createDefaultAssignmentPrintLayout(),
   );
   const [isPrintLayoutDialogOpen, setIsPrintLayoutDialogOpen] = useState(false);
+  const [facilityProfile, setFacilityProfile] = useState<FacilityProfile>(defaultFacilityProfile);
+
+  useEffect(() => {
+    void getFacilityProfile()
+      .then(setFacilityProfile)
+      .catch(() => {
+        // Keep default profile
+      });
+  }, []);
 
   useEffect(() => {
     setAcknowledgedNameAlertSignatures(new Set());
@@ -376,7 +396,14 @@ export default function UnitViewClient({
       const chargeNurseName = getChargeNurseName();
       const archivingOncoming = isOncomingShiftSetup;
       const nursesForArchive = archivingOncoming ? oncomingNurses : nurses;
-      await assignmentService.saveShiftAssignments(currentLayoutName, nursesForArchive, patients, chargeNurseName);
+      const snapshotPatients = snapshotPriorShiftStaff(patients, nursesForArchive, techs);
+      setPatients(snapshotPatients);
+      await assignmentService.saveShiftAssignments(
+        currentLayoutName,
+        nursesForArchive,
+        snapshotPatients,
+        chargeNurseName,
+      );
       setIsOncomingShiftSetup(false);
       toast({
         title: "Assignments Saved",
@@ -412,11 +439,12 @@ export default function UnitViewClient({
 
   const handleActivateOncomingShift = async () => {
     try {
+      const patientsWithPrior = snapshotPriorShiftStaff(patients, nurses, techs);
       await nurseService.saveOncomingNurses(currentLayoutName, oncomingNurses);
       await nurseService.activateOncomingShift(currentLayoutName);
       const promoted = await nurseService.getNurses(currentLayoutName);
       setNurses(promoted);
-      setPatients((prev) => syncPatientsAssignedNurseFromNurses(prev, promoted));
+      setPatients(syncPatientsAssignedNurseFromNurses(patientsWithPrior, promoted));
       const cleared = await nurseService.getOncomingNurses(currentLayoutName);
       setOncomingNurses(cleared);
       setIsOncomingShiftSetup(false);
@@ -727,6 +755,21 @@ export default function UnitViewClient({
     setIsAssignStaffDialogOpen(true);
   };
 
+  const handleResizeNurseCardRowSpan = useCallback((nurseId: string, nextRowSpan: number) => {
+    if (isEffectivelyLocked) return;
+    const rowSpan = clampNurseCardRowSpan(nextRowSpan);
+
+    setNurses((prevNurses) => {
+      const target = prevNurses.find((n) => n.id === nurseId);
+      if (!target || !isAssignableNurseRole(target.role)) return prevNurses;
+      if (getEffectiveNurseCardRowSpan(target) === rowSpan) return prevNurses;
+
+      return prevNurses.map((n) =>
+        n.id === nurseId ? { ...n, cardRowSpan: rowSpan } : n,
+      );
+    });
+  }, [isEffectivelyLocked]);
+
   const handleQuickAddStaff = (role: StaffRole) => {
     setQuickAddRole(role);
     setIsAddStaffMemberDialogOpen(true);
@@ -1007,7 +1050,7 @@ export default function UnitViewClient({
         const draggedNurse = newNurses.find(n => n.id === draggedNurseId);
         if (!draggedNurse) return prevNurses;
         
-        const cardHeight = (draggedNurse.role === 'Staff Nurse') ? 3 : 1;
+        const cardHeight = getNurseRowSpan(draggedNurse);
         const newRow = Math.min(targetRow, NUM_ROWS_GRID - (cardHeight - 1)); 
 
         const targetCells = [];
@@ -1020,7 +1063,7 @@ export default function UnitViewClient({
           if (nurse.id === draggedNurseId) return false;
           if (nurse.gridColumn !== targetCol) return false;
           
-          const otherCardHeight = (nurse.role === 'Staff Nurse') ? 3 : 1;
+          const otherCardHeight = getNurseRowSpan(nurse);
           const otherTop = nurse.gridRow;
           const otherBottom = nurse.gridRow + otherCardHeight -1;
 
@@ -1088,74 +1131,37 @@ export default function UnitViewClient({
 
   const handleDropOnNurseSlot = useCallback((targetNurseId: string, _slotIndex: number) => {
     if (!draggingPatientInfo) return;
-    const { id: draggedPatientId } = draggingPatientInfo;
+    const draggedPatientId = draggingPatientInfo.id;
+    const dropResultRef = { current: null as { nurses: Nurse[]; patients: Patient[] } | null };
 
-    // Use functional updates to ensure we have the latest state
-    setPatients(currentPatients => {
-      setNurses(currentNurses => {
-        const draggedPatient = currentPatients.find(p => p.id === draggedPatientId);
-        const targetNurse = currentNurses.find(n => n.id === targetNurseId);
-
-        if (!draggedPatient || !targetNurse) {
-          return currentNurses; // No change if patient or nurse not found
+    setPatients((currentPatients) => {
+      setNurses((currentNurses) => {
+        const result = applyDropOnNurseSlot(
+          currentPatients,
+          currentNurses,
+          draggedPatientId,
+          targetNurseId,
+        );
+        if (result) {
+          dropResultRef.current = result;
+          return result.nurses;
         }
-        
-        // 1. Get the list of all patients currently assigned to the target nurse
-        const currentAssignedIds = targetNurse.assignedPatientIds.filter(id => id !== null && id !== draggedPatientId);
-        
-        // 2. Add the newly dragged patient to this list
-        const newAssignedIds = [...currentAssignedIds, draggedPatientId];
-
-        // 3. Create a map of patients for easy lookup
-        const patientMap = new Map(currentPatients.map(p => [p.id, p]));
-
-        // 4. Sort the assigned IDs based on the patient's bed number
-        const sortedPatientIds = newAssignedIds.sort((idA, idB) => {
-          const patientA = patientMap.get(idA);
-          const patientB = patientMap.get(idB);
-          if (!patientA || !patientB) return 0;
-          return patientA.bedNumber - patientB.bedNumber;
-        });
-
-        // 5. Pad the array with nulls to fill configured nurse capacity
-        const nurseCapacity = Math.max(1, targetNurse.assignedPatientIds.length);
-        const finalPaddedIds = Array(nurseCapacity).fill(null);
-        sortedPatientIds.forEach((id, index) => {
-          if (index < nurseCapacity) {
-            finalPaddedIds[index] = id;
-          }
-        });
-
-        // 6. Update all nurses: remove the dragged patient from any other nurse and update the target nurse
-        const newNurses = currentNurses.map(nurse => {
-          if (nurse.id === targetNurseId) {
-            return { ...nurse, assignedPatientIds: finalPaddedIds };
-          }
-          // Remove the patient from any other nurse who might have had them assigned
-          const updatedIds = nurse.assignedPatientIds.map(id => (id === draggedPatientId ? null : id));
-          return { ...nurse, assignedPatientIds: updatedIds };
-        });
-
-        // 7. Update all patients to reflect their new nurse assignment
-        const newPatients = currentPatients.map(p => {
-          if (finalPaddedIds.includes(p.id)) {
-            return { ...p, assignedNurse: targetNurse.name };
-          }
-          if (p.assignedNurse === targetNurse.name && !finalPaddedIds.includes(p.id)) {
-            return { ...p, assignedNurse: undefined };
-          }
-          return p;
-        });
-        
-        // Set the new state for patients first, then nurses
-        setPatients(newPatients);
-        return newNurses;
+        return currentNurses;
       });
-      return currentPatients; // Return original patients for this updater, the inner one handles it
+      return dropResultRef.current?.patients ?? currentPatients;
     });
 
     setDraggingPatientInfo(null);
   }, [draggingPatientInfo]);
+
+  useEffect(() => {
+    if (!isInitialized) return;
+    setPatients((prev) => {
+      const synced = syncPatientsAssignedNurseFromNurses(prev, nurses);
+      if (synced.every((p, i) => p === prev[i])) return prev;
+      return synced;
+    });
+  }, [nurses, isInitialized]);
 
   const handleClearNurseAssignments = useCallback((nurseId: string) => {
     let newPatients = [...patients];
@@ -1329,6 +1335,7 @@ export default function UnitViewClient({
         onAddRoom={roleCaps.isAdmin ? () => setIsAddRoomDialogOpen(true) : undefined}
         onCreateUnit={roleCaps.isAdmin ? () => setIsCreateUnitDialogOpen(true) : undefined}
         onInsertMockData={roleCaps.isAdmin ? handleInsertMockData : undefined}
+        onSaveLayout={roleCaps.isAdmin ? handleOpenSaveDialog : undefined}
         onSaveAssignments={handleSaveAssignments}
         onSetupOncomingShift={roleCaps.isReadOnly ? undefined : handleSetupOncomingShift}
       />
@@ -1362,6 +1369,7 @@ export default function UnitViewClient({
               onAssignStaff={handleAssignStaff}
               onAssignNurse={handleAssignNurse}
               onAssignTech={handleAssignTech}
+              onResizeNurseCardRowSpan={handleResizeNurseCardRowSpan}
               onQuickAddStaff={handleQuickAddStaff}
               onRemoveStaff={handleRemoveStaff}
               onQuickNote={roleCaps.isReadOnly ? undefined : handleQuickNote}
@@ -1381,20 +1389,43 @@ export default function UnitViewClient({
         </div>
         )}
         </div>
-        <aside className="hidden lg:flex w-1/3 max-w-md min-w-[16rem] border-l shrink-0 flex-col min-h-0">
-          <SpectralinkDeviceTable
-            title="Spectra"
-            spectraPool={spectraPool}
-            nurses={nurses}
-            techs={techs}
-            onAssignDevice={handleAssignSpectraToStaff}
-            onUnassignDevice={handleUnassignSpectra}
-            onSetStatus={handleSetSpectraStatus}
-            onAddLog={handleAddSpectraLog}
-            onManageSpectra={roleCaps.canManageSpectra ? () => setIsManageSpectraDialogOpen(true) : undefined}
-            canManageSpectra={roleCaps.canManageSpectra}
-            canManageDeviceLogs={roleCaps.isAdmin}
-          />
+        <aside
+          className={cn(
+            "hidden lg:flex shrink-0 flex-col min-h-0 border-l bg-card transition-[width] duration-200 ease-in-out overflow-hidden",
+            isSpectraPanelExpanded ? "w-1/3 max-w-md min-w-[16rem]" : "w-9"
+          )}
+        >
+          {isSpectraPanelExpanded ? (
+            <SpectralinkDeviceTable
+              title="Spectra"
+              spectraPool={spectraPool}
+              nurses={nurses}
+              techs={techs}
+              onAssignDevice={handleAssignSpectraToStaff}
+              onUnassignDevice={handleUnassignSpectra}
+              onSetStatus={handleSetSpectraStatus}
+              onAddLog={handleAddSpectraLog}
+              onManageSpectra={roleCaps.canManageSpectra ? () => setIsManageSpectraDialogOpen(true) : undefined}
+              canManageSpectra={roleCaps.canManageSpectra}
+              canManageDeviceLogs={roleCaps.isAdmin}
+              onRequestCollapse={() => setIsSpectraPanelExpanded(false)}
+            />
+          ) : (
+            <button
+              type="button"
+              className="flex flex-col items-center justify-center gap-2 h-full w-full py-4 text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors"
+              onClick={() => setIsSpectraPanelExpanded(true)}
+              aria-label={`Expand Spectra panel (${spectraPool.length} devices)`}
+            >
+              <ChevronLeft className="h-4 w-4 shrink-0" />
+              <span className="text-[10px] font-semibold uppercase tracking-wider [writing-mode:vertical-rl] rotate-180">
+                Spectra
+              </span>
+              {spectraPool.length > 0 && (
+                <span className="text-[10px] font-medium tabular-nums">{spectraPool.length}</span>
+              )}
+            </button>
+          )}
         </aside>
         <Button
           type="button"
@@ -1440,7 +1471,11 @@ export default function UnitViewClient({
           </Button>
         )}
       </main>
-      <PrintableReport patients={patients} />
+      <PrintableReport
+        patients={patients}
+        facilityProfile={facilityProfile}
+        layoutConfig={assignmentPrintLayout}
+      />
       <PrintableAssignments 
         unitName={getFriendlyLayoutName(currentLayoutName)}
         chargeNurseName={getChargeNurseName()}
@@ -1448,9 +1483,12 @@ export default function UnitViewClient({
         techs={techs}
         patients={patients}
         layoutConfig={assignmentPrintLayout}
+        facilityProfile={facilityProfile}
       />
       <ReportSheet
         patient={selectedPatient}
+        nurses={nurses}
+        techs={techs}
         open={!!selectedPatient}
         onOpenChange={(isOpen) => {
           if (!isOpen) {
@@ -1566,10 +1604,11 @@ export default function UnitViewClient({
         techs={techs}
         patients={patients}
         initialConfig={assignmentPrintLayout}
+        facilityProfile={facilityProfile}
         onSave={handleSaveAssignmentPrintLayout}
-        onPrint={(config) => {
+        onPrint={(config, reportType) => {
           setAssignmentPrintLayout(config);
-          window.setTimeout(() => void handlePrint('assignments'), 50);
+          window.setTimeout(() => void handlePrint(reportType), 50);
         }}
       />
       <footer className="text-center py-2 px-4 text-xs text-muted-foreground border-t print-hide">

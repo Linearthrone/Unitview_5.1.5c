@@ -2,6 +2,7 @@
 import type { Nurse, PatientCareTech, Spectra } from '@/types/nurse';
 import type { Patient } from '@/types/patient';
 import { NUM_COLS_GRID, NUM_ROWS_GRID } from '@/lib/grid-utils';
+import { getEffectiveNurseCardRowSpan } from '@/lib/nurse-card-layout';
 
 // Utility to get available Spectra devices
 export function getAvailableSpectra(spectraPool: Spectra[], nurses: Nurse[], techs: PatientCareTech[]): Spectra[] {
@@ -32,7 +33,7 @@ export function findCompactEmptySlot(
 
     // Track staff positions separately
     nurses.forEach(n => {
-        const height = n.role === 'Staff Nurse' ? 3 : 1;
+        const height = getEffectiveNurseCardRowSpan(n);
         for (let i = 0; i < height; i++) {
             occupiedCells.add(`${n.gridRow + i}-${n.gridColumn}`);
             staffCells.add(`${n.gridRow + i}-${n.gridColumn}`);

@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/context-menu";
 import type { StaffRole } from '@/types/patient';
 import { isStaffUnassigned } from '@/lib/roles';
-import AssignStaffMemberButton from '@/components/assign-staff-member-button';
+import UnassignedStaffNameButton from '@/components/unassigned-staff-name-button';
 import { UserPlus } from 'lucide-react';
 
 interface UnitClerkCardProps {
@@ -45,8 +45,16 @@ const UnitClerkCard: React.FC<UnitClerkCardProps> = ({
             <div className="space-y-2">
                 <div>
                     <p className="font-bold text-lg flex items-center justify-center gap-2">
-                      <User className="h-4 w-4" />
-                      <span>{name}</span>
+                      <User className="h-4 w-4 shrink-0" />
+                      {!isReadOnly && unassigned ? (
+                        <UnassignedStaffNameButton
+                          name={name}
+                          onAssign={() => onAssign('Unit Clerk')}
+                          className="font-bold text-lg"
+                        />
+                      ) : (
+                        <span>{name}</span>
+                      )}
                     </p>
                 </div>
                  {!unassigned && (
@@ -57,9 +65,6 @@ const UnitClerkCard: React.FC<UnitClerkCardProps> = ({
                         </p>
                     </div>
                  )}
-                {!isReadOnly && unassigned && (
-                  <AssignStaffMemberButton onClick={() => onAssign('Unit Clerk')} />
-                )}
             </div>
           </CardContent>
         </Card>

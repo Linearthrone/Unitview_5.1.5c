@@ -21,6 +21,9 @@ import {
   type AssignmentPrintLayoutConfig,
   type AssignmentPrintSectionId,
 } from '@/types/assignment-print-layout';
+import type { FacilityProfile } from '@/types/facility';
+import FacilityPrintHeader from '@/components/facility-print-header';
+import { getPrintRootWidth } from '@/lib/print-styles';
 
 interface PrintableAssignmentsProps {
   unitName: string;
@@ -29,6 +32,7 @@ interface PrintableAssignmentsProps {
   techs: PatientCareTech[];
   patients: Patient[];
   layoutConfig?: AssignmentPrintLayoutConfig;
+  facilityProfile?: FacilityProfile;
   /** When true, render on-screen for preview (not off-screen). */
   previewMode?: boolean;
 }
@@ -58,11 +62,14 @@ const PrintableAssignments: React.FC<PrintableAssignmentsProps> = ({
   techs,
   patients,
   layoutConfig,
+  facilityProfile,
   previewMode = false,
 }) => {
   const [shift, setShift] = useState('');
   const [date, setDate] = useState('');
   const config = layoutConfig ?? createDefaultAssignmentPrintLayout();
+  const pageWidth = getPrintRootWidth(config.orientation);
+  const rootClassName = `uv-print-root uv-print-style-${config.stylePreset}`;
 
   useEffect(() => {
     const currentHour = new Date().getHours();
@@ -168,7 +175,12 @@ const PrintableAssignments: React.FC<PrintableAssignmentsProps> = ({
   const sectionRenderers: Record<AssignmentPrintSectionId, () => React.ReactNode> = {
     header: () => (
       <div className="uv-print-header">
-        <div className="uv-print-unit-name">{unitName}</div>
+        <FacilityPrintHeader
+          profile={facilityProfile ?? { name: unitName }}
+          subtitle={`${unitName} · ${shift}`}
+          className="text-black mb-2"
+          logoClassName="h-10"
+        />
         <div className="uv-print-header-meta">
           <div>
             <p>{date}</p>
@@ -302,16 +314,18 @@ const PrintableAssignments: React.FC<PrintableAssignmentsProps> = ({
   return (
     <div
       id={previewMode ? undefined : 'printable-assignments-report'}
-      className="uv-print-root"
+      className={rootClassName}
+      data-print-orientation={config.orientation}
+      data-print-style={config.stylePreset}
       aria-hidden={previewMode ? undefined : 'true'}
       style={
         previewMode
-          ? { width: '100%', maxWidth: '8.5in', margin: '0 auto', background: '#fff', color: '#000' }
+          ? { width: '100%', maxWidth: pageWidth, margin: '0 auto', background: '#fff', color: '#000' }
           : {
               position: 'absolute',
               left: '-9999px',
               top: 0,
-              width: '8.5in',
+              width: pageWidth,
               maxWidth: '100vw',
             }
       }

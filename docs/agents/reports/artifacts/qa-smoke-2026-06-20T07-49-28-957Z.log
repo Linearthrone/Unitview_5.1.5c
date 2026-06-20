@@ -1,0 +1,25 @@
+timestamp: 2026-06-20T07:49:35.031Z
+cwd: C:\Users\kurtw\StudioProjects\UnitView\Unitview_5.1.5c\renderer
+exit_code: 0
+
+
+--- stdout ---
+
+Running 1 test using 1 worker
+
+
+
+
+
+
+[1A[2K[1/1] smoke\qa-smoke.spec.ts:3:1 › QA smoke: startup/login/dashboard/menu and drag signal
+[1A[2K  1 passed (4.5s)
+
+
+--- stderr ---
+[1A[2K(node:3924) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[1A[2K[WebServer] [baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+[1A[2K(node:3924) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+

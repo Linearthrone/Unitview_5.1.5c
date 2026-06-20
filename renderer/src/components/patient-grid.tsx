@@ -14,6 +14,7 @@ import { Skeleton } from './ui/skeleton';
 import { Button } from './ui/button';
 import { cn } from '@/lib/utils';
 import { NUM_COLS_GRID, NUM_ROWS_GRID } from '@/lib/grid-utils';
+import { getEffectiveNurseCardRowSpan } from '@/lib/nurse-card-layout';
 
 const ZOOM_STEP = 0.08;
 const MIN_ZOOM_FLOOR = 0.2;
@@ -59,6 +60,7 @@ interface PatientGridProps {
   onAssignStaff: (role: StaffRole) => void;
   onAssignNurse?: (context: NurseAssignContext) => void;
   onAssignTech?: (context: TechAssignContext) => void;
+  onResizeNurseCardRowSpan?: (nurseId: string, rowSpan: number) => void;
   onQuickAddStaff?: (role: StaffRole) => void;
   onRemoveStaff: (role: StaffRole) => void;
   onQuickNote?: (patient: Patient) => void;
@@ -93,6 +95,7 @@ const PatientGrid: React.FC<PatientGridProps> = ({
   onAssignStaff,
   onAssignNurse,
   onAssignTech,
+  onResizeNurseCardRowSpan,
   onQuickAddStaff,
   onRemoveStaff,
   onDeleteRoom,
@@ -205,7 +208,7 @@ const PatientGrid: React.FC<PatientGridProps> = ({
   const occupiedCells = new Set<string>();
   
   nurses.forEach(nurse => {
-    const cardHeight = nurse.role === 'Staff Nurse' ? 3 : 1;
+    const cardHeight = getEffectiveNurseCardRowSpan(nurse);
     for (let i = 0; i < cardHeight; i++) {
         occupiedCells.add(`${nurse.gridRow + i}-${nurse.gridColumn}`);
     }
@@ -277,9 +280,9 @@ const PatientGrid: React.FC<PatientGridProps> = ({
     return (
       <div className="flex-grow flex overflow-auto p-2">
         <div
-          className="grid"
+          className="grid w-max"
           style={{
-            gridTemplateColumns: `repeat(${NUM_COLS_GRID}, minmax(12rem, 1fr))`,
+            gridTemplateColumns: `repeat(${NUM_COLS_GRID}, 12rem)`,
             gridTemplateRows: `repeat(${NUM_ROWS_GRID}, minmax(12rem, auto))`,
             alignContent: 'start',
             gap: '0.25rem',
@@ -330,6 +333,7 @@ const PatientGrid: React.FC<PatientGridProps> = ({
             onClearAssignments={onClearNurseAssignments}
             onRemoveNurse={onRemoveNurse}
             onAssignStaff={onAssignNurse}
+            onResizeCardRowSpan={onResizeNurseCardRowSpan}
             isEffectivelyLocked={isEffectivelyLocked}
             isReadOnly={isReadOnly}
           />
@@ -401,9 +405,9 @@ const PatientGrid: React.FC<PatientGridProps> = ({
           >
             <div
               ref={gridRef}
-              className="grid w-full"
+              className="grid w-max"
               style={{
-                gridTemplateColumns: `repeat(${NUM_COLS_GRID}, minmax(12rem, 1fr))`,
+                gridTemplateColumns: `repeat(${NUM_COLS_GRID}, 12rem)`,
                 gridTemplateRows: `repeat(${NUM_ROWS_GRID}, minmax(12rem, auto))`,
                 alignContent: 'start',
                 gap: '0.25rem',
@@ -424,7 +428,7 @@ const PatientGrid: React.FC<PatientGridProps> = ({
             style={{ 
               gridRowStart: nurse.gridRow, 
               gridColumnStart: nurse.gridColumn, 
-              gridRowEnd: nurse.role === 'Staff Nurse' ? 'span 3' : 'span 1'
+              gridRowEnd: `span ${getEffectiveNurseCardRowSpan(nurse)}`,
             }}
           >
             {renderNurseCard(nurse)}

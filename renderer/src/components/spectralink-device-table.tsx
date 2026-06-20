@@ -41,6 +41,10 @@ interface SpectralinkDeviceTableProps {
   canManageDeviceLogs?: boolean;
   collapsible?: boolean;
   defaultCollapsed?: boolean;
+  /** When set, header collapse control notifies the parent (e.g. sidebar handle-only mode). */
+  onRequestCollapse?: () => void;
+  /** Drop-device-on-staff grid columns (default 2; 3 on wide shift board). */
+  staffDropColumns?: 2 | 3;
 }
 
 export default function SpectralinkDeviceTable({
@@ -57,6 +61,8 @@ export default function SpectralinkDeviceTable({
   canManageDeviceLogs = false,
   collapsible = true,
   defaultCollapsed = false,
+  onRequestCollapse,
+  staffDropColumns = 2,
 }: SpectralinkDeviceTableProps) {
   const [draggingDeviceId, setDraggingDeviceId] = useState<string | null>(null);
   const [menuState, setMenuState] = useState<{ x: number; y: number; deviceId: string } | null>(null);
@@ -73,6 +79,15 @@ export default function SpectralinkDeviceTable({
         .filter((staff) => Boolean(staff.name && staff.name.trim())),
     [nurses, techs]
   );
+
+  const deviceByStaffName = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const device of spectraPool) {
+      const assignee = device.assignedTo?.trim();
+      if (assignee) map.set(assignee, device.id);
+    }
+    return map;
+  }, [spectraPool]);
 
   const selectedLogDevice = useMemo(
     () => spectraPool.find((device) => device.id === logDialogDeviceId) ?? null,
@@ -129,10 +144,20 @@ export default function SpectralinkDeviceTable({
               variant="ghost"
               size="icon"
               className="h-7 w-7 shrink-0"
-              onClick={() => setCollapsed((v) => !v)}
-              aria-label={collapsed ? "Expand Spectra panel" : "Collapse Spectra panel"}
+              onClick={() => {
+                if (onRequestCollapse) {
+                  onRequestCollapse();
+                } else {
+                  setCollapsed((v) => !v);
+                }
+              }}
+              aria-label={collapsed && !onRequestCollapse ? "Expand Spectra panel" : "Collapse Spectra panel"}
             >
-              {collapsed ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+              {collapsed && !onRequestCollapse ? (
+                <ChevronLeft className="h-4 w-4" />
+              ) : (
+                <ChevronRight className="h-4 w-4" />
+              )}
             </Button>
           )}
           <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground truncate">
@@ -148,7 +173,7 @@ export default function SpectralinkDeviceTable({
         )}
       </div>
 
-      {!collapsed && (
+      {(!collapsed || onRequestCollapse) && (
         <div className="flex flex-col flex-1 min-h-0 overflow-hidden p-3">
           <div className="overflow-auto flex-1 min-h-0">
             <table className="w-full text-sm">
@@ -169,6 +194,7 @@ export default function SpectralinkDeviceTable({
                       draggable
                       onDragStart={(e) => {
                         setDraggingDeviceId(device.id);
+                        e.dataTransfer.setData("application/x-unitview-spectra", device.id);
                         e.dataTransfer.setData("text/plain", device.id);
                         e.dataTransfer.effectAllowed = "move";
                       }}
@@ -200,8 +226,15 @@ export default function SpectralinkDeviceTable({
             <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Drop device on staff
             </p>
-            <div className="grid grid-cols-1 gap-2">
-              {assignableStaff.map((staff) => (
+            <div
+              className={cn(
+                "grid gap-2",
+                staffDropColumns === 3 ? "grid-cols-2 sm:grid-cols-3" : "grid-cols-2",
+              )}
+            >
+              {assignableStaff.map((staff) => {
+                const assignedDeviceId = deviceByStaffName.get(staff.name.trim());
+                return (
                 <div
                   key={staff.id}
                   onDragOver={(e) => {
@@ -210,16 +243,29 @@ export default function SpectralinkDeviceTable({
                   }}
                   onDrop={(e) => {
                     e.preventDefault();
-                    const spectraId = e.dataTransfer.getData("text/plain");
+                    const spectraId =
+                      e.dataTransfer.getData("application/x-unitview-spectra") ||
+                      e.dataTransfer.getData("text/plain");
                     if (spectraId) onAssignDevice(spectraId, staff.name);
                     setDraggingDeviceId(null);
                   }}
-                  className="rounded-md border border-dashed border-muted-foreground/40 bg-background p-2 text-xs"
+                  className={cn(
+                    "rounded-md border border-dashed p-2 text-xs",
+                    assignedDeviceId
+                      ? "border-primary/50 bg-primary/5"
+                      : "border-muted-foreground/40 bg-background",
+                  )}
                 >
-                  <div className="font-medium">{staff.name}</div>
-                  <div className="text-muted-foreground">{staff.role}</div>
+                  <div className="font-medium truncate">{staff.name}</div>
+                  <div className="text-muted-foreground truncate">{staff.role}</div>
+                  {assignedDeviceId ? (
+                    <div className="mt-1 font-medium text-primary truncate">{assignedDeviceId}</div>
+                  ) : (
+                    <div className="mt-1 text-muted-foreground">Drop device here</div>
+                  )}
                 </div>
-              ))}
+              );
+              })}
             </div>
           </div>
         </div>

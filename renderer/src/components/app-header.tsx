@@ -22,9 +22,10 @@ import {
   UtensilsCrossed,
   ChevronDown,
   ChevronUp,
-  TestTube,
+  Shield,
   Building2,
   PlusSquare,
+  Save,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -70,6 +71,7 @@ interface AppHeaderProps {
   onAddRoom?: () => void;
   onCreateUnit?: () => void;
   onInsertMockData?: () => void;
+  onSaveLayout?: () => void;
   onSaveAssignments: () => void;
   onSetupOncomingShift?: () => void;
 }
@@ -128,6 +130,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({
   onAddRoom,
   onCreateUnit,
   onInsertMockData,
+  onSaveLayout,
   onSaveAssignments,
   onSetupOncomingShift,
 }) => {
@@ -396,12 +399,13 @@ const AppHeader: React.FC<AppHeaderProps> = ({
                 <Separator orientation="vertical" className="h-7 hidden sm:block" />
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="shrink-0 h-8 w-8" title="Admin tools">
-                      <TestTube className="h-4 w-4" />
+                    <Button variant="outline" size="sm" className="shrink-0" title="Facility and unit administration">
+                      <Shield className="h-4 w-4 mr-1.5" />
+                      Admin
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuLabel>Admin</DropdownMenuLabel>
+                    <DropdownMenuLabel>Facility & unit setup</DropdownMenuLabel>
                     <DropdownMenuSeparator />
                     {onCreateUnit && (
                       <DropdownMenuItem onClick={onCreateUnit}>
@@ -415,11 +419,21 @@ const AppHeader: React.FC<AppHeaderProps> = ({
                         Create new room
                       </DropdownMenuItem>
                     )}
-                    {onInsertMockData && (
-                      <DropdownMenuItem onClick={onInsertMockData}>
-                        <UserPlus className="mr-2 h-4 w-4" />
-                        Insert mock patients
+                    {onSaveLayout && (
+                      <DropdownMenuItem onClick={onSaveLayout}>
+                        <Save className="mr-2 h-4 w-4" />
+                        Save layout as…
                       </DropdownMenuItem>
+                    )}
+                    {onInsertMockData && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuLabel>Development</DropdownMenuLabel>
+                        <DropdownMenuItem onClick={onInsertMockData}>
+                          <UserPlus className="mr-2 h-4 w-4" />
+                          Insert mock patients
+                        </DropdownMenuItem>
+                      </>
                     )}
                   </DropdownMenuContent>
                 </DropdownMenu>

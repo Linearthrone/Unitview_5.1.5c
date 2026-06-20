@@ -11,6 +11,9 @@ import * as spectraService from '../services/spectraService';
 import * as layoutService from '../services/layoutService';
 import type { LayoutName } from '../types/patient';
 import { setLastOpenedUnitName } from '../lib/last-unit-storage';
+import { getRoleCapabilities } from '@/lib/roles';
+import { defaultFacilityProfile, getFacilityProfile } from '@/services/facilityService';
+import type { FacilityProfile } from '@/types/facility';
 
 type AuthView = 'login' | 'admin' | 'user-dashboard' | 'unit-view';
 
@@ -23,12 +26,19 @@ export default function AuthContainer() {
     error: null,
   });
   const [initialProps, setInitialProps] = useState<any>(null);
+  const [facilityProfile, setFacilityProfile] = useState<FacilityProfile>(defaultFacilityProfile);
 
   useEffect(() => {
     // Initialize authentication system
     const initialize = async () => {
       try {
         await authService.initializeAuth();
+        try {
+          const profile = await getFacilityProfile();
+          setFacilityProfile(profile);
+        } catch {
+          // Keep default facility profile
+        }
         
         // Check if there's a saved session
         const savedUser = authService.getCurrentUser();
@@ -58,12 +68,7 @@ export default function AuthContainer() {
       if (result.isAuthenticated && result.user) {
         setAuthState(result);
         authService.setCurrentUser(result.user);
-        
-        if (result.user.role === 'admin') {
-          setCurrentView('admin');
-        } else {
-          setCurrentView('user-dashboard');
-        }
+        setCurrentView('user-dashboard');
       } else {
         setAuthState(result);
       }
@@ -158,6 +163,8 @@ export default function AuthContainer() {
           onLogin={handleLogin}
           isLoading={authState.isLoading}
           error={authState.error}
+          facilityName={facilityProfile.name}
+          logoDataUrl={facilityProfile.logoDataUrl}
         />
       );
 
@@ -166,6 +173,7 @@ export default function AuthContainer() {
         <AdminDashboard
           onLogout={handleLogout}
           onBackToLogin={handleBackToLogin}
+          onBackToFacility={() => setCurrentView('user-dashboard')}
         />
       );
 
@@ -175,6 +183,11 @@ export default function AuthContainer() {
           user={authState.user}
           onLogout={handleLogout}
           onEnterUnit={handleEnterUnit}
+          onOpenUserManagement={
+            getRoleCapabilities(authState.user.role, authState.user.appRole).isAdmin
+              ? () => setCurrentView('admin')
+              : undefined
+          }
         />
       ) : null;
 

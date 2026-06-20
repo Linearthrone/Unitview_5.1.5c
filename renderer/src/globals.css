@@ -122,6 +122,12 @@ h6 { font-size: 1rem; }
   body {
     @apply bg-background text-foreground;
   }
+  .theme-light input,
+  .theme-light textarea,
+  .theme-light select {
+    @apply text-foreground;
+    color: hsl(var(--foreground));
+  }
 }
 
 @media print {

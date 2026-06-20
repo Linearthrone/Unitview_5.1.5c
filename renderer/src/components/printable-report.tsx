@@ -1,31 +1,30 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import type { Patient, MobilityStatus } from '@/types/patient';
 import {
-  BedDouble,
-  Accessibility,
-  Footprints,
   AlertTriangle,
   ShieldAlert,
   Ban,
   BrainCircuit,
   Wind,
   HeartHandshake,
-  type LucideIcon,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import type { FacilityProfile } from '@/types/facility';
+import FacilityPrintHeader from '@/components/facility-print-header';
+import {
+  createDefaultAssignmentPrintLayout,
+  type AssignmentPrintLayoutConfig,
+} from '@/types/assignment-print-layout';
+import { getPrintRootWidth } from '@/lib/print-styles';
 
 interface PrintableReportProps {
   patients: Patient[];
+  facilityProfile?: FacilityProfile;
+  layoutConfig?: AssignmentPrintLayoutConfig;
+  previewMode?: boolean;
 }
-
-const mobilityIcons: Record<MobilityStatus, LucideIcon> = {
-  'Bed Rest': BedDouble,
-  'Assisted': Accessibility,
-  'Independent': Footprints,
-};
 
 const formatDate = (date: Date): string => {
   try {
@@ -37,85 +36,140 @@ const formatDate = (date: Date): string => {
   }
 };
 
-const PrintableReport: React.FC<PrintableReportProps> = ({ patients }) => {
+const PrintableReport: React.FC<PrintableReportProps> = ({
+  patients,
+  facilityProfile,
+  layoutConfig,
+  previewMode = false,
+}) => {
   const [generatedDate, setGeneratedDate] = useState('');
+  const config = layoutConfig ?? createDefaultAssignmentPrintLayout();
+  const charge = config.charge;
+  const pageWidth = getPrintRootWidth(config.orientation);
+  const rootClassName = `uv-print-root uv-print-style-${config.stylePreset}`;
 
   useEffect(() => {
-    // This runs only on the client, after hydration, to prevent mismatch
     setGeneratedDate(new Date().toLocaleString());
   }, []);
 
-  const activePatients = patients.filter(p => p.gridRow > 0 && p.gridColumn > 0 && p.name !== 'Vacant');
-  const sortedPatients = [...activePatients].sort((a, b) => a.bedNumber - b.bedNumber);
+  const activePatients = useMemo(
+    () => patients.filter((p) => p.gridRow > 0 && p.gridColumn > 0 && p.name !== 'Vacant'),
+    [patients],
+  );
+  const sortedPatients = useMemo(
+    () => [...activePatients].sort((a, b) => a.bedNumber - b.bedNumber),
+    [activePatients],
+  );
+
+  const genderClass = (patient: Patient) => {
+    if (patient.isComfortCareDNR) return 'uv-print-dnr';
+    if (patient.gender === 'Male') return 'uv-print-gender-male';
+    if (patient.gender === 'Female') return 'uv-print-gender-female';
+    return 'uv-print-gender-neutral';
+  };
 
   return (
     <div
-      id="printable-charge-report"
-      className="text-black font-sans"
-      aria-hidden="true"
-      style={{
-        position: 'absolute',
-        left: '-9999px',
-        top: 0,
-        width: '8.5in',
-        maxWidth: '100vw',
-      }}
+      id={previewMode ? undefined : 'printable-charge-report'}
+      className={rootClassName}
+      data-print-orientation={config.orientation}
+      data-print-style={config.stylePreset}
+      aria-hidden={previewMode ? undefined : 'true'}
+      style={
+        previewMode
+          ? { width: '100%', maxWidth: pageWidth, margin: '0 auto', background: '#fff', color: '#000' }
+          : {
+              position: 'absolute',
+              left: '-9999px',
+              top: 0,
+              width: pageWidth,
+              maxWidth: '100vw',
+            }
+      }
     >
-      <h1 className="text-xl font-bold text-center mb-2">Unit Charge Report</h1>
-      <p className="text-center text-sm mb-4">
-        {generatedDate ? `Generated on: ${generatedDate}`: 'Generating...'}
+      <FacilityPrintHeader
+        profile={facilityProfile ?? { name: 'Your Facility Name' }}
+        subtitle="Unit Charge Report"
+        className="text-black"
+      />
+      <p className="uv-print-generated">
+        {generatedDate ? `Generated on: ${generatedDate}` : 'Generating...'}
       </p>
-      
-      <div className="grid grid-cols-2 gap-x-4 gap-y-2">
-        {sortedPatients.map((patient) => {
-          const MobilityIcon = mobilityIcons[patient.mobility];
-          const alerts: { Icon: LucideIcon; label: string; colorClass: string; }[] = [];
-          if (patient.isFallRisk) alerts.push({ Icon: AlertTriangle, label: 'Fall Risk', colorClass: 'text-yellow-600' });
-          if (patient.isSeizureRisk) alerts.push({ Icon: BrainCircuit, label: 'Seizure Risk', colorClass: 'text-orange-600' });
-          if (patient.isAspirationRisk) alerts.push({ Icon: Wind, label: 'Aspiration Risk', colorClass: 'text-blue-600' });
-          if (patient.isIsolation) alerts.push({ Icon: ShieldAlert, label: 'Isolation', colorClass: 'text-green-600' });
-          if (patient.isInRestraints) alerts.push({ Icon: Ban, label: 'Restraints', colorClass: 'text-red-600' });
-          if (patient.isComfortCareDNR) alerts.push({ Icon: HeartHandshake, label: 'Comfort/DNR', colorClass: 'text-purple-600' });
 
-          const genderColor = patient.gender === 'Male' ? 'bg-sky-100' : patient.gender === 'Female' ? 'bg-pink-100' : 'bg-gray-100';
-          const dnrColor = patient.isComfortCareDNR ? 'bg-purple-200' : '';
+      <div
+        className="uv-print-charge-grid"
+        style={{ gridTemplateColumns: `repeat(${charge.columns}, minmax(0, 1fr))` }}
+      >
+        {sortedPatients.map((patient) => {
+          const alerts: { label: string }[] = [];
+          if (patient.isFallRisk) alerts.push({ label: 'Fall Risk' });
+          if (patient.isSeizureRisk) alerts.push({ label: 'Seizure' });
+          if (patient.isAspirationRisk) alerts.push({ label: 'Aspiration' });
+          if (patient.isIsolation) alerts.push({ label: 'Isolation' });
+          if (patient.isInRestraints) alerts.push({ label: 'Restraints' });
+          if (patient.isComfortCareDNR) alerts.push({ label: 'DNR/Comfort' });
 
           return (
-            <div key={patient.id} className={cn("border border-black rounded-md p-2 text-xs page-break-inside-avoid flex flex-col", dnrColor || genderColor)}>
-              <div className="flex justify-between items-start mb-1">
-                <div className="font-bold text-sm">{patient.roomDesignation} - {patient.name}</div>
-                <div className="font-bold text-sm">{patient.age} {patient.gender?.[0]}</div>
+            <div
+              key={patient.id}
+              className={`uv-print-charge-card page-break-inside-avoid ${genderClass(patient)}`}
+            >
+              <div className="uv-print-charge-header">
+                <div className="uv-print-charge-title">
+                  {patient.roomDesignation} — {patient.name}
+                </div>
+                <div>
+                  {patient.age} {patient.gender?.[0] ?? ''}
+                </div>
               </div>
 
-              <div className="mb-1">
-                <span className="font-semibold">Admit:</span> {formatDate(patient.admitDate)} / <span className="font-semibold">EDD:</span> {formatDate(patient.dischargeDate)}
-              </div>
-              <div className="italic mb-1 truncate">
-                 <span className="font-semibold not-italic">Complaint:</span> {patient.chiefComplaint}
+              <p className="uv-print-charge-meta">
+                <strong>Admit:</strong> {formatDate(patient.admitDate)} /{' '}
+                <strong>EDD:</strong> {formatDate(patient.dischargeDate)}
+              </p>
+              <p className="uv-print-charge-complaint">
+                <strong>Complaint:</strong> {patient.chiefComplaint}
+              </p>
+
+              <div className="uv-print-charge-details">
+                <div><strong>Diet:</strong> {patient.diet}</div>
+                <div>
+                  <strong>Mobility:</strong>{' '}
+                  {charge.showMobilityIcons ? `${patient.mobility}` : patient.mobility}
+                </div>
+                <div><strong>Code:</strong> {patient.codeStatus}</div>
+                <div><strong>A&O:</strong> {patient.orientationStatus.toUpperCase()}</div>
+                <div><strong>Nurse:</strong> {patient.assignedNurse || 'N/A'}</div>
+                {charge.showLdas && (
+                  <div style={{ gridColumn: '1 / -1' }}>
+                    <strong>LDAs:</strong>{' '}
+                    {(Array.isArray(patient.ldas) ? patient.ldas.join(', ') : '') || 'None'}
+                  </div>
+                )}
               </div>
 
-              <div className="grid grid-cols-2 gap-x-2 text-[11px] flex-grow">
-                <div><span className="font-semibold">Diet:</span> {patient.diet}</div>
-                <div className="flex items-center gap-1"><span className="font-semibold">Mobility:</span> <MobilityIcon className="h-3 w-3"/> {patient.mobility}</div>
-                <div><span className="font-semibold">Code:</span> {patient.codeStatus}</div>
-                <div><span className="font-semibold">A&O:</span> {patient.orientationStatus.toUpperCase()}</div>
-                <div><span className="font-semibold">Nurse:</span> {patient.assignedNurse || 'N/A'}</div>
-                <div className="col-span-2"><span className="font-semibold">LDAs:</span> {(Array.isArray(patient.ldas) ? patient.ldas.join(', ') : '') || 'None'}</div>
-              </div>
-              
-              {patient.notes && (
-                <div className="border-t border-black/50 mt-1 pt-1">
-                  <span className="font-semibold">Notes:</span>
-                  <p className="text-[11px] italic whitespace-pre-wrap">{patient.notes}</p>
+              {charge.showNotes && patient.notes && (
+                <div className="uv-print-charge-notes">
+                  <strong>Notes:</strong> {patient.notes}
                 </div>
               )}
 
-              {alerts.length > 0 && <div className="border-t border-black/50 mt-1 pt-1 flex items-center gap-2">
-                 <span className="font-semibold">Alerts:</span>
-                 <div className="flex flex-wrap gap-1.5">
-                    {alerts.map(a => <a.Icon key={a.label} aria-label={a.label} className={cn("h-4 w-4", a.colorClass)} />)}
-                 </div>
-              </div>}
+              {charge.showAlerts && alerts.length > 0 && (
+                <div className="uv-print-charge-alerts">
+                  <strong>Alerts:</strong>
+                  {alerts.map((a) => (
+                    <span key={a.label} className="uv-print-charge-alert-tag">
+                      {a.label === 'Fall Risk' && <AlertTriangle className="h-3 w-3" />}
+                      {a.label === 'Seizure' && <BrainCircuit className="h-3 w-3" />}
+                      {a.label === 'Aspiration' && <Wind className="h-3 w-3" />}
+                      {a.label === 'Isolation' && <ShieldAlert className="h-3 w-3" />}
+                      {a.label === 'Restraints' && <Ban className="h-3 w-3" />}
+                      {a.label === 'DNR/Comfort' && <HeartHandshake className="h-3 w-3" />}
+                      {a.label}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
           );
         })}

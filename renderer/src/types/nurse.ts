@@ -29,6 +29,8 @@ export interface Nurse {
   spectra?: string;
   relief?: string;
   assignedPatientIds: (string | null)[];
+  /** Grid rows spanned on the unit map (resize handle); does not drop assignments. */
+  cardRowSpan?: number;
   gridRow: number;
   gridColumn: number;
 }

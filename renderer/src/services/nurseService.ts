@@ -16,12 +16,14 @@ export async function getNurses(layoutName: LayoutName): Promise<Nurse[]> {
     // Validate each nurse object to ensure assignedPatientIds is an array
     const metadata = await layoutService.getLayoutMetadata(layoutName);
     const nurseCapacity = Math.max(1, metadata.nurseToPatientRatio);
-    const validNurses = nurses.map(n => ({
-      ...n,
-      assignedPatientIds: Array.from({ length: nurseCapacity }, (_, index) => (
-        Array.isArray(n.assignedPatientIds) ? (n.assignedPatientIds[index] ?? null) : null
-      )),
-    }));
+    const validNurses = nurses.map(n => {
+      const ids = Array.isArray(n.assignedPatientIds) ? n.assignedPatientIds : [];
+      const slotCount = Math.max(nurseCapacity, ids.length);
+      return {
+        ...n,
+        assignedPatientIds: Array.from({ length: slotCount }, (_, index) => ids[index] ?? null),
+      };
+    });
     
     console.log(`Loaded ${validNurses.length} nurses for layout "${layoutName}"`);
     return validNurses;
@@ -38,12 +40,14 @@ export async function getOncomingNurses(layoutName: LayoutName): Promise<Nurse[]
     const nurses = db.getOncomingNurses(layoutName);
     const metadata = await layoutService.getLayoutMetadata(layoutName);
     const nurseCapacity = Math.max(1, metadata.nurseToPatientRatio);
-    return nurses.map(n => ({
-      ...n,
-      assignedPatientIds: Array.from({ length: nurseCapacity }, (_, index) => (
-        Array.isArray(n.assignedPatientIds) ? (n.assignedPatientIds[index] ?? null) : null
-      )),
-    }));
+    return nurses.map(n => {
+      const ids = Array.isArray(n.assignedPatientIds) ? n.assignedPatientIds : [];
+      const slotCount = Math.max(nurseCapacity, ids.length);
+      return {
+        ...n,
+        assignedPatientIds: Array.from({ length: slotCount }, (_, index) => ids[index] ?? null),
+      };
+    });
   } catch (error) {
     console.error('Error getting oncoming nurses:', error);
     return [];

@@ -1,3 +1,6 @@
+import { buildPrintStylesheet } from '@/lib/print-styles';
+import type { PrintOrientation, PrintStylePreset } from '@/types/assignment-print-layout';
+
 /** Shared print styles for assignment + charge reports (no Tailwind CDN dependency). */
 export const PRINT_REPORT_CSS = `
   body { margin: 0; font-family: Arial, Helvetica, sans-serif; font-size: 10pt; color: #000; background: #fff; }
@@ -20,13 +23,66 @@ export const PRINT_REPORT_CSS = `
     padding: 16px;
     box-sizing: border-box;
   }
-  .uv-print-header { position: relative; margin-bottom: 16px; }
-  .uv-print-header .uv-print-unit-name {
-    font-size: 20pt; font-weight: bold; text-align: center; width: 100%;
-    position: absolute; top: 0; left: 0;
+  .uv-print-charge-grid { display: grid; gap: 8px; }
+  .uv-print-charge-card {
+    border: 1px solid #000;
+    border-radius: 4px;
+    padding: 8px;
+    font-size: 10px;
+    page-break-inside: avoid;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
   }
+  .uv-print-charge-card.uv-print-gender-male { background: #e0f2fe; }
+  .uv-print-charge-card.uv-print-gender-female { background: #fce7f3; }
+  .uv-print-charge-card.uv-print-gender-neutral { background: #f3f4f6; }
+  .uv-print-charge-card.uv-print-dnr { background: #f3e8ff; }
+  .uv-print-charge-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 8px;
+    font-weight: bold;
+    font-size: 11px;
+  }
+  .uv-print-charge-title { font-weight: 700; }
+  .uv-print-charge-meta { font-size: 10px; margin: 0; }
+  .uv-print-charge-complaint { font-style: italic; font-size: 10px; margin: 0; }
+  .uv-print-charge-details {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2px 8px;
+    font-size: 10px;
+  }
+  .uv-print-charge-notes {
+    border-top: 1px solid rgba(0,0,0,0.35);
+    padding-top: 4px;
+    font-size: 9px;
+    font-style: italic;
+    white-space: pre-wrap;
+  }
+  .uv-print-charge-alerts {
+    border-top: 1px solid rgba(0,0,0,0.35);
+    padding-top: 4px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+    font-size: 9px;
+  }
+  .uv-print-charge-alert-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    border: 1px solid #000;
+    border-radius: 3px;
+    padding: 0 4px;
+  }
+  .uv-print-generated { text-align: center; font-size: 9pt; margin: 0 0 12px; }
+  .uv-print-header { position: relative; margin-bottom: 16px; }
   .uv-print-header-meta {
-    display: flex; justify-content: space-between; width: 100%; padding-top: 28px;
+    display: flex; justify-content: space-between; width: 100%; padding-top: 8px;
     font-size: 9pt;
   }
   .uv-print-header-meta p { margin: 2px 0; }
@@ -80,6 +136,28 @@ export interface OpenPrintWindowResult {
   error?: string;
 }
 
+function readPrintOptionsFromElement(content: HTMLElement): {
+  orientation: PrintOrientation;
+  stylePreset: PrintStylePreset;
+} {
+  const orientation =
+    content.dataset.printOrientation === 'landscape' ? 'landscape' : 'portrait';
+  const presetRaw = content.dataset.printStyle ?? 'classic';
+  const stylePreset: PrintStylePreset =
+    presetRaw === 'modern' ||
+    presetRaw === 'compact' ||
+    presetRaw === 'roster' ||
+    presetRaw === 'high-contrast'
+      ? presetRaw
+      : 'classic';
+  return { orientation, stylePreset };
+}
+
+function resolvePrintCss(content: HTMLElement): string {
+  const { orientation, stylePreset } = readPrintOptionsFromElement(content);
+  return buildPrintStylesheet(orientation, stylePreset, PRINT_REPORT_CSS);
+}
+
 export function openPrintWindow(
   targetId: PrintReportTarget,
   title = 'Print Report',
@@ -97,6 +175,7 @@ export function openPrintWindow(
     };
   }
 
+  const printCss = resolvePrintCss(content);
   const bodyHtml = content.innerHTML.replace(/<\/script/gi, '<\\/script');
 
   try {
@@ -106,7 +185,7 @@ export function openPrintWindow(
 <head>
   <meta charset="utf-8" />
   <title>${title}</title>
-  <style>${PRINT_REPORT_CSS}</style>
+  <style>${printCss}</style>
 </head>
 <body>
   ${bodyHtml}
@@ -147,9 +226,11 @@ export async function openPrintWindowWithElectronFallback(
     return { ok: false, error: 'Print content is not ready. Try again after the unit finishes loading.' };
   }
 
+  const printCss = resolvePrintCss(content);
+
   if (window.electronAPI?.printToPDF) {
     try {
-      const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/><style>${PRINT_REPORT_CSS}</style></head><body>${content.innerHTML}</body></html>`;
+      const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/><style>${printCss}</style></head><body>${content.innerHTML}</body></html>`;
       const result = await window.electronAPI.printToPDF(html);
       if (result.success) {
         return { ok: true };

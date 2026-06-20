@@ -12,6 +12,7 @@ interface LoginScreenProps {
   error?: string | null;
   /** Facility branding — placeholder until configured per site. */
   facilityName?: string;
+  logoDataUrl?: string;
 }
 
 export default function LoginScreen({
@@ -19,6 +20,7 @@ export default function LoginScreen({
   isLoading = false,
   error = null,
   facilityName = 'Your Facility Name',
+  logoDataUrl,
 }: LoginScreenProps) {
   const [employeeNumber, setEmployeeNumber] = useState('');
   const [password, setPassword] = useState('');
@@ -41,7 +43,11 @@ export default function LoginScreen({
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-24 h-24 rounded-xl border-2 border-dashed border-muted-foreground/40 bg-card mb-4 overflow-hidden">
-            <Building2 className="w-10 h-10 text-muted-foreground/60" aria-hidden />
+            {logoDataUrl ? (
+              <img src={logoDataUrl} alt="" className="max-h-full max-w-full object-contain p-2" />
+            ) : (
+              <Building2 className="w-10 h-10 text-muted-foreground/60" aria-hidden />
+            )}
           </div>
           <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-2">
             {facilityName}

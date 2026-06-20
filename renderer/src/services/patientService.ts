@@ -73,7 +73,7 @@ async function seedNorthSouthLayout(): Promise<Patient[]> {
   });
 
   // Custom top row layout
-  const topRowRoomOrder = [826, 825, 824, 823, 822, 821, 820, 819, null, 818, 817, 816, 815, 814, 813, 812, null];
+  const topRowRoomOrder = [826, 825, 824, 823, 822, 821, 820, 819, null, 818, 817, null, null, null, null, null, null];
   topRowRoomOrder.forEach((roomNumber, index) => {
     if (roomNumber) {
       layoutPatients.push(createRoom(roomNumber, 1, index + 1));

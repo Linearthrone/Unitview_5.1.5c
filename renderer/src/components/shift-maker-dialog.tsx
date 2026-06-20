@@ -74,8 +74,37 @@ const ShiftMakerDialog: React.FC<ShiftMakerDialogProps> = ({
   const boardNurses = useMemo(() => selectShiftBoardNurses(nurses), [nurses]);
   const boardPatients = useMemo(() => patients.filter((p) => isOccupiedBed(p.name) && !p.isBlocked), [patients]);
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
+  const [spectraDropTargetNurseId, setSpectraDropTargetNurseId] = useState<string | null>(null);
   const roomRowRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const nurseCardRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
+  const spectraIdSet = useMemo(() => new Set(spectraPool.map((d) => d.id)), [spectraPool]);
+
+  const isSpectraDragEvent = (e: React.DragEvent) =>
+    e.dataTransfer.types.includes("application/x-unitview-spectra");
+
+  const readSpectraDragId = (e: React.DragEvent): string | null => {
+    const typed =
+      e.dataTransfer.getData("application/x-unitview-spectra") ||
+      e.dataTransfer.getData("text/plain");
+    return typed && spectraIdSet.has(typed) ? typed : null;
+  };
+
+  const handleNurseSpectraDragOver = (e: React.DragEvent, nurseId: string) => {
+    if (!isSpectraDragEvent(e)) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    setSpectraDropTargetNurseId(nurseId);
+  };
+
+  const handleNurseSpectraDrop = (e: React.DragEvent, staffName: string) => {
+    const spectraId = readSpectraDragId(e);
+    if (!spectraId || !staffName.trim()) return;
+    e.preventDefault();
+    e.stopPropagation();
+    onAssignSpectra(spectraId, staffName);
+    setSpectraDropTargetNurseId(null);
+  };
 
   const assignedPatientIds = useMemo(() => {
     const ids = new Set<string>();
@@ -272,8 +301,12 @@ const ShiftMakerDialog: React.FC<ShiftMakerDialogProps> = ({
                       }}
                       className={cn(
                         "rounded-lg border border-slate-700 bg-slate-900 p-4",
-                        selectedAssignedNurseId === nurse.id && "border-cyan-400 ring-2 ring-cyan-300/70"
+                        selectedAssignedNurseId === nurse.id && "border-cyan-400 ring-2 ring-cyan-300/70",
+                        spectraDropTargetNurseId === nurse.id && "border-primary ring-2 ring-primary/40",
                       )}
+                      onDragOver={(e) => handleNurseSpectraDragOver(e, nurse.id)}
+                      onDragLeave={() => setSpectraDropTargetNurseId(null)}
+                      onDrop={(e) => handleNurseSpectraDrop(e, nurse.name)}
                     >
                       <div className="mb-3 flex items-start justify-between gap-3">
                         <div>
@@ -295,10 +328,19 @@ const ShiftMakerDialog: React.FC<ShiftMakerDialogProps> = ({
                             <div
                               key={`${nurse.id}-${index}`}
                               onDragOver={(e) => {
+                                if (isSpectraDragEvent(e)) {
+                                  handleNurseSpectraDragOver(e, nurse.id);
+                                  return;
+                                }
                                 e.preventDefault();
                                 e.dataTransfer.dropEffect = "move";
                               }}
                               onDrop={(e) => {
+                                const spectraId = readSpectraDragId(e);
+                                if (spectraId && nurse.name.trim()) {
+                                  handleNurseSpectraDrop(e, nurse.name);
+                                  return;
+                                }
                                 e.preventDefault();
                                 onDropOnNurseSlot(nurse.id, index);
                               }}
@@ -356,6 +398,7 @@ const ShiftMakerDialog: React.FC<ShiftMakerDialogProps> = ({
                     onUnassignDevice={onUnassignSpectra}
                     onSetStatus={onSetSpectraStatus}
                     onAddLog={onAddSpectraLog}
+                    staffDropColumns={3}
                   />
                 </div>
               ) : null}

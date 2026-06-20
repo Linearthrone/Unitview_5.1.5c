@@ -1,0 +1,73 @@
+timestamp: 2026-06-20T07:45:46.431Z
+cwd: C:\Users\kurtw\StudioProjects\UnitView\Unitview_5.1.5c\renderer
+exit_code: 1
+
+
+--- stdout ---
+
+Running 1 test using 1 worker
+
+
+
+
+
+[1A[2K[1/1] smoke\qa-smoke.spec.ts:3:1 › QA smoke: startup/login/dashboard/menu and drag signal
+
+[1A[2K  1) smoke\qa-smoke.spec.ts:3:1 › QA smoke: startup/login/dashboard/menu and drag signal ───────────
+
+    [31mTest timeout of 90000ms exceeded.[39m
+
+    Error: locator.click: Test timeout of 90000ms exceeded.
+    Call log:
+    [2m  - waiting for getByRole('button', { name: 'Enter unit' })[22m
+    [2m    - locator resolved to <button disabled class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2 flex-1 min-w-[140px]">…</button>[22m
+    [2m  - attempting click action[22m
+    [2m    2 × waiting for element to be visible, enabled and stable[22m
+    [2m      - element is not enabled[22m
+    [2m    - retrying click action[22m
+    [2m    - waiting 20ms[22m
+    [2m    2 × waiting for element to be visible, enabled and stable[22m
+    [2m      - element is not enabled[22m
+    [2m    - retrying click action[22m
+    [2m      - waiting 100ms[22m
+    [2m    161 × waiting for element to be visible, enabled and stable[22m
+    [2m        - element is not enabled[22m
+    [2m      - retrying click action[22m
+    [2m        - waiting 500ms[22m
+
+
+      10 |
+      11 |   await expect(page.getByText('Select unit')).toBeVisible();
+    > 12 |   await page.getByRole('button', { name: 'Enter unit' }).click();
+         |                                                          ^
+      13 |
+      14 |   await expect(page.getByText('UnitView').first()).toBeVisible();
+      15 |
+        at C:\Users\kurtw\StudioProjects\UnitView\Unitview_5.1.5c\renderer\smoke\qa-smoke.spec.ts:12:58
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\qa-smoke-QA-smoke-startup--d8fee-hboard-menu-and-drag-signal\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\qa-smoke-QA-smoke-startup--d8fee-hboard-menu-and-drag-signal\error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\qa-smoke-QA-smoke-startup--d8fee-hboard-menu-and-drag-signal\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\qa-smoke-QA-smoke-startup--d8fee-hboard-menu-and-drag-signal\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[1A[2K  1 failed
+    smoke\qa-smoke.spec.ts:3:1 › QA smoke: startup/login/dashboard/menu and drag signal ────────────
+
+
+--- stderr ---
+[1A[2K(node:39244) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[1A[2K(node:39244) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[1A[2K[WebServer] [baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+

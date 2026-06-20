@@ -11,6 +11,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import type { Patient, MobilityStatus } from '@/types/patient';
+import type { Nurse, PatientCareTech } from '@/types/nurse';
 import { cn } from '@/lib/utils';
 import {
   User,
@@ -35,7 +36,13 @@ import {
   Pill,
   ShieldAlert,
   type LucideIcon,
+  Wrench,
 } from 'lucide-react';
+import {
+  formatStaffAssignmentLabel,
+  resolveAssignedNurse,
+  resolveAssignedTech,
+} from '@/lib/patient-staff-assignments';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   getIsolationType,
@@ -46,6 +53,8 @@ import {
 
 interface ReportSheetProps {
   patient: Patient | null;
+  nurses?: Nurse[];
+  techs?: PatientCareTech[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onDischarge: (patient: Patient) => void;
@@ -62,6 +71,8 @@ const mobilityIcons: Record<MobilityStatus, LucideIcon> = {
 
 const ReportSheet: React.FC<ReportSheetProps> = ({
   patient,
+  nurses = [],
+  techs = [],
   open,
   onOpenChange,
   onDischarge,
@@ -94,6 +105,10 @@ const ReportSheet: React.FC<ReportSheetProps> = ({
   
   const isVacant = patient.name === 'Vacant';
   const { isBlocked } = patient;
+  const currentNurse = resolveAssignedNurse(patient, nurses);
+  const currentTech = resolveAssignedTech(patient, techs);
+  const priorNurse = patient.priorShiftNurse?.trim();
+  const priorTech = patient.priorShiftTech?.trim();
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -126,9 +141,45 @@ const ReportSheet: React.FC<ReportSheetProps> = ({
                       <div className="flex items-center gap-3"><User className="h-4 w-4 text-muted-foreground" /> <span>Name: {patient.name}</span></div>
                       <div className="flex items-center gap-3"><Cake className="h-4 w-4 text-muted-foreground" /> <span>Age: {patient.age}</span></div>
                       <div className="flex items-center gap-3"><VenetianMask className="h-4 w-4 text-muted-foreground" /> <span>Gender: {patient.gender || 'N/A'}</span></div>
-                      {patient.assignedNurse && (
-                        <div className="flex items-center gap-3"><UserRound className="h-4 w-4 text-muted-foreground" /> <span>Assigned Nurse: {patient.assignedNurse}</span></div>
-                      )}
+                    </div>
+                  </section>
+                )}
+                {canSeePatientIdentifiers && (
+                  <section>
+                    <h3 className="font-semibold text-lg mb-3 text-primary">Staff assignments</h3>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex items-center gap-3">
+                        <UserRound className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <span>
+                          Current nurse:{' '}
+                          <span className="font-medium">{formatStaffAssignmentLabel(currentNurse)}</span>
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Wrench className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <span>
+                          Current PCT:{' '}
+                          <span className="font-medium">{formatStaffAssignmentLabel(currentTech)}</span>
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3 pt-1 border-t border-border/60">
+                        <UserRound className="h-4 w-4 text-muted-foreground/70 shrink-0" />
+                        <span className="text-muted-foreground">
+                          Prior shift nurse:{' '}
+                          <span className="font-medium text-foreground">
+                            {formatStaffAssignmentLabel(priorNurse)}
+                          </span>
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Wrench className="h-4 w-4 text-muted-foreground/70 shrink-0" />
+                        <span className="text-muted-foreground">
+                          Prior shift PCT:{' '}
+                          <span className="font-medium text-foreground">
+                            {formatStaffAssignmentLabel(priorTech)}
+                          </span>
+                        </span>
+                      </div>
                     </div>
                   </section>
                 )}
