@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 // UI Components
 import AppHeader from './app-header';
+import UnitActionBar from './unit-action-bar';
 import ShiftMakerDialog from './shift-maker-dialog';
 import PatientGrid from './patient-grid';
 import ReportSheet from './report-sheet';
@@ -25,7 +26,7 @@ import AssignmentPrintLayoutDialog from './assignment-print-layout-dialog';
 import QuickNoteDialog from './quick-note-dialog';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from './ui/sheet';
 import { Button } from './ui/button';
-import { ChevronLeft, Plus, LogOut, Radio } from 'lucide-react';
+import { ChevronLeft, Plus, Radio } from 'lucide-react';
 import { cn } from '@/lib/utils';
 // Hooks and utils
 import { useToast } from "../hooks/use-toast";
@@ -33,9 +34,11 @@ import { NUM_ROWS_GRID } from '../lib/grid-utils';
 import { computeNameAlertGroups, getNameAlertSignature } from '@/lib/name-alerts';
 import {
   isOccupiedBed,
-  patientHasInvoluntaryHoldKeywords,
-  countPatientsWithSitterNurse,
+  patientHasInvoluntaryHold,
+  countPatientsRequiringSitter,
+  computeUnitCensusStats,
 } from '@/lib/patient-status-helpers';
+import type { GridZoomControls } from '@/lib/grid-zoom';
 // Types
 import type { LayoutName, Patient, StaffRole, CreateUnitPayload } from '../types/patient';
 import type { Nurse, PatientCareTech, Spectra, SpectraStatus } from '../types/nurse';
@@ -160,6 +163,8 @@ export default function UnitViewClient({
   );
   const [isPrintLayoutDialogOpen, setIsPrintLayoutDialogOpen] = useState(false);
   const [facilityProfile, setFacilityProfile] = useState<FacilityProfile>(defaultFacilityProfile);
+  const [gridZoomControls, setGridZoomControls] = useState<GridZoomControls | null>(null);
+  const [patientsPerNurse, setPatientsPerNurse] = useState(4);
 
   useEffect(() => {
     void getFacilityProfile()
@@ -168,6 +173,19 @@ export default function UnitViewClient({
         // Keep default profile
       });
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const metadata = await layoutService.getLayoutMetadata(currentLayoutName);
+      if (!cancelled) {
+        setPatientsPerNurse(Math.max(1, metadata.nurseToPatientRatio));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [currentLayoutName]);
 
   useEffect(() => {
     setAcknowledgedNameAlertSignatures(new Set());
@@ -609,15 +627,36 @@ export default function UnitViewClient({
   };
 
   const handleSavePatient = async (formData: AdmitPatientFormValues) => {
-    const updatedPatients = await patientService.admitPatient(formData, patients);
+    const editingPatient = admitOrUpdatePatient;
+    const updating = isUpdateMode && editingPatient;
+
+    let updatedPatients = updating
+      ? await patientService.updatePatient(editingPatient.id, formData, patients)
+      : await patientService.admitPatient(formData, patients);
+
+    updatedPatients = updatedPatients.map((p) => {
+      const isTarget = updating
+        ? p.id === editingPatient.id
+        : p.bedNumber === formData.bedNumber;
+      return isTarget ? patientService.finalizePatientAfterSave(p, nurses) : p;
+    });
+
     setPatients(updatedPatients);
     setAdmitOrUpdatePatient(null);
-    
-    const verb = isUpdateMode ? 'updated' : 'admitted';
-    const patientRecord = updatedPatients.find(p => p.bedNumber === formData.bedNumber);
+    setIsUpdateMode(false);
+
+    if (updating && selectedPatient?.id === editingPatient.id) {
+      const refreshed = updatedPatients.find((p) => p.id === editingPatient.id);
+      if (refreshed) setSelectedPatient(refreshed);
+    }
+
+    const verb = updating ? 'updated' : 'admitted';
+    const patientRecord = updatedPatients.find((p) =>
+      updating ? p.id === editingPatient.id : p.bedNumber === formData.bedNumber,
+    );
     toast({
       title: `Patient ${verb.charAt(0).toUpperCase() + verb.slice(1)}`,
-      description: `${formData.name} has been ${verb} to ${patientRecord?.roomDesignation}.`,
+      description: `${formData.name} has been ${verb} in ${patientRecord?.roomDesignation ?? 'the unit'}.`,
     });
   };
 
@@ -632,10 +671,21 @@ export default function UnitViewClient({
     setPatients(updatedPatients);
     toast({
       title: "Patient Discharged",
-      description: `${patientToDischarge.name} has been discharged from ${patientToDischarge.roomDesignation}.`,
+      description: `${patientToDischarge.name} is discharged and awaiting transport in ${patientToDischarge.roomDesignation}.`,
     });
     setPatientToDischarge(null);
-    setSelectedPatient(null);
+  };
+
+  const handleCompleteTransport = async (patient: Patient) => {
+    const updatedPatients = await patientService.completeTransport(patient.id, patients);
+    setPatients(updatedPatients);
+    if (selectedPatient?.id === patient.id) {
+      setSelectedPatient(null);
+    }
+    toast({
+      title: 'Transport complete',
+      description: `${patient.roomDesignation} is now vacant.`,
+    });
   };
 
   const handleToggleBlockRoom = (patientId: string) => {
@@ -1250,8 +1300,10 @@ export default function UnitViewClient({
     );
   }, [patients, techs]);
     
-  const activePatientCount = patients.filter(p => p.name !== 'Vacant').length;
-  const totalRoomCount = patients.length;
+  const censusStats = useMemo(
+    () => computeUnitCensusStats(patients, nurses, techs, patientsPerNurse),
+    [patients, nurses, techs, patientsPerNurse],
+  );
   const dnrCount = patients.filter(p => p.isComfortCareDNR).length;
   const restraintCount = patients.filter(p => p.isInRestraints).length;
   const foleyCount = patients.filter(p => Array.isArray(p.ldas) && p.ldas.some(lda => lda.toLowerCase().includes('foley'))).length;
@@ -1284,11 +1336,11 @@ export default function UnitViewClient({
     [patients]
   );
   const involuntaryHoldCount = useMemo(
-    () => patients.filter((p) => isOccupiedBed(p.name) && patientHasInvoluntaryHoldKeywords(p)).length,
+    () => patients.filter((p) => isOccupiedBed(p.name) && patientHasInvoluntaryHold(p)).length,
     [patients]
   );
   const sitterCount = useMemo(
-    () => countPatientsWithSitterNurse(patients, nurses),
+    () => countPatientsRequiringSitter(patients, nurses),
     [patients, nurses]
   );
   const nameAlertGroups = useMemo(() => {
@@ -1311,8 +1363,7 @@ export default function UnitViewClient({
       <AppHeader
         title="UnitView"
         unitName={`${getFriendlyLayoutName(currentLayoutName)}${isOncomingShiftSetup ? ' (Oncoming shift setup)' : ''}`}
-        activePatientCount={activePatientCount}
-        totalRoomCount={totalRoomCount}
+        censusStats={censusStats}
         dnrCount={dnrCount}
         restraintCount={restraintCount}
         foleyCount={foleyCount}
@@ -1324,22 +1375,13 @@ export default function UnitViewClient({
         nameAlertGroups={roleCaps.canSeePatientIdentifiers ? nameAlertGroups : []}
         onAcknowledgeNameAlerts={handleAcknowledgeNameAlerts}
         canEdit={!roleCaps.isReadOnly}
-        showAdminTools={roleCaps.isAdmin}
         currentLayoutName={currentLayoutName}
         onSelectLayout={handleSelectLayout}
         availableLayouts={availableLayouts}
         onPrint={(type) => void handlePrint(type)}
         onConfigureAssignmentPrint={() => setIsPrintLayoutDialogOpen(true)}
-        onAdmitPatient={() => handleOpenAdmitDialog(null)}
-        onAddStaffMember={() => setIsAddStaffMemberDialogOpen(true)}
-        onAddRoom={roleCaps.isAdmin ? () => setIsAddRoomDialogOpen(true) : undefined}
-        onCreateUnit={roleCaps.isAdmin ? () => setIsCreateUnitDialogOpen(true) : undefined}
-        onInsertMockData={roleCaps.isAdmin ? handleInsertMockData : undefined}
-        onSaveLayout={roleCaps.isAdmin ? handleOpenSaveDialog : undefined}
-        onSaveAssignments={handleSaveAssignments}
-        onSetupOncomingShift={roleCaps.isReadOnly ? undefined : handleSetupOncomingShift}
       />
-      <main className="flex-grow flex overflow-hidden print-hide relative pb-14">
+      <main className="flex-grow flex overflow-hidden print-hide relative pb-16">
         <div className="flex-grow flex flex-col min-w-0 overflow-hidden">
             <PatientGrid
               patients={patients}
@@ -1373,6 +1415,8 @@ export default function UnitViewClient({
               onQuickAddStaff={handleQuickAddStaff}
               onRemoveStaff={handleRemoveStaff}
               onQuickNote={roleCaps.isReadOnly ? undefined : handleQuickNote}
+              onCompleteTransport={roleCaps.isReadOnly ? undefined : handleCompleteTransport}
+              onZoomControlsChange={setGridZoomControls}
               canSeePatientIdentifiers={roleCaps.canSeePatientIdentifiers}
               isReadOnly={roleCaps.isReadOnly}
             />
@@ -1459,18 +1503,21 @@ export default function UnitViewClient({
             </div>
           </SheetContent>
         </Sheet>
-        {onBackToDashboard && (
-          <Button
-            variant="destructive"
-            size="sm"
-            onClick={onBackToDashboard}
-            className="fixed bottom-4 right-4 z-50 shadow-lg font-semibold print-hide"
-          >
-            <LogOut className="w-4 h-4 mr-2" />
-            Leave unit
-          </Button>
-        )}
       </main>
+      <UnitActionBar
+        canEdit={!roleCaps.isReadOnly}
+        showAdminTools={roleCaps.isAdmin}
+        onAdmitPatient={() => handleOpenAdmitDialog(null)}
+        onAddStaffMember={() => setIsAddStaffMemberDialogOpen(true)}
+        onSetupOncomingShift={roleCaps.isReadOnly ? undefined : handleSetupOncomingShift}
+        onSaveAssignments={handleSaveAssignments}
+        onAddRoom={roleCaps.isAdmin ? () => setIsAddRoomDialogOpen(true) : undefined}
+        onCreateUnit={roleCaps.isAdmin ? () => setIsCreateUnitDialogOpen(true) : undefined}
+        onInsertMockData={roleCaps.isAdmin ? handleInsertMockData : undefined}
+        onSaveLayout={roleCaps.isAdmin ? handleOpenSaveDialog : undefined}
+        zoomControls={gridZoomControls}
+        onLeaveUnit={onBackToDashboard}
+      />
       <PrintableReport
         patients={patients}
         facilityProfile={facilityProfile}
@@ -1511,7 +1558,12 @@ export default function UnitViewClient({
       />
       <AdmitPatientDialog
         open={!!admitOrUpdatePatient}
-        onOpenChange={(isOpen) => !isOpen && setAdmitOrUpdatePatient(null)}
+        onOpenChange={(isOpen) => {
+          if (!isOpen) {
+            setAdmitOrUpdatePatient(null);
+            setIsUpdateMode(false);
+          }
+        }}
         onSave={handleSavePatient}
         patients={patients}
         nurses={nurses}
@@ -1611,7 +1663,7 @@ export default function UnitViewClient({
           window.setTimeout(() => void handlePrint(reportType), 50);
         }}
       />
-      <footer className="text-center py-2 px-4 text-xs text-muted-foreground border-t print-hide">
+      <footer className="text-center py-2 px-4 pb-14 text-xs text-muted-foreground border-t print-hide">
         UnitView &copy; {currentYear !== null ? currentYear : ''}
       </footer>
     </div>

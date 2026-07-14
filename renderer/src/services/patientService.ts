@@ -1,9 +1,51 @@
 import { getDb } from '../lib/database-simple';
 import type { Patient, LayoutName } from '../types/patient';
 import type { AdmitPatientFormValues } from '../types/forms';
+import { toPatientDate } from '../types/forms';
+import { migratePatientCareFlags, applySitterRequirements } from '../lib/patient-status-helpers';
 import { mockPatientData } from '../lib/mock-patients';
 import { NUM_COLS_GRID, NUM_ROWS_GRID } from '../lib/grid-utils';
 import type { Nurse, PatientCareTech } from '../types/nurse';
+
+function normalizePatientRecord(patient: Patient): Patient {
+  return migratePatientCareFlags({
+    ...patient,
+    admitDate: toPatientDate(patient.admitDate),
+    dischargeDate: toPatientDate(patient.dischargeDate),
+    ldas: Array.isArray(patient.ldas) ? patient.ldas : [],
+    awaitingTransport: Boolean(patient.awaitingTransport),
+  });
+}
+
+function applyAdmitFormToPatient(patient: Patient, formData: AdmitPatientFormValues): Patient {
+  const requiresSitter = Boolean(formData.requiresSitter || formData.isInvoluntaryHold1013);
+  return {
+    ...patient,
+    name: formData.name,
+    age: formData.age,
+    gender: formData.gender,
+    assignedNurse: formData.assignedNurse === 'To Be Assigned' ? undefined : formData.assignedNurse,
+    chiefComplaint: formData.chiefComplaint,
+    admitDate: formData.admitDate,
+    dischargeDate: formData.dischargeDate,
+    ldas: formData.ldas ? formData.ldas.split(',').map((s) => s.trim()).filter(Boolean) : [],
+    diet: formData.diet,
+    mobility: formData.mobility,
+    codeStatus: formData.codeStatus,
+    orientationStatus: formData.orientationStatus,
+    isFallRisk: formData.isFallRisk,
+    isSeizureRisk: formData.isSeizureRisk,
+    isAspirationRisk: formData.isAspirationRisk,
+    isIsolation: formData.isIsolation,
+    isInRestraints: formData.isInRestraints,
+    isComfortCareDNR: formData.isComfortCareDNR,
+    isInvoluntaryHold1013: formData.isInvoluntaryHold1013,
+    requiresSitter,
+    notes: formData.notes,
+    pendingProcedures: formData.pendingProcedures,
+    awaitingTransport: false,
+  };
+}
 
 export async function getPatients(layoutName: LayoutName): Promise<Patient[]> {
   if (!layoutName) return [];
@@ -21,7 +63,7 @@ export async function getPatients(layoutName: LayoutName): Promise<Patient[]> {
       return [];
     }
     
-    return patients;
+    return patients.map(normalizePatientRecord);
   } catch (error) {
     console.error(`Error fetching patient layout ${layoutName}:`, error);
     if (layoutName === 'North-South View') {
@@ -100,39 +142,47 @@ async function seedNorthSouthLayout(): Promise<Patient[]> {
 }
 
 export async function admitPatient(formData: AdmitPatientFormValues, patients: Patient[]): Promise<Patient[]> {
-  return patients.map(p => {
-    if (p.bedNumber === formData.bedNumber) {
-      return {
-        ...p,
-        name: formData.name,
-        age: formData.age,
-        gender: formData.gender,
-        assignedNurse: formData.assignedNurse === 'To Be Assigned' ? undefined : formData.assignedNurse,
-        chiefComplaint: formData.chiefComplaint,
-        admitDate: formData.admitDate,
-        dischargeDate: formData.dischargeDate,
-        ldas: formData.ldas ? formData.ldas.split(',').map(s => s.trim()).filter(Boolean) : [],
-        diet: formData.diet,
-        mobility: formData.mobility,
-        codeStatus: formData.codeStatus,
-        orientationStatus: formData.orientationStatus,
-        isFallRisk: formData.isFallRisk,
-        isSeizureRisk: formData.isSeizureRisk,
-        isAspirationRisk: formData.isAspirationRisk,
-        isIsolation: formData.isIsolation,
-        isInRestraints: formData.isInRestraints,
-        isComfortCareDNR: formData.isComfortCareDNR,
-        notes: formData.notes,
-        isBlocked: false,
-      };
-    }
-    return p;
+  return patients.map((p) => {
+    if (p.bedNumber !== formData.bedNumber) return p;
+    return {
+      ...applyAdmitFormToPatient(p, formData),
+      isBlocked: false,
+    };
+  });
+}
+
+export function finalizePatientAfterSave(patient: Patient, nurses: Nurse[]): Patient {
+  return applySitterRequirements(patient, nurses);
+}
+
+export async function updatePatient(
+  patientId: string,
+  formData: AdmitPatientFormValues,
+  patients: Patient[],
+): Promise<Patient[]> {
+  return patients.map((p) => {
+    if (p.id !== patientId) return p;
+    return applyAdmitFormToPatient(p, formData);
   });
 }
 
 export async function dischargePatient(patientToDischarge: Patient, patients: Patient[]): Promise<Patient[]> {
+  return patients.map((p) => {
+    if (p.id !== patientToDischarge.id) return p;
+    return {
+      ...p,
+      awaitingTransport: true,
+      assignedNurse: undefined,
+    };
+  });
+}
+
+export async function completeTransport(patientId: string, patients: Patient[]): Promise<Patient[]> {
+  const patientToVacate = patients.find((p) => p.id === patientId);
+  if (!patientToVacate) return patients;
+
   const vacantPatient: Patient = {
-    ...patientToDischarge,
+    ...patientToVacate,
     name: 'Vacant',
     age: 0,
     gender: undefined,
@@ -150,11 +200,15 @@ export async function dischargePatient(patientToDischarge: Patient, patients: Pa
     isIsolation: false,
     isInRestraints: false,
     isComfortCareDNR: false,
+    isInvoluntaryHold1013: false,
+    requiresSitter: false,
     orientationStatus: 'N/A',
     notes: '',
-    isBlocked: patientToDischarge.isBlocked,
+    pendingProcedures: '',
+    awaitingTransport: false,
+    isBlocked: patientToVacate.isBlocked,
   };
-  return patients.map(p => (p.id === patientToDischarge.id ? vacantPatient : p));
+  return patients.map((p) => (p.id === patientId ? vacantPatient : p));
 }
 
 function findEmptySlotForPatient(

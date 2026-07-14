@@ -1,4 +1,4 @@
-# UnitView v5.0.1 - Complete Build Instructions
+# UnitView v5.2.0-c - Complete Build Instructions
 
 ## 📋 Table of Contents
 1. [Prerequisites](#prerequisites)
@@ -193,13 +193,13 @@ The build will:
 ```
 unitview-windows/
 └── release/
-    ├── UnitView Setup 5.0.1.exe    # Installer
+    ├── UnitView Setup 5.2.0-c.exe    # Installer
     └── win-unpacked/                # Portable version
 ```
 
 ### Installer Details
 
-- **File Name:** `UnitView Setup 5.0.1.exe`
+- **File Name:** `UnitView Setup 5.2.0-c.exe`
 - **Size:** ~150-200MB
 - **Type:** NSIS installer
 - **Install Location:** `C:\Users\[Username]\AppData\Local\Programs\unitview-windows`
@@ -417,7 +417,7 @@ Before considering build complete:
 
 If you've followed all steps and the application runs correctly, congratulations! 🎉
 
-You now have a working UnitView v5.0.1 installation.
+You now have a working UnitView v5.2.0-c installation.
 
 **Next Steps:**
 - Customize the application for your needs
@@ -428,5 +428,5 @@ You now have a working UnitView v5.0.1 installation.
 ---
 
 **Build Date:** November 4, 2024  
-**Version:** 5.0.1  
+**Version:** 5.2.0-c  
 **Status:** Production Ready ✅

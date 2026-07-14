@@ -8,7 +8,7 @@ import { format } from "date-fns";
 import { CalendarIcon, UserPlus, Edit } from 'lucide-react';
 import type { Patient } from '@/types/patient';
 import type { Nurse } from '@/types/nurse';
-import { AdmitPatientFormSchema, type AdmitPatientFormValues, MOBILITY_STATUSES, GENDERS, CODE_STATUSES, DIETS, ORIENTATION_STATUSES } from '@/types/forms';
+import { AdmitPatientFormSchema, type AdmitPatientFormValues, MOBILITY_STATUSES, GENDERS, CODE_STATUSES, DIETS, ORIENTATION_STATUSES, patientToAdmitFormValues } from '@/types/forms';
 
 import { Button } from "@/components/ui/button";
 import {
@@ -72,6 +72,8 @@ export default function AdmitPatientDialog({
       isIsolation: false,
       isInRestraints: false,
       isComfortCareDNR: false,
+      isInvoluntaryHold1013: false,
+      requiresSitter: false,
     },
   });
 
@@ -82,14 +84,8 @@ export default function AdmitPatientDialog({
   useEffect(() => {
     if (open && patientToEdit) {
       if (isUpdateMode) {
-        // Update mode: populate form with existing patient data
-        form.reset({
-          ...patientToEdit,
-          ldas: Array.isArray(patientToEdit.ldas) ? patientToEdit.ldas.join(', ') : '',
-          assignedNurse: patientToEdit.assignedNurse || 'To Be Assigned',
-        });
+        form.reset(patientToAdmitFormValues(patientToEdit));
       } else {
-        // Admit mode into a specific (vacant) bed
         form.reset({
           bedNumber: patientToEdit.bedNumber,
           admitDate: new Date(),
@@ -99,7 +95,6 @@ export default function AdmitPatientDialog({
         });
       }
     } else if (open && !patientToEdit) {
-        // Admit mode into any bed
         form.reset({
             admitDate: new Date(),
             dischargeDate: new Date(new Date().setDate(new Date().getDate() + 3)),
@@ -187,7 +182,7 @@ export default function AdmitPatientDialog({
                      <FormField control={form.control} name="gender" render={({ field }) => (
                         <FormItem>
                            <FormLabel>Gender</FormLabel>
-                           <Select onValueChange={field.onChange} defaultValue={field.value}>
+                           <Select onValueChange={field.onChange} value={field.value}>
                              <FormControl><SelectTrigger><SelectValue placeholder="Select gender"/></SelectTrigger></FormControl>
                              <SelectContent>
                                {GENDERS.map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}
@@ -336,10 +331,18 @@ export default function AdmitPatientDialog({
                           </FormItem>
                         )} />
                     </div>
+                     <FormField control={form.control} name="pendingProcedures" render={({ field }) => (
+                        <FormItem className="mt-4">
+                            <FormLabel>Pending procedures / treatments</FormLabel>
+                            <FormControl><Textarea placeholder="e.g., MRI of brain, Cardiology consult, PT eval..." {...field} /></FormControl>
+                            <FormDescription>Consults, imaging, and scheduled procedures — separate from handoff notes.</FormDescription>
+                            <FormMessage />
+                        </FormItem>
+                    )} />
                      <FormField control={form.control} name="notes" render={({ field }) => (
                         <FormItem className="mt-4">
-                            <FormLabel>Pending Procedures/Treatments</FormLabel>
-                            <FormControl><Textarea placeholder="e.g., MRI of brain, consult with Cardiology..." {...field} /></FormControl>
+                            <FormLabel>Notes</FormLabel>
+                            <FormControl><Textarea placeholder="Clinical handoff notes, safety concerns, family updates..." {...field} /></FormControl>
                             <FormMessage />
                         </FormItem>
                     )} />
@@ -358,6 +361,8 @@ export default function AdmitPatientDialog({
                           { name: "isIsolation", label: "Isolation" },
                           { name: "isInRestraints", label: "Restraints" },
                           { name: "isComfortCareDNR", label: "Comfort Care / DNR" },
+                          { name: "isInvoluntaryHold1013", label: "1013 / 2013 hold", autoSitter: true },
+                          { name: "requiresSitter", label: "Sitter (safety / behavioral)" },
                         ].map(item => (
                           <FormField
                             key={item.name}
@@ -368,11 +373,19 @@ export default function AdmitPatientDialog({
                                 <FormControl>
                                   <Checkbox
                                     checked={field.value as boolean}
-                                    onCheckedChange={field.onChange}
+                                    onCheckedChange={(checked) => {
+                                      field.onChange(checked);
+                                      if (item.autoSitter && checked === true) {
+                                        form.setValue('requiresSitter', true, { shouldDirty: true });
+                                      }
+                                    }}
                                   />
                                 </FormControl>
                                 <div className="space-y-1 leading-none">
                                   <FormLabel>{item.label}</FormLabel>
+                                  {item.autoSitter ? (
+                                    <FormDescription className="text-xs">Auto-checks sitter and assigns sitter staff when available.</FormDescription>
+                                  ) : null}
                                 </div>
                               </FormItem>
                             )}

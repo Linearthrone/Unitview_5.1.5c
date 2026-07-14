@@ -35,6 +35,8 @@ import {
   Droplets,
   Pill,
   ShieldAlert,
+  Scale,
+  Eye,
   type LucideIcon,
   Wrench,
 } from 'lucide-react';
@@ -213,6 +215,8 @@ const ReportSheet: React.FC<ReportSheetProps> = ({
                     <CriticalCheck label="Restraints" active={patient.isInRestraints} />
                     <CriticalCheck label="DNR/DNI" active={patient.codeStatus !== 'Full Code'} detail={patient.codeStatus} />
                     <CriticalCheck label="Comfort care" active={patient.isComfortCareDNR} />
+                    <CriticalCheck label="1013 / 2013 hold" active={Boolean(patient.isInvoluntaryHold1013)} icon={Scale} />
+                    <CriticalCheck label="Sitter" active={Boolean(patient.requiresSitter)} icon={Eye} />
                     <CriticalCheck label="Time-critical meds" active={hasTimeCriticalMeds(patient)} icon={Pill} />
                     <CriticalCheck label="HD/PD" active={hasHdPd(patient)} icon={Droplets} />
                     <CriticalCheck label="Blood orders" active={hasBloodOrders(patient)} icon={Clock} />
@@ -225,24 +229,39 @@ const ReportSheet: React.FC<ReportSheetProps> = ({
                     {getRiskBadge('Fall Risk', AlertTriangle, patient.isFallRisk)}
                     {getRiskBadge('Seizure Risk', BrainCircuit, patient.isSeizureRisk)}
                     {getRiskBadge('Aspiration Risk', Wind, patient.isAspirationRisk)}
-                    {!patient.isFallRisk && !patient.isSeizureRisk && !patient.isAspirationRisk && (
+                    {getRiskBadge('1013 / 2013', Scale, Boolean(patient.isInvoluntaryHold1013))}
+                    {getRiskBadge('Sitter', Eye, Boolean(patient.requiresSitter))}
+                    {!patient.isFallRisk && !patient.isSeizureRisk && !patient.isAspirationRisk
+                      && !patient.isInvoluntaryHold1013 && !patient.requiresSitter && (
                       <p className="text-sm text-muted-foreground">No high-risk categories identified.</p>
                     )}
                   </div>
                 </section>
               </TabsContent>
 
-              <TabsContent value="notes" className="p-6 mt-0">
+              <TabsContent value="notes" className="p-6 mt-0 space-y-6">
                 <section>
-                  <h3 className="font-semibold text-lg mb-3 text-primary">Notes / Pending</h3>
+                  <h3 className="font-semibold text-lg mb-3 text-primary">Notes</h3>
                   {canSeePatientIdentifiers ? (
                     patient.notes ? (
                       <p className="text-sm whitespace-pre-wrap">{patient.notes}</p>
                     ) : (
-                      <p className="text-sm text-muted-foreground">No notes or pending procedures entered.</p>
+                      <p className="text-sm text-muted-foreground">No notes entered.</p>
                     )
                   ) : (
                     <p className="text-sm text-muted-foreground">Notes hidden in display mode.</p>
+                  )}
+                </section>
+                <section>
+                  <h3 className="font-semibold text-lg mb-3 text-primary">Pending procedures / treatments</h3>
+                  {canSeePatientIdentifiers ? (
+                    patient.pendingProcedures ? (
+                      <p className="text-sm whitespace-pre-wrap">{patient.pendingProcedures}</p>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">No pending procedures entered.</p>
+                    )
+                  ) : (
+                    <p className="text-sm text-muted-foreground">Pending procedures hidden in display mode.</p>
                   )}
                 </section>
               </TabsContent>

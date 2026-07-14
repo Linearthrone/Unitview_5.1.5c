@@ -1,4 +1,4 @@
-# UnitView v5.0.1 - Quick Start Guide
+# UnitView v5.2.0-c - Quick Start Guide
 
 ## 🚀 Get Started in 5 Minutes
 
@@ -46,7 +46,7 @@ Your UnitView application is now running!
 ## 📚 Need More Help?
 
 - **Full Instructions:** See `BUILD_INSTRUCTIONS.md`
-- **Release Notes:** See `VERSION_5.0.1_RELEASE_NOTES.md`
+- **Changelog:** See `CHANGELOG.md`
 - **Troubleshooting:** Check console for errors (Ctrl+Shift+I)
 
 ---
@@ -61,4 +61,4 @@ Installer will be in the `release/` folder.
 
 ---
 
-**Version:** 5.0.1 | **Status:** Production Ready ✅
+**Version:** 5.2.0-c | **Status:** Candidate build

@@ -54,6 +54,10 @@ export function getPrintRootWidth(orientation: PrintOrientation): string {
   return orientation === 'landscape' ? '11in' : '8.5in';
 }
 
+export function getPrintPreviewAspectRatio(orientation: PrintOrientation): string {
+  return orientation === 'landscape' ? '11 / 8.5' : '8.5 / 11';
+}
+
 /** Style-specific overrides layered on top of base PRINT_REPORT_CSS. */
 export function getPrintStylePresetCss(preset: PrintStylePreset): string {
   switch (preset) {

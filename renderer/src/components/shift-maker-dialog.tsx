@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { isOccupiedBed, patientHasInvoluntaryHoldKeywords } from "@/lib/patient-status-helpers";
+import { isOccupiedBed, patientHasInvoluntaryHold } from "@/lib/patient-status-helpers";
 import { NUM_COLS_GRID, NUM_ROWS_GRID } from "@/lib/grid-utils";
 import type { Nurse, PatientCareTech, Spectra, SpectraStatus } from "@/types/nurse";
 import type { Patient } from "@/types/patient";
@@ -43,7 +43,7 @@ function getTopPriorityBadges(patient: Patient): string[] {
     patient.isComfortCareDNR ? "DNR" : null,
     patient.isInRestraints ? "Restraints" : null,
     patient.isIsolation ? "Isolation" : null,
-    patientHasInvoluntaryHoldKeywords(patient) ? "1013/2013" : null,
+    patientHasInvoluntaryHold(patient) ? "1013/2013" : null,
     patient.isFallRisk ? "Fall Risk" : null,
     patient.isSeizureRisk ? "Seizure Risk" : null,
     patient.isAspirationRisk ? "Aspiration Risk" : null,

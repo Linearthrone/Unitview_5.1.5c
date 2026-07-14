@@ -1,5 +1,27 @@
 # UnitView - Complete Version History
 
+## [5.2.0-c] - 2026-06-20
+
+### ✨ Features
+- **UI overhaul** — bottom action bar (admit, staff, oncoming shift, zoom, leave unit), redesigned header
+- **Census statistics** — bedded/available/blocked beds, anticipated discharges, nurse/PCT counts, max patients by staffing ratio
+- **Patient clinical workflow** — separate notes vs pending procedures; 1013/2013 and sitter flags; transport-awaiting discharge flow
+- **Clinical indicators** — HD/PD dialysis icons, transport icon for same-day EDD or awaiting pickup
+- **Print layout designer v2** — landscape/portrait preview, style presets, uniform nurse assignment blocks
+- **Oncoming shift** — Spectralink drag-to-staff, improved nurse card resize (assignments preserved)
+- **PCT cards** — right-click context menu
+
+### 🐛 Fixes
+- Patient admit/update form (date coercion, gender select binding)
+- Nurse card resize no longer hides assigned rooms
+- Assignment print preview matches selected orientation
+
+### 📦 Version
+- Bumped from `5.1.5-c` to `5.2.0-c` (candidate build)
+- Settings screen reads version from Electron `app.getVersion()`
+
+---
+
 ## [5.0.1] - 2024-11-04
 
 ### 🐛 Critical Bug Fixes
@@ -88,6 +110,7 @@
 
 | Version | Status | Key Features | Issues |
 |---------|--------|--------------|--------|
+| 5.2.0-c | 🔄 Candidate | UI overhaul, census/staffing, print v2 | QA in progress |
 | 5.0.1 | ✅ Stable | All fixes applied | None |
 | 4.0.5 | ❌ Broken | UI improvements | Blank screen |
 | 4.0.4 | ✅ Stable | Auth + persistence | None |
@@ -141,6 +164,6 @@
 
 ---
 
-**Current Version:** 5.0.1  
+**Current Version:** 5.2.0-c  
 **Release Date:** November 4, 2024  
 **Status:** Production Ready ✅

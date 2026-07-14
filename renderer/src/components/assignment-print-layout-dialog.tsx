@@ -50,7 +50,7 @@ import PrintableReport from './printable-report';
 
 import { PRINT_REPORT_CSS } from '@/lib/print-utils';
 
-import { buildPrintStylesheet, PRINT_STYLE_PRESET_CATALOG } from '@/lib/print-styles';
+import { buildPrintStylesheet, getPrintPreviewAspectRatio, PRINT_STYLE_PRESET_CATALOG } from '@/lib/print-styles';
 
 import type { LayoutName, Patient } from '@/types/patient';
 
@@ -261,6 +261,17 @@ export default function AssignmentPrintLayoutDialog({
   const sortedSections = [...draft.sections].sort((a, b) => a.order - b.order);
 
   const previewCss = buildPrintStylesheet(draft.orientation, draft.stylePreset, PRINT_REPORT_CSS);
+  const previewAspectRatio = getPrintPreviewAspectRatio(draft.orientation);
+
+  const previewFrameClassName = cn(
+    'w-full mx-auto bg-white shadow-sm border overflow-auto',
+    draft.orientation === 'landscape' ? 'max-w-full' : 'max-w-[8.5in]',
+  );
+
+  const previewFrameStyle: React.CSSProperties = {
+    aspectRatio: previewAspectRatio,
+    maxHeight: draft.orientation === 'landscape' ? 'min(72vh, 520px)' : 'min(85vh, 720px)',
+  };
 
 
 
@@ -738,6 +749,7 @@ export default function AssignmentPrintLayoutDialog({
 
                 <style>{previewCss}</style>
 
+                <div className={previewFrameClassName} style={previewFrameStyle}>
                 <PrintableAssignments
 
                   unitName={unitDisplayName}
@@ -757,6 +769,7 @@ export default function AssignmentPrintLayoutDialog({
                   previewMode
 
                 />
+                </div>
 
               </TabsContent>
 
@@ -764,6 +777,7 @@ export default function AssignmentPrintLayoutDialog({
 
                 <style>{previewCss}</style>
 
+                <div className={previewFrameClassName} style={previewFrameStyle}>
                 <PrintableReport
 
                   patients={patients}
@@ -775,6 +789,7 @@ export default function AssignmentPrintLayoutDialog({
                   previewMode
 
                 />
+                </div>
 
               </TabsContent>
 

@@ -130,8 +130,9 @@ const PrintableAssignments: React.FC<PrintableAssignmentsProps> = ({
   const topRowNurses = staffNurses.slice(0, Math.ceil(staffNurses.length / 2));
   const secondRowNurses = staffNurses.slice(Math.ceil(staffNurses.length / 2));
 
-  const renderPatientRows = (nurse: Nurse) =>
-    nurse.assignedPatientIds.map((patientId, idx) => {
+  const renderPatientRows = (nurse: Nurse, slotCount: number) =>
+    Array.from({ length: slotCount }, (_, idx) => {
+      const patientId = nurse.assignedPatientIds[idx] ?? null;
       const patient = patientId ? patientMap.get(patientId) : null;
       if (!patient) {
         return <div key={`empty-${nurse.id}-${idx}`} className="uv-print-empty-slot" />;
@@ -157,7 +158,9 @@ const PrintableAssignments: React.FC<PrintableAssignmentsProps> = ({
       );
     });
 
-  const renderNurseRow = (rowNurses: Nurse[], keyPrefix: string) => (
+  const renderNurseRow = (rowNurses: Nurse[], keyPrefix: string) => {
+    const maxSlots = Math.max(1, ...rowNurses.map((n) => n.assignedPatientIds.length));
+    return (
     <div
       className="uv-print-nurse-row"
       style={{ gridTemplateColumns: `repeat(${Math.max(1, rowNurses.length)}, minmax(0, 1fr))` }}
@@ -166,11 +169,12 @@ const PrintableAssignments: React.FC<PrintableAssignmentsProps> = ({
         <div key={`${keyPrefix}-${nurse.id}`} className="uv-print-nurse-card page-break-inside-avoid">
           <h3>{nurse.name}</h3>
           <p className="uv-print-spectra">{nurse.spectra || 'No Spectra'}</p>
-          <div>{renderPatientRows(nurse)}</div>
+          <div>{renderPatientRows(nurse, maxSlots)}</div>
         </div>
       ))}
     </div>
-  );
+    );
+  };
 
   const sectionRenderers: Record<AssignmentPrintSectionId, () => React.ReactNode> = {
     header: () => (
@@ -320,7 +324,7 @@ const PrintableAssignments: React.FC<PrintableAssignmentsProps> = ({
       aria-hidden={previewMode ? undefined : 'true'}
       style={
         previewMode
-          ? { width: '100%', maxWidth: pageWidth, margin: '0 auto', background: '#fff', color: '#000' }
+          ? { width: '100%', height: '100%', margin: 0, background: '#fff', color: '#000', overflow: 'auto' }
           : {
               position: 'absolute',
               left: '-9999px',

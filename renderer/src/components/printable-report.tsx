@@ -77,7 +77,7 @@ const PrintableReport: React.FC<PrintableReportProps> = ({
       aria-hidden={previewMode ? undefined : 'true'}
       style={
         previewMode
-          ? { width: '100%', maxWidth: pageWidth, margin: '0 auto', background: '#fff', color: '#000' }
+          ? { width: '100%', height: '100%', margin: 0, background: '#fff', color: '#000', overflow: 'auto' }
           : {
               position: 'absolute',
               left: '-9999px',
@@ -108,6 +108,8 @@ const PrintableReport: React.FC<PrintableReportProps> = ({
           if (patient.isIsolation) alerts.push({ label: 'Isolation' });
           if (patient.isInRestraints) alerts.push({ label: 'Restraints' });
           if (patient.isComfortCareDNR) alerts.push({ label: 'DNR/Comfort' });
+          if (patient.isInvoluntaryHold1013) alerts.push({ label: '1013/2013' });
+          if (patient.requiresSitter) alerts.push({ label: 'Sitter' });
 
           return (
             <div
@@ -148,9 +150,14 @@ const PrintableReport: React.FC<PrintableReportProps> = ({
                 )}
               </div>
 
-              {charge.showNotes && patient.notes && (
+              {charge.showNotes && (patient.notes || patient.pendingProcedures) && (
                 <div className="uv-print-charge-notes">
-                  <strong>Notes:</strong> {patient.notes}
+                  {patient.notes ? (
+                    <div><strong>Notes:</strong> {patient.notes}</div>
+                  ) : null}
+                  {patient.pendingProcedures ? (
+                    <div><strong>Pending:</strong> {patient.pendingProcedures}</div>
+                  ) : null}
                 </div>
               )}
 

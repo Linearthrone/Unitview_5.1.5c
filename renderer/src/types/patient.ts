@@ -34,8 +34,17 @@ export interface Patient {
   isIsolation: boolean;
   isInRestraints: boolean;
   isComfortCareDNR: boolean;
+  /** Georgia involuntary hold (1013 / 2013) — auto-requires sitter when set. */
+  isInvoluntaryHold1013?: boolean;
+  /** 1:1 sitter needed for safety or behavioral reasons. */
+  requiresSitter?: boolean;
   isBlocked?: boolean;
+  /** General clinical / handoff notes. */
   notes?: string;
+  /** Pending procedures, consults, and treatments (separate from notes). */
+  pendingProcedures?: string;
+  /** Discharged clinically but room not yet vacated — awaiting transport. */
+  awaitingTransport?: boolean;
   gridRow: number; // 1-indexed
   gridColumn: number; // 1-indexed
 }

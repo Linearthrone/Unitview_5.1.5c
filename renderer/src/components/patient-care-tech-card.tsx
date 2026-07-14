@@ -4,7 +4,14 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Wrench, Users, XSquare } from 'lucide-react';
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from '@/components/ui/context-menu';
+import { Wrench, Users, XSquare, UserPlus, UserX } from 'lucide-react';
 import type { PatientCareTech } from '@/types/nurse';
 import type { StaffRole } from '@/types/patient';
 import { cn } from '@/lib/utils';
@@ -40,7 +47,7 @@ const PatientCareTechCard: React.FC<PatientCareTechCardProps> = ({
     onRemoveTech(tech.id);
   };
 
-  return (
+  const cardBody = (
     <Card className={cn(
         "flex flex-col h-full shadow-lg bg-card border-l-4 border-l-rose-500 relative",
         !locked && "cursor-grab"
@@ -80,6 +87,41 @@ const PatientCareTechCard: React.FC<PatientCareTechCardProps> = ({
         </div>
       </CardContent>
     </Card>
+  );
+
+  if (isReadOnly) {
+    return cardBody;
+  }
+
+  return (
+    <ContextMenu>
+      <ContextMenuTrigger asChild disabled={locked}>
+        {cardBody}
+      </ContextMenuTrigger>
+      <ContextMenuContent>
+        {unassigned && onAssignStaff && (
+          <ContextMenuItem onClick={() => onAssignStaff({ techId: tech.id, role: 'Patient Care Tech' })}>
+            <UserPlus className="mr-2 h-4 w-4" />
+            Assign staff member
+          </ContextMenuItem>
+        )}
+        {!unassigned && onAssignStaff && (
+          <ContextMenuItem onClick={() => onAssignStaff({ techId: tech.id, role: 'Patient Care Tech' })}>
+            <UserPlus className="mr-2 h-4 w-4" />
+            Change assigned staff
+          </ContextMenuItem>
+        )}
+        <ContextMenuSeparator />
+        <ContextMenuItem
+          className="text-destructive focus:text-destructive"
+          onClick={() => onRemoveTech(tech.id)}
+          disabled={locked}
+        >
+          <UserX className="mr-2 h-4 w-4" />
+          Remove tech card
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
   );
 };
 

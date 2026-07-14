@@ -32,10 +32,20 @@ import {
   Mars,
   Venus,
   StickyNote,
+  Scale,
+  Eye,
+  Car,
+  Droplets,
+  CircleDot,
   type LucideIcon
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { isPatientNurseAssigned } from '@/lib/nurse-assignment-sync';
+import { hasHemodialysis, hasPeritonealDialysis } from '@/lib/patient-clinical-helpers';
+import {
+  isAwaitingTransport,
+  patientNeedsTransportIndicator,
+} from '@/lib/patient-status-helpers';
 
 interface AlertDisplayInfo {
   IconComponent: LucideIcon;
@@ -55,6 +65,7 @@ interface PatientBlockProps {
   onEditDesignation: (patient: Patient) => void;
   onDeleteRoom?: (patientId: string) => void;
   onQuickNote?: (patient: Patient) => void;
+  onCompleteTransport?: (patient: Patient) => void;
   /** WALLDISPLAY and privacy — hide patient names/PHI. */
   canSeePatientIdentifiers?: boolean;
   isReadOnly?: boolean;
@@ -79,6 +90,7 @@ const PatientBlock: React.FC<PatientBlockProps> = ({
   onEditDesignation,
   onDeleteRoom,
   onQuickNote,
+  onCompleteTransport,
   canSeePatientIdentifiers = true,
   isReadOnly = false,
 }) => {
@@ -187,11 +199,29 @@ const PatientBlock: React.FC<PatientBlockProps> = ({
   if (patient.isComfortCareDNR) {
     alerts.push({ IconComponent: HeartHandshake, colorClass: 'text-purple-600 dark:text-purple-400', tooltipText: 'Comfort Care / DNR' });
   }
+  if (patient.isInvoluntaryHold1013) {
+    alerts.push({ IconComponent: Scale, colorClass: 'text-amber-600 dark:text-amber-400', tooltipText: '1013 / 2013 hold' });
+  }
+  if (patient.requiresSitter) {
+    alerts.push({ IconComponent: Eye, colorClass: 'text-orange-600 dark:text-orange-400', tooltipText: 'Sitter (safety / behavioral)' });
+  }
   if (hasCentralLine) {
     alerts.push({ IconComponent: AlertTriangle, colorClass: 'text-teal-600 dark:text-teal-400', tooltipText: 'Central line' });
   }
   if (hasTubeFeed) {
     alerts.push({ IconComponent: AlertTriangle, colorClass: 'text-emerald-600 dark:text-emerald-400', tooltipText: 'Tube feed' });
+  }
+  if (hasHemodialysis(patient)) {
+    alerts.push({ IconComponent: Droplets, colorClass: 'text-blue-700 dark:text-blue-400', tooltipText: 'Hemodialysis (HD)' });
+  }
+  if (hasPeritonealDialysis(patient)) {
+    alerts.push({ IconComponent: CircleDot, colorClass: 'text-indigo-700 dark:text-indigo-400', tooltipText: 'Peritoneal dialysis (PD)' });
+  }
+  if (patientNeedsTransportIndicator(patient)) {
+    const transportLabel = isAwaitingTransport(patient)
+      ? 'Awaiting transport'
+      : 'Anticipated discharge today';
+    alerts.push({ IconComponent: Car, colorClass: 'text-sky-700 dark:text-sky-400', tooltipText: transportLabel });
   }
 
   return (
@@ -243,11 +273,17 @@ const PatientBlock: React.FC<PatientBlockProps> = ({
                         variant={"outline"}
                         className={cn(
                           "font-semibold text-base truncate block w-full text-center py-1 px-2 border",
-                          getNameBadgeColor()
+                          getNameBadgeColor(),
+                          isAwaitingTransport(patient) && "border-sky-500 bg-sky-50 dark:bg-sky-950"
                         )}
                         title={patient.name}
                       >
                           {patient.name}
+                          {isAwaitingTransport(patient) && (
+                            <span className="block text-[10px] font-medium text-sky-700 dark:text-sky-300">
+                              Awaiting transport
+                            </span>
+                          )}
                       </Badge>
                     ) : (
                       <Badge variant="secondary" className="font-semibold text-base block w-full text-center py-1">
@@ -278,6 +314,14 @@ const PatientBlock: React.FC<PatientBlockProps> = ({
                     </Tooltip>
                   </TooltipProvider>
                 </div>
+                {patient.pendingProcedures && canSeePatientIdentifiers && (
+                  <p className="text-xs pt-1 border-t mt-2 italic">
+                    <span className="font-semibold not-italic">Pending: </span>
+                    {patient.pendingProcedures.length > 50
+                      ? `${patient.pendingProcedures.substring(0, 47)}...`
+                      : patient.pendingProcedures}
+                  </p>
+                )}
                 {patient.notes && canSeePatientIdentifiers && (
                   <p className="text-xs pt-1 border-t mt-2 italic">
                     <span className="font-semibold not-italic">Notes: </span>
@@ -351,9 +395,14 @@ const PatientBlock: React.FC<PatientBlockProps> = ({
             <ContextMenuItem onClick={() => onAdmit(patient)} disabled={!isVacant}>
               <UserPlus className="mr-2 h-4 w-4" /> Admit Patient
             </ContextMenuItem>
-            <ContextMenuItem onClick={() => onDischarge(patient)} disabled={isVacant}>
+            <ContextMenuItem onClick={() => onDischarge(patient)} disabled={isVacant || isAwaitingTransport(patient)}>
               <UserMinus className="mr-2 h-4 w-4" /> Discharge Patient
             </ContextMenuItem>
+            {isAwaitingTransport(patient) && onCompleteTransport && (
+              <ContextMenuItem onClick={() => onCompleteTransport(patient)}>
+                <Car className="mr-2 h-4 w-4" /> Complete transport / vacate
+              </ContextMenuItem>
+            )}
             {onQuickNote && !isVacant && (
               <ContextMenuItem onClick={() => onQuickNote(patient)}>
                 <StickyNote className="mr-2 h-4 w-4" /> Quick note

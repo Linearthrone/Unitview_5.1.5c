@@ -2,7 +2,7 @@
 "use client";
 
 import * as z from 'zod';
-import type { MobilityStatus, PatientGender, CodeStatus, OrientationStatus, StaffRole } from '@/types/patient';
+import type { MobilityStatus, PatientGender, CodeStatus, OrientationStatus, StaffRole, Patient } from '@/types/patient';
 
 // From admit-patient-dialog.tsx
 export const MOBILITY_STATUSES: MobilityStatus[] = ['Bed Rest', 'Assisted', 'Independent'];
@@ -24,6 +24,7 @@ export const AdmitPatientFormSchema = z.object({
   dischargeDate: z.date(),
   ldas: z.string().optional(),
   notes: z.string().optional(),
+  pendingProcedures: z.string().optional(),
   diet: z.string().min(1, "Diet is required."),
   mobility: z.enum(MOBILITY_STATUSES as [MobilityStatus, ...MobilityStatus[]]),
   codeStatus: z.enum(CODE_STATUSES as [CodeStatus, ...CodeStatus[]]),
@@ -35,9 +36,57 @@ export const AdmitPatientFormSchema = z.object({
   isIsolation: z.boolean().default(false),
   isInRestraints: z.boolean().default(false),
   isComfortCareDNR: z.boolean().default(false),
+  isInvoluntaryHold1013: z.boolean().default(false),
+  requiresSitter: z.boolean().default(false),
 });
 
 export type AdmitPatientFormValues = z.infer<typeof AdmitPatientFormSchema>;
+
+const ORIENTATION_SET = new Set<string>(ORIENTATION_STATUSES);
+
+/** Coerce persisted JSON dates into Date instances for forms and zod. */
+export function toPatientDate(value: Date | string | number | unknown): Date {
+  if (value instanceof Date && !Number.isNaN(value.getTime())) return value;
+  if (typeof value === 'string' || typeof value === 'number') {
+    const parsed = new Date(value);
+    if (!Number.isNaN(parsed.getTime())) return parsed;
+  }
+  return new Date();
+}
+
+/** Map a stored patient row into validated admit/update form values. */
+export function patientToAdmitFormValues(patient: Patient): AdmitPatientFormValues {
+  const orientation = ORIENTATION_SET.has(patient.orientationStatus)
+    ? (patient.orientationStatus as (typeof ORIENTATION_STATUSES)[number])
+    : 'x4';
+
+  return {
+    bedNumber: patient.bedNumber,
+    name: patient.name,
+    age: patient.age,
+    gender: patient.gender ?? 'Male',
+    chiefComplaint:
+      patient.chiefComplaint && patient.chiefComplaint !== 'N/A' ? patient.chiefComplaint : 'See chart',
+    admitDate: toPatientDate(patient.admitDate),
+    dischargeDate: toPatientDate(patient.dischargeDate),
+    ldas: Array.isArray(patient.ldas) ? patient.ldas.join(', ') : '',
+    notes: patient.notes ?? '',
+    pendingProcedures: patient.pendingProcedures ?? '',
+    diet: patient.diet && patient.diet !== 'N/A' ? patient.diet : 'Regular',
+    mobility: patient.mobility ?? 'Independent',
+    codeStatus: patient.codeStatus ?? 'Full Code',
+    orientationStatus: orientation,
+    assignedNurse: patient.assignedNurse || 'To Be Assigned',
+    isFallRisk: Boolean(patient.isFallRisk),
+    isSeizureRisk: Boolean(patient.isSeizureRisk),
+    isAspirationRisk: Boolean(patient.isAspirationRisk),
+    isIsolation: Boolean(patient.isIsolation),
+    isInRestraints: Boolean(patient.isInRestraints),
+    isComfortCareDNR: Boolean(patient.isComfortCareDNR),
+    isInvoluntaryHold1013: Boolean(patient.isInvoluntaryHold1013),
+    requiresSitter: Boolean(patient.requiresSitter),
+  };
+}
 
 
 // From add-staff-member-dialog.tsx

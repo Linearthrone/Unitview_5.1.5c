@@ -1,6 +1,6 @@
-# UnitView v5.0.1 - Patient Management Dashboard
+# UnitView v5.2.0-c - Patient Management Dashboard
 
-![Version](https://img.shields.io/badge/version-5.0.1-blue.svg)
+![Version](https://img.shields.io/badge/version-5.2.0--c-blue.svg)
 ![Status](https://img.shields.io/badge/status-stable-green.svg)
 ![Platform](https://img.shields.io/badge/platform-Windows-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
@@ -63,7 +63,6 @@ UnitView is a comprehensive patient management dashboard designed for healthcare
 
 - **[Quick Start Guide](QUICK_START.md)** - Get up and running in 5 minutes
 - **[Build Instructions](BUILD_INSTRUCTIONS.md)** - Complete build guide
-- **[Release Notes](VERSION_5.0.1_RELEASE_NOTES.md)** - What's new in v5.0.1
 - **[Changelog](CHANGELOG.md)** - Complete version history
 
 ---
@@ -199,7 +198,7 @@ npm run build:main
 npm run dist:win
 ```
 
-Output: `release/UnitView Setup 5.0.1.exe`
+Output: `release/UnitView Setup 5.2.0-c.exe`
 
 ---
 
@@ -278,7 +277,7 @@ MIT License - See LICENSE file for details
 ## 👥 Credits
 
 **Developed by:** Linearthrone  
-**Version:** 5.0.1  
+**Version:** 5.2.0-c  
 **Release Date:** November 4, 2024
 
 ---
@@ -304,7 +303,14 @@ This is a private project. For feature requests or bug reports, please contact t
 
 ---
 
-## 🎉 What's New in v5.0.1
+## What's New in v5.2.0-c
+
+See [CHANGELOG.md](CHANGELOG.md) for the full list. Highlights:
+
+- Bottom action bar and census/statistics panel
+- Patient 1013/sitter flags, transport workflow, HD/PD indicators
+- Print layout designer v2 with landscape preview
+- Oncoming shift and Spectralink improvements
 
 ### Critical Fixes
 ✅ Resolved blank white screen issue  
@@ -324,19 +330,19 @@ This is a private project. For feature requests or bug reports, please contact t
 
 1. **Read** [QUICK_START.md](QUICK_START.md) for fastest setup
 2. **Follow** [BUILD_INSTRUCTIONS.md](BUILD_INSTRUCTIONS.md) for detailed guide
-3. **Review** [VERSION_5.0.1_RELEASE_NOTES.md](VERSION_5.0.1_RELEASE_NOTES.md) for changes
+3. **Review** [CHANGELOG.md](CHANGELOG.md) for version history
 4. **Check** [CHANGELOG.md](CHANGELOG.md) for version history
 
 ---
 
 ## ✅ Production Ready
 
-UnitView v5.0.1 is stable and ready for production use. All critical issues have been resolved, and the application has been thoroughly tested.
+UnitView v5.2.0-c is the current candidate build with the unit operations UI overhaul and expanded clinical workflow features.
 
 **Enjoy using UnitView!** 🏥
 
 ---
 
 **Last Updated:** November 4, 2024  
-**Version:** 5.0.1  
+**Version:** 5.2.0-c  
 **Status:** Stable Production Release ✅

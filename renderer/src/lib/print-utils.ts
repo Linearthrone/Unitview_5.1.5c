@@ -92,9 +92,25 @@ export const PRINT_REPORT_CSS = `
   }
   .uv-print-layout-single { display: flex; flex-direction: column; gap: 12px; }
   .uv-print-main, .uv-print-sidebar { display: flex; flex-direction: column; gap: 12px; }
-  .uv-print-nurse-row { display: grid; gap: 8px; }
+  .uv-print-nurse-row {
+    display: grid;
+    gap: 8px;
+    align-items: stretch;
+  }
   .uv-print-nurse-card, .uv-print-tech-panel, .uv-print-sidebar-panel {
-    border: 1px solid #000; padding: 8px;
+    border: 1px solid #000;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    height: 100%;
+    box-sizing: border-box;
+  }
+  .uv-print-nurse-card > div:last-child {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
   }
   .uv-print-nurse-card h3, .uv-print-tech-panel h3, .uv-print-sidebar-panel h3 {
     font-weight: bold; text-align: center; border-bottom: 1px solid #000;

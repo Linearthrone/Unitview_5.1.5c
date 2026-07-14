@@ -4,21 +4,22 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { Patient, StaffRole } from '@/types/patient';
 import type { Nurse, PatientCareTech } from '@/types/nurse';
-import { ZoomIn, ZoomOut } from 'lucide-react';
 import PatientBlock from './patient-block';
 import NurseAssignmentCard, { type NurseAssignContext } from './nurse-assignment-card';
 import PatientCareTechCard, { type TechAssignContext } from './patient-care-tech-card';
 import ChargeNurseCard from './charge-nurse-card';
 import UnitClerkCard from './unit-clerk-card';
 import { Skeleton } from './ui/skeleton';
-import { Button } from './ui/button';
 import { cn } from '@/lib/utils';
 import { NUM_COLS_GRID, NUM_ROWS_GRID } from '@/lib/grid-utils';
 import { getEffectiveNurseCardRowSpan } from '@/lib/nurse-card-layout';
-
-const ZOOM_STEP = 0.08;
-const MIN_ZOOM_FLOOR = 0.2;
-const MAX_ZOOM_CEILING = 2;
+import {
+  ZOOM_STEP,
+  MIN_ZOOM_FLOOR,
+  MAX_ZOOM_CEILING,
+  clampGridZoom,
+  type GridZoomControls,
+} from '@/lib/grid-zoom';
 
 interface DraggingPatientInfo {
   id: string;
@@ -64,8 +65,10 @@ interface PatientGridProps {
   onQuickAddStaff?: (role: StaffRole) => void;
   onRemoveStaff: (role: StaffRole) => void;
   onQuickNote?: (patient: Patient) => void;
+  onCompleteTransport?: (patient: Patient) => void;
   canSeePatientIdentifiers?: boolean;
   isReadOnly?: boolean;
+  onZoomControlsChange?: (controls: import('@/lib/grid-zoom').GridZoomControls) => void;
 }
 
 const PatientGrid: React.FC<PatientGridProps> = ({
@@ -100,8 +103,10 @@ const PatientGrid: React.FC<PatientGridProps> = ({
   onRemoveStaff,
   onDeleteRoom,
   onQuickNote,
+  onCompleteTransport,
   canSeePatientIdentifiers = true,
   isReadOnly = false,
+  onZoomControlsChange,
 }) => {
   const viewportRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
@@ -110,10 +115,7 @@ const PatientGrid: React.FC<PatientGridProps> = ({
   const [zoom, setZoom] = useState(1);
   const [contentSize, setContentSize] = useState({ width: 0, height: 0 });
 
-  const clampZoom = useCallback(
-    (value: number) => Math.min(MAX_ZOOM_CEILING, Math.max(MIN_ZOOM_FLOOR, value)),
-    [],
-  );
+  const clampZoom = useCallback((value: number) => clampGridZoom(value), []);
 
   const updateContentSize = useCallback(() => {
     const grid = gridRef.current;
@@ -196,6 +198,19 @@ const PatientGrid: React.FC<PatientGridProps> = ({
   const canZoomIn = zoom < MAX_ZOOM_CEILING - 0.01;
   const canZoomOut = zoom > MIN_ZOOM_FLOOR + 0.01;
 
+  useEffect(() => {
+    if (!onZoomControlsChange) return;
+    onZoomControlsChange({
+      zoom,
+      zoomIn,
+      zoomOut,
+      resetZoom,
+      atFitZoom,
+      canZoomIn,
+      canZoomOut,
+    });
+  }, [zoom, zoomIn, zoomOut, resetZoom, atFitZoom, canZoomIn, canZoomOut, onZoomControlsChange]);
+
   const handleDragOverCell = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     if ((draggingPatientInfo || draggingNurseInfo || draggingTechInfo) && !isEffectivelyLocked) {
@@ -266,6 +281,7 @@ const PatientGrid: React.FC<PatientGridProps> = ({
                   onEditDesignation={onEditDesignation}
                   onDeleteRoom={onDeleteRoom}
                   onQuickNote={onQuickNote}
+                  onCompleteTransport={onCompleteTransport}
                 />
               </div>
             )}
@@ -345,46 +361,6 @@ const PatientGrid: React.FC<PatientGridProps> = ({
 
   return (
     <div className="relative flex-grow flex min-h-[min(24rem,50vh)]">
-      <div
-        className="absolute right-2 top-2 z-20 flex items-center gap-1 rounded-md border border-border bg-background/95 px-1.5 py-1 text-xs shadow-sm"
-        role="group"
-        aria-label="Unit map zoom controls"
-      >
-        <Button
-          type="button"
-          variant="outline"
-          size="icon"
-          className="h-8 w-8"
-          onClick={zoomOut}
-          disabled={!canZoomOut}
-          aria-label="Zoom out"
-          title="Zoom out"
-        >
-          <ZoomOut className="h-4 w-4" />
-        </Button>
-        <button
-          type="button"
-          className="min-w-[3.25rem] px-1 text-center text-foreground font-medium hover:underline disabled:no-underline"
-          onClick={resetZoom}
-          disabled={atFitZoom}
-          aria-label={`Zoom level ${Math.round(zoom * 100)} percent. Reset to fit entire unit.`}
-          title={atFitZoom ? 'Showing entire unit' : 'Reset to fit entire unit'}
-        >
-          {Math.round(zoom * 100)}%
-        </button>
-        <Button
-          type="button"
-          variant="outline"
-          size="icon"
-          className="h-8 w-8"
-          onClick={zoomIn}
-          disabled={!canZoomIn}
-          aria-label="Zoom in"
-          title="Zoom in"
-        >
-          <ZoomIn className="h-4 w-4" />
-        </Button>
-      </div>
       <div
         ref={viewportRef}
         className="flex-grow overflow-auto p-2"

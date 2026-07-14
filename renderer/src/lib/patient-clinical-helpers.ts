@@ -25,15 +25,23 @@ export function hasTimeCriticalMeds(patient: Patient): boolean {
   );
 }
 
-export function hasHdPd(patient: Patient): boolean {
+export function hasHemodialysis(patient: Patient): boolean {
   const haystack = clinicalHaystack(patient);
   return (
     /\bhd\b/.test(haystack) ||
-    /\bpd\b/.test(haystack) ||
     haystack.includes('hemodialysis') ||
-    haystack.includes('peritoneal dialysis') ||
-    haystack.includes('dialysis')
+    (haystack.includes('dialysis') && !haystack.includes('peritoneal'))
   );
+}
+
+export function hasPeritonealDialysis(patient: Patient): boolean {
+  const haystack = clinicalHaystack(patient);
+  return /\bpd\b/.test(haystack) || haystack.includes('peritoneal dialysis');
+}
+
+/** @deprecated Use hasHemodialysis / hasPeritonealDialysis */
+export function hasHdPd(patient: Patient): boolean {
+  return hasHemodialysis(patient) || hasPeritonealDialysis(patient);
 }
 
 export function hasBloodOrders(patient: Patient): boolean {
