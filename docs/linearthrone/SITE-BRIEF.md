@@ -49,7 +49,9 @@ Future-tech, precise, hospital-grounded. Visionary without vaporware. UnitView p
 
 ## Media assets (DEV / content)
 
-Place files under `website/public/media/unitview/`:
+> **Repo note:** The marketing site was split out of UnitView into  
+> `C:\Users\kurtw\OneDrive\Documents\Coding Projects\linearthrone.com_codebase`  
+> (see `website/README.md` in this repo). Place media under that project's `public/media/unitview/`.
 
 - Screenshots: board overview, census panel, nurse assignments, print preview.
 - Clips: short silent webm/mp4 demos of drag-assign, oncoming shift, print config.

@@ -1,32 +1,17 @@
-# LinearThrone.com marketing site
+# Website moved
 
-Static Vite + React site for **LinearThrone Technologies** (`linearthrone.com`).
+The LinearThrone.com marketing site no longer lives in this UnitView repo.
 
-## Pages
+**New location:**
 
-| Route | Page |
-|-------|------|
-| `/` | Landing |
-| `/unitview` | UnitView product (features, benefits, media) |
-| `/llmod` | LLMOD vision teaser |
-| `/house-victoria` | House Victoria teaser |
-| `/contact` | Contact + About (`kurt.wood@linearthrone.com`) |
+`C:\Users\kurtw\OneDrive\Documents\Coding Projects\linearthrone.com_codebase`
 
-## Develop
+That project is a standalone Vite + React site. Develop and deploy from there:
 
 ```bash
-cd website
+cd "C:\Users\kurtw\OneDrive\Documents\Coding Projects\linearthrone.com_codebase"
 npm install
 npm run dev
 ```
 
-## Build / deploy
-
-```bash
-npm run build
-```
-
-Publish `dist/` to any static host (Cloudflare Pages, Netlify, GitHub Pages, S3). For SPA routing on static hosts, add a rewrite of all paths to `index.html`.
-
-Brief: `../docs/linearthrone/SITE-BRIEF.md`  
-DEV task: `../docs/agents/tasks/TASK-20260713-001-PM01-to-DEV01.md`
+Site brief: `docs/SITE-BRIEF.md` in that repo (a copy of `docs/linearthrone/SITE-BRIEF.md` from this tree).
