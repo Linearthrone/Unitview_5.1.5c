@@ -4,6 +4,8 @@ import type { AdmitPatientFormValues } from '../types/forms';
 import { mockPatientData } from '../lib/mock-patients';
 import { NUM_COLS_GRID, NUM_ROWS_GRID } from '../lib/grid-utils';
 import type { Nurse, PatientCareTech } from '../types/nurse';
+import { recordAudit } from '../lib/audit-client';
+import { authService } from './authService';
 
 export async function getPatients(layoutName: LayoutName): Promise<Patient[]> {
   if (!layoutName) return [];
@@ -100,6 +102,13 @@ async function seedNorthSouthLayout(): Promise<Patient[]> {
 }
 
 export async function admitPatient(formData: AdmitPatientFormValues, patients: Patient[]): Promise<Patient[]> {
+  await recordAudit({
+    action: 'PATIENT_ADMIT',
+    actorEmployeeNumber: authService.getCurrentUser()?.employeeNumber,
+    resourceType: 'Room',
+    resourceId: String(formData.bedNumber),
+    success: true,
+  });
   return patients.map(p => {
     if (p.bedNumber === formData.bedNumber) {
       return {
@@ -131,6 +140,13 @@ export async function admitPatient(formData: AdmitPatientFormValues, patients: P
 }
 
 export async function dischargePatient(patientToDischarge: Patient, patients: Patient[]): Promise<Patient[]> {
+  await recordAudit({
+    action: 'PATIENT_DISCHARGE',
+    actorEmployeeNumber: authService.getCurrentUser()?.employeeNumber,
+    resourceType: 'Room',
+    resourceId: patientToDischarge.fhirPatientId || String(patientToDischarge.bedNumber),
+    success: true,
+  });
   const vacantPatient: Patient = {
     ...patientToDischarge,
     name: 'Vacant',
@@ -153,6 +169,11 @@ export async function dischargePatient(patientToDischarge: Patient, patients: Pa
     orientationStatus: 'N/A',
     notes: '',
     isBlocked: patientToDischarge.isBlocked,
+    fhirPatientId: undefined,
+    fhirEncounterId: undefined,
+    mrn: undefined,
+    fhirStale: undefined,
+    lastFhirSyncAt: undefined,
   };
   return patients.map(p => (p.id === patientToDischarge.id ? vacantPatient : p));
 }

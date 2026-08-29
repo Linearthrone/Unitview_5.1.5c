@@ -12,8 +12,14 @@ import * as layoutService from '../services/layoutService';
 import type { LayoutName } from '../types/patient';
 import { setLastOpenedUnitName } from '../lib/last-unit-storage';
 import { getRoleCapabilities } from '@/lib/roles';
+import { syncEpicCensus } from '@/services/fhirCensusService';
+import { getConfiguredDataSource } from '@/lib/data-source';
 import { defaultFacilityProfile, getFacilityProfile } from '@/services/facilityService';
 import type { FacilityProfile } from '@/types/facility';
+import ChangePasswordDialog from './change-password-dialog';
+import { useSessionTimeout } from '@/lib/session-timeout';
+import { recordAudit } from '@/lib/audit-client';
+import { useToast } from '@/hooks/use-toast';
 
 type AuthView = 'login' | 'admin' | 'user-dashboard' | 'unit-view';
 
@@ -27,6 +33,8 @@ export default function AuthContainer() {
   });
   const [initialProps, setInitialProps] = useState<any>(null);
   const [facilityProfile, setFacilityProfile] = useState<FacilityProfile>(defaultFacilityProfile);
+  const [sessionWarning, setSessionWarning] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     // Initialize authentication system
@@ -82,17 +90,39 @@ export default function AuthContainer() {
     }
   };
 
-  const handleLogout = async () => {
-    await authService.logout();
+  const handleLogout = async (reason: 'user' | 'timeout' = 'user') => {
+    await authService.logout(authState.user?.employeeNumber);
+    if (reason === 'timeout') {
+      await recordAudit({
+        action: 'SESSION_TIMEOUT',
+        actorEmployeeNumber: authState.user?.employeeNumber,
+        success: true,
+      });
+    }
     authService.clearCurrentUser();
     setAuthState({
       isAuthenticated: false,
       user: null,
       isLoading: false,
-      error: null,
+      error: reason === 'timeout' ? 'Signed out after 15 minutes of inactivity.' : null,
     });
     setCurrentView('login');
+    setSessionWarning(false);
   };
+
+  useSessionTimeout(
+    authState.isAuthenticated,
+    () => {
+      setSessionWarning(true);
+      toast({
+        title: 'Session ending soon',
+        description: 'Move the mouse or press a key to stay signed in.',
+      });
+    },
+    () => {
+      void handleLogout('timeout');
+    }
+  );
 
   const handleBackToLogin = () => {
     setAuthState({
@@ -118,15 +148,31 @@ export default function AuthContainer() {
         ? (unitName as LayoutName) 
         : 'North-South View';
           
-      const [initialPatients, initialNurses, initialTechs] = await Promise.all([
+      let [initialPatients, initialNurses, initialTechs] = await Promise.all([
         patientService.getPatients(layoutToLoad),
         nurseService.getNurses(layoutToLoad),
         nurseService.getTechs(layoutToLoad),
       ]);
 
       const sessionUser = authService.getCurrentUser();
+      if (getConfiguredDataSource() === 'epic_fhir' && window.electronAPI?.fetchEpicCensus) {
+        try {
+          const synced = await syncEpicCensus(initialPatients, sessionUser?.employeeNumber);
+          initialPatients = synced.rooms;
+          await patientService.savePatients(layoutToLoad, initialPatients);
+        } catch {
+          // Keep the local unit board if Epic is unreachable; user can retry from the header.
+        }
+      }
       if (sessionUser) {
         setLastOpenedUnitName(sessionUser.id, layoutToLoad);
+        await recordAudit({
+          action: 'PHI_VIEW',
+          actorEmployeeNumber: sessionUser.employeeNumber,
+          resourceType: 'Unit',
+          resourceId: layoutToLoad,
+          success: true,
+        });
       }
 
       setInitialProps({
@@ -155,6 +201,23 @@ export default function AuthContainer() {
     setInitialProps(null);
   };
 
+  const passwordGate = authState.user?.mustChangePassword ? (
+    <ChangePasswordDialog
+      open
+      required
+      employeeNumber={authState.user.employeeNumber}
+      onSubmit={async (password) => {
+        const result = await authService.changePassword(authState.user!.employeeNumber, password);
+        if (result.ok) {
+          const updated = { ...authState.user!, mustChangePassword: false };
+          authService.setCurrentUser(updated);
+          setAuthState((prev) => ({ ...prev, user: updated }));
+        }
+        return result;
+      }}
+    />
+  ) : null;
+
   // Render current view
   switch (currentView) {
     case 'login':
@@ -170,34 +233,46 @@ export default function AuthContainer() {
 
     case 'admin':
       return (
-        <AdminDashboard
-          onLogout={handleLogout}
-          onBackToLogin={handleBackToLogin}
-          onBackToFacility={() => setCurrentView('user-dashboard')}
-        />
+        <>
+          {passwordGate}
+          {sessionWarning && (
+            <p className="sr-only">Session will end soon due to inactivity.</p>
+          )}
+          <AdminDashboard
+            onLogout={() => void handleLogout('user')}
+            onBackToLogin={handleBackToLogin}
+            onBackToFacility={() => setCurrentView('user-dashboard')}
+          />
+        </>
       );
 
     case 'user-dashboard':
       return authState.user ? (
-        <UserDashboard
-          user={authState.user}
-          onLogout={handleLogout}
-          onEnterUnit={handleEnterUnit}
-          onOpenUserManagement={
-            getRoleCapabilities(authState.user.role, authState.user.appRole).isAdmin
-              ? () => setCurrentView('admin')
-              : undefined
-          }
-        />
+        <>
+          {passwordGate}
+          <UserDashboard
+            user={authState.user}
+            onLogout={() => void handleLogout('user')}
+            onEnterUnit={handleEnterUnit}
+            onOpenUserManagement={
+              getRoleCapabilities(authState.user.role, authState.user.appRole).isAdmin
+                ? () => setCurrentView('admin')
+                : undefined
+            }
+          />
+        </>
       ) : null;
 
     case 'unit-view':
       return initialProps ? (
-        <UnitViewClient 
-          {...initialProps} 
-          onBackToDashboard={handleBackToDashboard}
-          currentUser={authState.user}
-        />
+        <>
+          {passwordGate}
+          <UnitViewClient 
+            {...initialProps} 
+            onBackToDashboard={handleBackToDashboard}
+            currentUser={authState.user}
+          />
+        </>
       ) : null;
 
     default:

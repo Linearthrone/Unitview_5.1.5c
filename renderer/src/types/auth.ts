@@ -11,6 +11,7 @@ export interface User {
   isActive: boolean;
   createdAt: Date;
   lastLogin?: Date;
+  mustChangePassword?: boolean;
 }
 
 export interface LoginCredentials {
@@ -42,6 +43,7 @@ export const defaultUsers: User[] = [
     appRole: 'Entity Admin',
     isActive: true,
     createdAt: new Date(),
+    mustChangePassword: true,
   },
   {
     id: 'user-1',
@@ -51,6 +53,7 @@ export const defaultUsers: User[] = [
     appRole: 'Nurse Manager',
     isActive: true,
     createdAt: new Date(),
+    mustChangePassword: true,
   },
   {
     id: 'user-2',
@@ -60,6 +63,7 @@ export const defaultUsers: User[] = [
     appRole: 'Nurse',
     isActive: true,
     createdAt: new Date(),
+    mustChangePassword: true,
   },
   {
     id: 'user-3',
@@ -69,6 +73,7 @@ export const defaultUsers: User[] = [
     appRole: 'WALLDISPLAY',
     isActive: true,
     createdAt: new Date(),
+    mustChangePassword: true,
   },
 ];
 

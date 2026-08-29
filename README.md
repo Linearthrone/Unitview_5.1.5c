@@ -249,11 +249,12 @@ Press `Ctrl+Shift+I` to open DevTools and check console
 
 ## 🔒 Security
 
+See [docs/HIPAA_AND_EPIC_FHIR.md](docs/HIPAA_AND_EPIC_FHIR.md) for Epic SMART Backend Services setup, encrypted storage, audit logging, and the organizational steps still required for HIPAA.
+
 ### Data Storage
-- All data stored locally in SQLite database
-- Database location: `%APPDATA%\unitview\`
-- No cloud connectivity required
-- No data transmitted externally
+- Encrypted AES-256-GCM vault on the workstation (`%APPDATA%\unitview\`)
+- Optional Epic FHIR census over HTTPS
+- Audit log of access events (no names or MRNs)
 
 ### Authentication
 - Passwords stored securely

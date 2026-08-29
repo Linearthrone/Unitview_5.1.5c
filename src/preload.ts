@@ -1,20 +1,31 @@
 import { contextBridge, ipcRenderer } from 'electron';
+import type { AuditEventInput } from './security/audit';
+import type { EpicConnectionPublic, FhirAuthMode } from './fhir/epic-config';
 
-// Define the API for the renderer process
+export interface EpicConfigSaveInput extends Partial<EpicConnectionPublic> {
+  privateKeyPem?: string;
+  actorEmployeeNumber?: string;
+  authMode?: FhirAuthMode;
+}
+
 export const electronAPI = {
-  // Data operations
-  exportData: (data: any) => ipcRenderer.invoke('export-data', data),
+  exportData: (data: unknown) => ipcRenderer.invoke('export-data', data),
   importData: () => ipcRenderer.invoke('import-data'),
-  
-  // Print operations
   printToPDF: (htmlContent: string) => ipcRenderer.invoke('print-to-pdf', htmlContent),
-  
-  // App info
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
   getUserDataPath: () => ipcRenderer.invoke('get-user-data-path'),
-  
-  // Menu events
-  onMenuAction: (callback: (action: string, data?: any) => void) => {
+  saveSecureStore: (plaintext: string) => ipcRenderer.invoke('secure-store-save', plaintext),
+  loadSecureStore: () => ipcRenderer.invoke('secure-store-load'),
+  getHipaaStatus: () => ipcRenderer.invoke('hipaa-status'),
+  recordAudit: (input: AuditEventInput) => ipcRenderer.invoke('audit-record', input),
+  listAudit: (maxLines?: number) => ipcRenderer.invoke('audit-list', maxLines),
+  getEpicConfig: () => ipcRenderer.invoke('epic-get-config'),
+  saveEpicConfig: (config: EpicConfigSaveInput) => ipcRenderer.invoke('epic-save-config', config),
+  testEpicConnection: (actorEmployeeNumber?: string) =>
+    ipcRenderer.invoke('epic-test-connection', actorEmployeeNumber),
+  fetchEpicCensus: (actorEmployeeNumber?: string) =>
+    ipcRenderer.invoke('epic-fetch-census', actorEmployeeNumber),
+  onMenuAction: (callback: (action: string, data?: string) => void) => {
     const onNewLayout = () => callback('new-layout');
     const onOpenLayout = () => callback('open-layout');
     const onSaveLayout = () => callback('save-layout');
@@ -40,10 +51,8 @@ export const electronAPI = {
   },
 };
 
-// Expose the API to the renderer process
 contextBridge.exposeInMainWorld('electronAPI', electronAPI);
 
-// Type definitions for the renderer process
 declare global {
   interface Window {
     electronAPI: typeof electronAPI;
