@@ -25,7 +25,7 @@ Start here: [`PM-01.md`](./PM-01.md) → [`PM-01-EN.md`](./PM-01-EN.md) + [`PM-0
 | --- | --- | --- |
 | **FED-01** | Frontend | `renderer/` React/Electron UI |
 | **BED-01** | Backend | Electron main (`src/`, `main` process), IPC, services |
-| **DBD-01** | Database | SQLite / localStorage persistence, schema, seed data |
+| **DBD-01** | Database | Encrypted vault persistence, schema, seed data |
 | **SEC-01** | Security | Auth, HIPAA/Epic FHIR safeguards, vault, audit |
 | **OPS-01** | Operations | Windows build/installer, release verify |
 | **QA-01** | QA | Smoke, regression, issue files — **no product code edits** |

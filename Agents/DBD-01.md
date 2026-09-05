@@ -54,7 +54,7 @@ updated: 2026-09-05
 
 | Area | Stack |
 | --- | --- |
-| Primary store | SQLite / localStorage + encrypted vault |
+| Primary store | AES-256-GCM `phi.vault.json` via main IPC (`src/ipc/secure-vault.ts`). localStorage is first-run migrate only. **Not SQLite.** |
 | Access | Indexed lookups; no unbounded collect on hot paths |
 
 ---

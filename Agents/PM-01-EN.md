@@ -76,7 +76,7 @@ SoulCore-only seats (**REX-01**, **VBOX-01**, **OPS-HOME**, **OPS-TAB**) are imp
 | Version | `5.1.5-c` (`package.json`) |
 | Renderer | `renderer/` React 18 + TypeScript + Tailwind + Vite |
 | Main | Electron main (`tsconfig.main.json`) |
-| Data | SQLite / localStorage + AES-256-GCM vault |
+| Data | AES-256-GCM `phi.vault.json` (not SQLite) |
 | Auth | Role-based (`admin` / nurse / tech / `WALLDISPLAY`) |
 | PROP registry | `docs/agents/PROP_NUMBERING.md` |
 
@@ -84,7 +84,7 @@ SoulCore-only seats (**REX-01**, **VBOX-01**, **OPS-HOME**, **OPS-TAB**) are imp
 
 ## 4. Technology Stack Overview
 
-**Electron + React 18 + TypeScript + Tailwind + SQLite/vault + optional Epic FHIR R4.**
+**Electron + React 18 + TypeScript + Tailwind + AES-256-GCM vault + optional Epic FHIR R4.**
 
 Do not introduce a second UI stack, a cloud backend, or a second PHI store without an explicit user decision ticketed through TT → PM.
 

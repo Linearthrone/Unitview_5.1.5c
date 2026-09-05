@@ -8,6 +8,14 @@ import type { User, UnitSettings } from '../types/auth';
 import type { FacilityProfile } from '../types/facility';
 import { defaultFacilityProfile } from '../types/facility';
 import { getConfiguredDataSource } from './data-source';
+import { STORE_UNAVAILABLE_MESSAGE, decideVaultInit } from './vault-init';
+
+export class StoreUnavailableError extends Error {
+  constructor(message = STORE_UNAVAILABLE_MESSAGE) {
+    super(message);
+    this.name = 'StoreUnavailableError';
+  }
+}
 
 // Stored rows include layoutName so one array can hold all layouts.
 type StoredPatient = Patient & { layoutName: LayoutName };
@@ -57,40 +65,66 @@ export class SimpleDatabase {
   };
 
   private isLoaded = false;
+  private storeStatus: 'uninitialized' | 'available' | 'unavailable' = 'uninitialized';
+  private writeChain: Promise<void> = Promise.resolve();
+
+  isStoreAvailable(): boolean {
+    return this.storeStatus === 'available';
+  }
 
   async initialize(): Promise<void> {
-    if (this.isLoaded) {
-      console.log('✅ Database already initialized');
+    if (this.isLoaded && this.storeStatus === 'available') {
       return;
     }
-    
-    console.log('🔄 Initializing database...');
-    
-    try {
-      const dataSource = getConfiguredDataSource();
-      console.log('Database source:', dataSource);
-
-      if (window.electronAPI?.loadSecureStore) {
-        const vault = await window.electronAPI.loadSecureStore();
-        if (vault.success && vault.data) {
-          this.data = JSON.parse(vault.data);
-          this.ensureCompatFields();
-          this.isLoaded = true;
-          return;
-        }
-      }
-
-      this.loadFromLocalStorage();
-      if (window.electronAPI?.saveSecureStore) {
-        await window.electronAPI.saveSecureStore(JSON.stringify(this.data));
-        localStorage.removeItem('unitview_data');
-      }
-      this.isLoaded = true;
-    } catch (error) {
-      console.error('❌ Failed to initialize database:', error);
-      this.initializeWithDefaults();
-      this.isLoaded = true;
+    if (this.storeStatus === 'unavailable') {
+      throw new StoreUnavailableError();
     }
+
+    const dataSource = getConfiguredDataSource();
+    console.log('Database source:', dataSource);
+
+    if (window.electronAPI?.loadSecureStore) {
+      const vault = await window.electronAPI.loadSecureStore();
+      const decision = decideVaultInit(vault);
+      if (decision.kind === 'blocked') {
+        this.markUnavailable();
+        throw new StoreUnavailableError(decision.message);
+      }
+      if (decision.kind === 'use') {
+        try {
+          this.data = JSON.parse(decision.payload) as DatabaseSchema;
+        } catch {
+          this.markUnavailable();
+          throw new StoreUnavailableError(STORE_UNAVAILABLE_MESSAGE);
+        }
+        this.ensureCompatFields();
+        this.storeStatus = 'available';
+        this.isLoaded = true;
+        return;
+      }
+      this.applyFirstRunDefaults();
+      this.storeStatus = 'available';
+      this.isLoaded = true;
+      this.saveToLocalStorage();
+      await this.flushPendingWrites();
+      localStorage.removeItem('unitview_data');
+      return;
+    }
+
+    this.applyFirstRunDefaults();
+    this.storeStatus = 'available';
+    this.isLoaded = true;
+    this.saveToLocalStorage();
+    await this.flushPendingWrites();
+  }
+
+  private markUnavailable(): void {
+    this.storeStatus = 'unavailable';
+    this.isLoaded = false;
+  }
+
+  async flushPendingWrites(): Promise<void> {
+    await this.writeChain;
   }
 
   private ensureCompatFields(): void {
@@ -104,24 +138,21 @@ export class SimpleDatabase {
     if (!this.data.nurses_oncoming) this.data.nurses_oncoming = [];
   }
 
-  private loadFromLocalStorage(): void {
+  private applyFirstRunDefaults(): void {
     try {
       const stored = localStorage.getItem('unitview_data');
       if (stored) {
-        this.data = JSON.parse(stored);
+        this.data = JSON.parse(stored) as DatabaseSchema;
         this.ensureCompatFields();
-        this.saveToLocalStorage();
-      } else {
-        this.initializeWithDefaults();
+        return;
       }
-    } catch (error) {
+    } catch {
       console.error('Failed to load local application store');
-      this.initializeWithDefaults();
     }
+    this.applyDefaultSchema();
   }
 
-  private initializeWithDefaults(): void {
-    // Initialize with default data
+  private applyDefaultSchema(): void {
     this.data.user_preferences = {
       lastSelectedLayout: 'North-South View',
       isLayoutLocked: 'false',
@@ -157,24 +188,55 @@ export class SimpleDatabase {
     this.data.global_theme = 'light';
     this.data.action_history = [];
     this.data.history_index = -1;
+  }
 
-    this.saveToLocalStorage();
+  private enqueueSave(): Promise<void> {
+    if (this.storeStatus !== 'available') {
+      return Promise.resolve();
+    }
+    this.writeChain = this.writeChain.then(() => this.flushVault());
+    return this.writeChain;
+  }
+
+  private async flushVault(): Promise<void> {
+    if (this.storeStatus !== 'available') {
+      return;
+    }
+    const dataString = JSON.stringify(this.data);
+    if (window.electronAPI?.saveSecureStore) {
+      const result = await window.electronAPI.saveSecureStore(dataString);
+      if (!result.success) {
+        throw new Error(result.error ?? 'Failed to save encrypted application data.');
+      }
+      return;
+    }
+    localStorage.setItem('unitview_data', dataString);
   }
 
   private saveToLocalStorage(): void {
-    try {
-      const dataString = JSON.stringify(this.data);
-      if (window.electronAPI?.saveSecureStore) {
-        void window.electronAPI.saveSecureStore(dataString);
-        return;
-      }
-      localStorage.setItem('unitview_data', dataString);
-    } catch (error) {
-      console.error('Failed to persist application store');
-      if (error instanceof Error) {
-        alert('Failed to save encrypted application data. Check workstation storage settings.');
-      }
-    }
+    void this.enqueueSave().catch((error: unknown) => {
+      console.error('Failed to persist application store', error);
+    });
+  }
+
+  saveBoardSnapshot(
+    layoutName: LayoutName,
+    snapshot: {
+      patients: Patient[];
+      nurses: Nurse[];
+      oncomingNurses: Nurse[];
+      techs: PatientCareTech[];
+    },
+  ): void {
+    this.data.patients = this.data.patients.filter((p) => p.layoutName !== layoutName);
+    this.data.patients.push(...snapshot.patients.map((p) => ({ ...p, layoutName })));
+    this.data.nurses = this.data.nurses.filter((n) => n.layoutName !== layoutName);
+    this.data.nurses.push(...snapshot.nurses.map((n) => ({ ...n, layoutName })));
+    this.data.nurses_oncoming = this.data.nurses_oncoming.filter((n) => n.layoutName !== layoutName);
+    this.data.nurses_oncoming.push(...snapshot.oncomingNurses.map((n) => ({ ...n, layoutName })));
+    this.data.patient_care_techs = this.data.patient_care_techs.filter((t) => t.layoutName !== layoutName);
+    this.data.patient_care_techs.push(...snapshot.techs.map((t) => ({ ...t, layoutName })));
+    this.saveToLocalStorage();
   }
 
   // Global Theme Management
@@ -538,16 +600,29 @@ export class SimpleDatabase {
 let db: SimpleDatabase | null = null;
 
 export const initializeDatabase = async (): Promise<SimpleDatabase> => {
-  if (db) return db;
+  if (db?.isStoreAvailable()) {
+    return db;
+  }
+  if (db && !db.isStoreAvailable()) {
+    throw new StoreUnavailableError();
+  }
 
   db = new SimpleDatabase();
-  await db.initialize();
+  try {
+    await db.initialize();
+  } catch (error) {
+    if (!(error instanceof StoreUnavailableError)) {
+      db = null;
+    }
+    throw error;
+  }
   return db;
 };
 
 export const getDb = async (): Promise<SimpleDatabase> => {
-  if (!db) {
-    return await initializeDatabase();
-  }
-  return db;
+  return await initializeDatabase();
 };
+
+export function isStoreAvailable(): boolean {
+  return db?.isStoreAvailable() === true;
+}
