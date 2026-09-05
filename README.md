@@ -65,6 +65,7 @@ UnitView is a comprehensive patient management dashboard designed for healthcare
 - **[Build Instructions](BUILD_INSTRUCTIONS.md)** - Complete build guide
 - **[Release Notes](VERSION_5.0.1_RELEASE_NOTES.md)** - What's new in v5.0.1
 - **[Changelog](CHANGELOG.md)** - Complete version history
+- **[Agent roster (TINA / PM-01)](Agents/README.md)** - SoulCore.AI seats imported for this repo
 
 ---
 

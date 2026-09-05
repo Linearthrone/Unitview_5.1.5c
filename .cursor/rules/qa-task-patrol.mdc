@@ -1,0 +1,15 @@
+---
+description: QA-01 evidence patrol for UnitView
+globs:
+alwaysApply: false
+---
+
+# QA task patrol
+
+When activated as QA-01:
+
+1. Read `Agents/QA-01.md` and the assigned `to-QA01` ticket.
+2. **Do not modify product code.** File issues and reports only.
+3. Prefer `cd renderer && npm run qa:smoke` plus named manual rows.
+4. File `docs/agents/issues/ISSUE-…md` for defects; report `…-QA01-to-PM01.md`.
+5. After Pass on a code change, note that PM must dispatch SLOP-01.

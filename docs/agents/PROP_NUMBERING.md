@@ -1,0 +1,42 @@
+---
+type: config
+id: PROP-NUMBERING
+updated: 2026-09-05
+owner: PM-01 / TT-01
+project: UnitView
+---
+
+# PROP numbering (TT → PM)
+
+Imported from SoulCore.AI. Stops TT intake IDs from colliding with PM `TASK-###` execution counters.
+
+## Format
+
+| Kind | Form | Example |
+| --- | --- | --- |
+| Proposal (from TT) | `PROP-{N}-{subject}` | `PROP-1-shift-assignment-screen` |
+| Split work item | `PROP-{N}.{M}` | `PROP-1.1`, `PROP-1.2` |
+| Filename (proposal) | slug under `unexecuted_proposals/`; frontmatter **must** set `prop_id` | `shift-assignment-screen.md` |
+| Filename (split task) | `PROP-{N}.{M}-PM01-to-{ROLE}.md` in `docs/agents/tasks/` | `PROP-1.1-PM01-to-FED01.md` |
+
+- `{N}` = monotonic integer assigned at TT send-to-PM (or by PM on first accept if TT omitted it).
+- `{M}` = split index starting at **1**. TINA may re-split / merge / reassign roles.
+- Optional `PROP-{N}.0` = PM accept / routing note back to TT (not an execution seat).
+
+## Rules
+
+1. **TT never invents `TASK-###` for new idea intakes.** Use `PROP-N-subject`.
+2. **PM owns division of labor.** Suggested `PROP-N.M` from TT are hints.
+3. Legacy `TASK-{date}-{id}-…` files remain valid for pre-PROP UnitView work (through the 2026-06-20 sprint). Do not reuse those integers for new TT ideas.
+4. Reports: `docs/agents/reports/PROP-{N}.{M}-{ROLE}-to-PM01.md`.
+5. Unblock evals of an **existing** `TASK-*` may still return `TASK-*-TT01-to-PM01.md`, but any **new** proposal spawned from that eval gets a fresh `PROP-N`.
+
+## Registry (UnitView)
+
+| prop_id | Subject | Status | Splits |
+| --- | --- | --- | --- |
+| — | No PROP intakes yet on this repo | empty | — |
+
+Next free `N`: **1**.
+
+Historical UnitView sprint (closed): see `docs/agents/reports/TASK-20260620-004-PM01-SPRINT-COMPLETE.md`.
