@@ -1,6 +1,6 @@
 ---
 type: proposal
-status: sent-to-pm
+status: accepted
 tt_id: TT-01
 prop_id: PROP-1-persistence-honesty
 created: 2026-09-05
@@ -116,9 +116,11 @@ Protect G2G. Do not rewrite storage and decompose UI in the same wave.
 
 ## 9. Open Questions for User / PM
 
-1. **Destination store:** After honesty ships, is the encrypted vault the 5.x SoT, or do you still want SQLite in main this program (with the DB file keychain-wrapped)?
-2. **Live Epic:** Any workstation on SMART Backend Services (not sandbox fixtures)? If no, keep FHIR N+1 parked.
-3. **Fail-closed vs board-always-opens:** On vault decrypt failure, block the board (preserve ciphertext) even if the map will not open?
+**Locked 2026-09-05 (Kurt):**
+
+1. **Destination store:** Encrypted vault stays 5.x SoT. No SQLite this program.
+2. **Live Epic:** Still sandbox fixtures. FHIR N+1 stays parked.
+3. **Decrypt failure:** Return to the **main / login screen** with a banner. Do **not** overwrite the vault. Do **not** seed vacant rooms. Not a full-page fatal trap.
 
 (Non-blocking later: leftover `todo.md` shift-assignment *page* vs current oncoming + prints.)
 
