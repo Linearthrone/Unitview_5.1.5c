@@ -35,7 +35,7 @@ Imported from SoulCore.AI. Stops TT intake IDs from colliding with PM `TASK-###`
 
 | prop_id | Subject | Status | Splits |
 | --- | --- | --- | --- |
-| PROP-1-persistence-honesty | Fail-closed vault writes; docs honesty; no SQLite-now | **accepted** — Kurt lock 2026-09-05 (vault SoT, sandbox, decrypt → login, no overwrite) | 1.1–1.7 executing |
+| PROP-1-persistence-honesty | Fail-closed vault writes; docs honesty; no SQLite-now | **accepted / shipped in branch** — Kurt lock 2026-09-05; 1.1–1.5 implemented; 1.6–1.7 reported | 1.1–1.7 |
 
 Next free `N`: **2**.
 

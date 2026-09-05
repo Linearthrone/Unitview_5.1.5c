@@ -36,6 +36,7 @@
     "src/components/unit-dashboard.tsx",
     "src/lib/database-auth.ts",
     "src/lib/database-simple-old.ts",
+    "src/lib/vault-init.test.ts",
     "src/lib/firebase.ts",
     "src/database-debug.ts",
     "src/debug-storage.ts",
