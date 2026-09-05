@@ -26,6 +26,7 @@ import {
   Building2,
   PlusSquare,
   Save,
+  RefreshCw,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -71,6 +72,8 @@ interface AppHeaderProps {
   onAddRoom?: () => void;
   onCreateUnit?: () => void;
   onInsertMockData?: () => void;
+  onSyncEpicCensus?: () => void;
+  isSyncingEpic?: boolean;
   onSaveLayout?: () => void;
   onSaveAssignments: () => void;
   onSetupOncomingShift?: () => void;
@@ -130,6 +133,8 @@ const AppHeader: React.FC<AppHeaderProps> = ({
   onAddRoom,
   onCreateUnit,
   onInsertMockData,
+  onSyncEpicCensus,
+  isSyncingEpic = false,
   onSaveLayout,
   onSaveAssignments,
   onSetupOncomingShift,
@@ -362,6 +367,18 @@ const AppHeader: React.FC<AppHeaderProps> = ({
           )}
         >
           <div className="flex flex-wrap items-center gap-2">
+            {onSyncEpicCensus && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onSyncEpicCensus}
+                disabled={isSyncingEpic}
+                title="Sync in-progress encounters from Epic FHIR"
+              >
+                <RefreshCw className={`h-4 w-4 mr-1.5 ${isSyncingEpic ? 'animate-spin' : ''}`} />
+                {isSyncingEpic ? 'Syncing Epic…' : 'Sync Epic census'}
+              </Button>
+            )}
             {canEdit && (
               <>
                 <Button variant="default" size="sm" onClick={onAdmitPatient} title="Admit / transfer in">

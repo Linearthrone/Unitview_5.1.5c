@@ -68,18 +68,24 @@ export class SimpleDatabase {
     
     try {
       const dataSource = getConfiguredDataSource();
-      console.log('🗄️ Selected data source:', dataSource);
+      console.log('Database source:', dataSource);
 
-      // The setup currently supports local on-device storage only.
-      if (window.electronAPI) {
-        const userDataPath = await window.electronAPI.getUserDataPath();
-        console.log('📁 User data path:', userDataPath);
-      } else {
-        console.log('⚠️ No electronAPI found, using local browser storage');
+      if (window.electronAPI?.loadSecureStore) {
+        const vault = await window.electronAPI.loadSecureStore();
+        if (vault.success && vault.data) {
+          this.data = JSON.parse(vault.data);
+          this.ensureCompatFields();
+          this.isLoaded = true;
+          return;
+        }
       }
+
       this.loadFromLocalStorage();
+      if (window.electronAPI?.saveSecureStore) {
+        await window.electronAPI.saveSecureStore(JSON.stringify(this.data));
+        localStorage.removeItem('unitview_data');
+      }
       this.isLoaded = true;
-      console.log('✅ Database initialized successfully');
     } catch (error) {
       console.error('❌ Failed to initialize database:', error);
       this.initializeWithDefaults();
@@ -87,27 +93,29 @@ export class SimpleDatabase {
     }
   }
 
+  private ensureCompatFields(): void {
+    if (!this.data.users) this.data.users = [];
+    if (!this.data.passwords) this.data.passwords = {};
+    if (!this.data.unit_settings) this.data.unit_settings = [];
+    if (!this.data.facility_profile) this.data.facility_profile = { ...defaultFacilityProfile };
+    if (!this.data.global_theme) this.data.global_theme = 'light';
+    if (!this.data.action_history) this.data.action_history = [];
+    if (!this.data.history_index) this.data.history_index = -1;
+    if (!this.data.nurses_oncoming) this.data.nurses_oncoming = [];
+  }
+
   private loadFromLocalStorage(): void {
     try {
       const stored = localStorage.getItem('unitview_data');
       if (stored) {
         this.data = JSON.parse(stored);
-        // Ensure new fields exist for backward compatibility
-        if (!this.data.users) this.data.users = [];
-        if (!this.data.passwords) this.data.passwords = {};
-        if (!this.data.unit_settings) this.data.unit_settings = [];
-        if (!this.data.facility_profile) this.data.facility_profile = { ...defaultFacilityProfile };
-        if (!this.data.global_theme) this.data.global_theme = 'light';
-        if (!this.data.action_history) this.data.action_history = [];
-        if (!this.data.history_index) this.data.history_index = -1;
-        if (!this.data.nurses_oncoming) this.data.nurses_oncoming = [];
-        // Save updated structure
+        this.ensureCompatFields();
         this.saveToLocalStorage();
       } else {
         this.initializeWithDefaults();
       }
     } catch (error) {
-      console.error('Failed to load from localStorage:', error);
+      console.error('Failed to load local application store');
       this.initializeWithDefaults();
     }
   }
@@ -156,18 +164,15 @@ export class SimpleDatabase {
   private saveToLocalStorage(): void {
     try {
       const dataString = JSON.stringify(this.data);
+      if (window.electronAPI?.saveSecureStore) {
+        void window.electronAPI.saveSecureStore(dataString);
+        return;
+      }
       localStorage.setItem('unitview_data', dataString);
-      console.log('✅ Data saved to localStorage successfully', {
-        users: this.data.users?.length || 0,
-        units: this.data.unit_settings?.length || 0,
-        nurses: this.data.nurses?.length || 0,
-        patients: this.data.patients?.length || 0
-      });
     } catch (error) {
-      console.error('❌ Failed to save to localStorage:', error);
-      // Try to show user-friendly error
+      console.error('Failed to persist application store');
       if (error instanceof Error) {
-        alert(`Failed to save data: ${error.message}. Please check browser storage settings.`);
+        alert('Failed to save encrypted application data. Check workstation storage settings.');
       }
     }
   }

@@ -21,10 +21,13 @@ import {
   AlertCircle,
   CheckCircle
 } from 'lucide-react';
-import { User, defaultPasswords } from '../types/auth';
+import { User } from '../types/auth';
 import { authService } from '../services/authService';
 import { APP_ROLES, formatAppRoleLabel, type AppRole } from '@/lib/roles';
+import { validatePasswordPolicy } from '@/lib/password-policy';
 import FacilitySettingsForm from './facility-settings-form';
+import EpicFhirSettings from './epic-fhir-settings';
+import AuditLogPanel from './audit-log-panel';
 
 interface AdminDashboardProps {
   onLogout: () => void;
@@ -79,13 +82,19 @@ export default function AdminDashboard({ onLogout, onBackToLogin, onBackToFacili
     setTimeout(() => setMessage(null), 3000);
   };
 
-  const handleAddUser = () => {
+  const handleAddUser = async () => {
     if (!newUser.employeeNumber || !newUser.username || !newUser.password) {
       showMessage('error', 'Please fill all fields');
       return;
     }
 
-    const success = authService.addUser(
+    const policy = validatePasswordPolicy(newUser.password, newUser.employeeNumber);
+    if (!policy.ok) {
+      showMessage('error', policy.errors[0] ?? 'Password does not meet policy');
+      return;
+    }
+
+    const success = await authService.addUser(
       {
         employeeNumber: newUser.employeeNumber,
         username: newUser.username,
@@ -102,7 +111,7 @@ export default function AdminDashboard({ onLogout, onBackToLogin, onBackToFacili
       setIsAddUserOpen(false);
       loadUsers();
     } else {
-      showMessage('error', 'Failed to add user (employee number may already exist)');
+      showMessage('error', 'Failed to add user (employee number may already exist or password is invalid)');
     }
   };
 
@@ -128,21 +137,21 @@ export default function AdminDashboard({ onLogout, onBackToLogin, onBackToFacili
     }
   };
 
-  const handleChangePassword = () => {
+  const handleChangePassword = async () => {
     if (!selectedUser || !newPassword) {
       showMessage('error', 'Please enter a new password');
       return;
     }
 
-    const success = authService.changePassword(selectedUser.employeeNumber, newPassword);
+    const result = await authService.changePassword(selectedUser.employeeNumber, newPassword);
 
-    if (success) {
+    if (result.ok) {
       showMessage('success', 'Password changed successfully');
       setIsPasswordDialogOpen(false);
       setSelectedUser(null);
       setNewPassword('');
     } else {
-      showMessage('error', 'Failed to change password');
+      showMessage('error', result.error || 'Failed to change password');
     }
   };
 
@@ -233,21 +242,19 @@ export default function AdminDashboard({ onLogout, onBackToLogin, onBackToFacili
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
         <FacilitySettingsForm />
+        <EpicFhirSettings actorEmployeeNumber={authService.getCurrentUser()?.employeeNumber} />
+        <AuditLogPanel />
 
         <Card>
           <CardHeader>
-            <CardTitle>Demo credentials</CardTitle>
+            <CardTitle>HIPAA access controls</CardTitle>
             <CardDescription>
-              Reference accounts for development — not shown on the login screen.
+              Seeded first-run accounts must change their password. Passwords are stored as PBKDF2
+              hashes, PHI is encrypted at rest on this workstation, and idle sessions end after 15
+              minutes. Organizational policies, a BAA, and workforce training are still required
+              before production PHI use.
             </CardDescription>
           </CardHeader>
-          <CardContent className="text-sm space-y-1 font-mono">
-            {Object.entries(defaultPasswords).map(([emp, pw]) => (
-              <p key={emp}>
-                {emp} / {pw}
-              </p>
-            ))}
-          </CardContent>
         </Card>
 
         {message && (

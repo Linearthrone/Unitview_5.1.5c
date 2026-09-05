@@ -1,10 +1,7 @@
-import { app, BrowserWindow, Menu, shell, ipcMain, dialog } from 'electron';
+import { app, BrowserWindow, Menu, shell, ipcMain, dialog, session } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
-import Store from 'electron-store';
-
-// Initialize electron store for app settings
-const store = new Store();
+import { registerIpcHandlers } from './ipc/register-handlers';
 
 class UnitViewApp {
   private mainWindow: BrowserWindow | null = null;
@@ -22,6 +19,18 @@ class UnitViewApp {
 
     // This method will be called when Electron has finished initialization
     app.whenReady().then(() => {
+      if (!this.isDev) {
+        session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+          callback({
+            responseHeaders: {
+              ...details.responseHeaders,
+              'Content-Security-Policy': [
+                "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://fhir.epic.com https://*.epic.com; font-src 'self' data:",
+              ],
+            },
+          });
+        });
+      }
       this.createMainWindow();
       this.setupMenu();
       this.setupIpcHandlers();
@@ -51,7 +60,7 @@ class UnitViewApp {
       webPreferences: {
         nodeIntegration: false,
         contextIsolation: true,
-        // enableRemoteModule: false, // deprecated
+        sandbox: true,
         preload: path.join(__dirname, 'preload.js'),
       },
       icon: path.join(__dirname, '../assets/icon.png'),
@@ -172,7 +181,9 @@ class UnitViewApp {
         submenu: [
           { label: 'Reload', accelerator: 'CmdOrCtrl+R', role: 'reload' },
           { label: 'Force Reload', accelerator: 'CmdOrCtrl+Shift+R', role: 'forceReload' },
-          { label: 'Toggle Developer Tools', accelerator: 'F12', role: 'toggleDevTools' },
+          ...(this.isDev
+            ? [{ label: 'Toggle Developer Tools', accelerator: 'F12', role: 'toggleDevTools' as const }]
+            : []),
           { type: 'separator' },
           { label: 'Actual Size', accelerator: 'CmdOrCtrl+0', role: 'resetZoom' },
           { label: 'Zoom In', accelerator: 'CmdOrCtrl+Plus', role: 'zoomIn' },
@@ -287,6 +298,8 @@ class UnitViewApp {
     ipcMain.handle('get-user-data-path', () => {
       return app.getPath('userData');
     });
+
+    registerIpcHandlers();
   }
 }
 

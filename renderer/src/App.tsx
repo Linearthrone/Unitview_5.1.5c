@@ -3,6 +3,7 @@ import AuthContainer from './components/auth-container';
 import { initializeDatabase } from './lib/database-simple';
 import { determineDataSource } from './lib/data-source';
 import { UndoRedoProvider } from './hooks/use-undo-redo';
+import { Toaster } from './components/ui/toaster';
 
 function App() {
   const [isLoading, setIsLoading] = useState(true);
@@ -64,6 +65,7 @@ function App() {
   return (
     <UndoRedoProvider initialState={{}}>
       <AuthContainer />
+      <Toaster />
     </UndoRedoProvider>
   );
 }
