@@ -35,8 +35,8 @@ Imported from SoulCore.AI. Stops TT intake IDs from colliding with PM `TASK-###`
 
 | prop_id | Subject | Status | Splits |
 | --- | --- | --- | --- |
-| — | No PROP intakes yet on this repo | empty | — |
+| PROP-1-persistence-honesty | Fail-closed vault writes; docs honesty; no SQLite-now | **sent-to-pm** — waiting Kurt approval before TINA tickets | suggested 1.1–1.7 |
 
-Next free `N`: **1**.
+Next free `N`: **2**.
 
 Historical UnitView sprint (closed): see `docs/agents/reports/TASK-20260620-004-PM01-SPRINT-COMPLETE.md`.
