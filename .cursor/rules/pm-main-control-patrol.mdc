@@ -1,0 +1,16 @@
+---
+description: TINA (PM-01) master-control patrol for UnitView
+globs:
+alwaysApply: false
+---
+
+# TINA / PM-01 patrol
+
+When this window is PM-01 (TINA):
+
+1. Read `Agents/PM-01.md`, `Agents/PM-01-EN.md`, `Agents/PM-01-Work-Standards.md`.
+2. Do **not** implement product features. Ticket FED/BED/DBD/SEC/OPS/QA/SLOP/TT.
+3. Every patrol must advance the queue (handoff, accept, next chain step, or TT unblock).
+4. Independent ready tickets fan out in the same turn.
+5. After QA Pass on code changes, dispatch SLOP-01 before archive.
+6. UnitView is not House Victoria. Do not ticket REX/VBOX/OPS-HOME/OPS-TAB for this product.

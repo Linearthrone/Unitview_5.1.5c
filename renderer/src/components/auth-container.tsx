@@ -23,7 +23,10 @@ import { useToast } from '@/hooks/use-toast';
 
 type AuthView = 'login' | 'admin' | 'user-dashboard' | 'unit-view';
 
-export default function AuthContainer() {
+const STORE_BANNER =
+  'Encrypted store could not be opened. Existing data was not changed. Restart UnitView to try again.';
+
+export default function AuthContainer({ storeUnavailable = false }: { storeUnavailable?: boolean }) {
   const [currentView, setCurrentView] = useState<AuthView>('login');
   const [authState, setAuthState] = useState<AuthState>({
     isAuthenticated: false,
@@ -39,6 +42,10 @@ export default function AuthContainer() {
   useEffect(() => {
     // Initialize authentication system
     const initialize = async () => {
+      if (storeUnavailable) {
+        setCurrentView('login');
+        return;
+      }
       try {
         await authService.initializeAuth();
         try {
@@ -48,7 +55,6 @@ export default function AuthContainer() {
           // Keep default facility profile
         }
         
-        // Check if there's a saved session
         const savedUser = authService.getCurrentUser();
         if (savedUser) {
           setAuthState({
@@ -65,9 +71,13 @@ export default function AuthContainer() {
     };
 
     initialize();
-  }, []);
+  }, [storeUnavailable]);
 
   const handleLogin = async (credentials: { employeeNumber: string; password: string }) => {
+    if (storeUnavailable) {
+      setCurrentView('login');
+      return;
+    }
     setAuthState(prev => ({ ...prev, isLoading: true, error: null }));
 
     try {
@@ -135,6 +145,10 @@ export default function AuthContainer() {
   };
 
   const handleEnterUnit = async (unitName: string) => {
+    if (storeUnavailable) {
+      setCurrentView('login');
+      return;
+    }
     setAuthState(prev => ({ ...prev, isLoading: true }));
 
     try {
@@ -228,6 +242,7 @@ export default function AuthContainer() {
           error={authState.error}
           facilityName={facilityProfile.name}
           logoDataUrl={facilityProfile.logoDataUrl}
+          storeNotice={storeUnavailable ? STORE_BANNER : null}
         />
       );
 
@@ -276,6 +291,11 @@ export default function AuthContainer() {
       ) : null;
 
     default:
-      return <LoginScreen onLogin={handleLogin} />;
+      return (
+        <LoginScreen
+          onLogin={handleLogin}
+          storeNotice={storeUnavailable ? STORE_BANNER : null}
+        />
+      );
   }
 }

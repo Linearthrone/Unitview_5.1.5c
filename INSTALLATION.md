@@ -108,7 +108,7 @@ The installer will be created in the `release/` directory:
 3. Restart the application
 
 **Missing layouts or patients**
-1. Check that the database file exists at `%APPDATA%\unitview-windows\unitview.db`
+1. Check that the encrypted vault exists at `%APPDATA%\unitview-windows\phi.vault.json`
 2. Try importing data from backup
 3. Reset to defaults by deleting the database file and restarting
 
@@ -136,16 +136,18 @@ The installer will be created in the `release/` directory:
 2. Select your backup JSON file
 3. Confirm the import
 
-### Database Location
+### Vault Location
 Your data is stored at:
 ```
-%APPDATA%\unitview-windows\unitview.db
+%APPDATA%\unitview-windows\phi.vault.json
 ```
 
 To access this folder:
 1. Press `Win + R`
 2. Type `%APPDATA%\unitview-windows` and press Enter
-3. The database file will be in this folder
+3. The encrypted vault file will be in this folder
+
+If the vault cannot be decrypted, UnitView returns to the login screen and does not overwrite the file.
 
 ## Uninstallation
 

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 // UI Components
 import AppHeader from './app-header';
 import UnitActionBar from './unit-action-bar';
@@ -49,6 +49,7 @@ import type { User } from '../types/auth';
 import * as layoutService from '../services/layoutService';
 import * as patientService from '../services/patientService';
 import * as epicService from '../services/epicService';
+import { saveBoardSnapshot } from '../services/boardPersist';
 import * as nurseService from '../services/nurseService';
 import * as spectraService from '../services/spectraService';
 import * as assignmentService from '../services/assignmentService';
@@ -137,7 +138,9 @@ export default function UnitViewClient({
   const [draggingPatientInfo, setDraggingPatientInfo] = useState<DraggingPatientInfo | null>(null);
   const [draggingNurseInfo, setDraggingNurseInfo] = useState<DraggingNurseInfo | null>(null);
   const [draggingTechInfo, setDraggingTechInfo] = useState<DraggingTechInfo | null>(null);
-  const [isInitialized, setIsInitialized] = useState(true); // Initialized on server
+  const [isInitialized, setIsInitialized] = useState(false);
+  const skipFirstAutoSaveRef = useRef(true);
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const { toast } = useToast();
   
@@ -346,6 +349,8 @@ export default function UnitViewClient({
         setTechs(techData);
 
         setCurrentLayoutName(layoutName);
+        skipFirstAutoSaveRef.current = true;
+        setIsInitialized(true);
       } catch (error) {
         console.error(`Failed to load data for layout "${layoutName}":`, error);
         toast({
@@ -353,8 +358,7 @@ export default function UnitViewClient({
           title: "Error Loading Layout",
           description: `Could not load data for "${layoutName}".`,
         });
-      } finally {
-        setIsInitialized(true);
+        setIsInitialized(false);
       }
   }, [toast]);
 
@@ -1242,12 +1246,12 @@ export default function UnitViewClient({
 
   const handleAutoSave = useCallback(async () => {
     if (isLayoutLocked || !isInitialized) return;
-    await Promise.all([
-      patientService.savePatients(currentLayoutName, patients),
-      nurseService.saveNurses(currentLayoutName, nurses),
-      nurseService.saveOncomingNurses(currentLayoutName, oncomingNurses),
-      nurseService.saveTechs(currentLayoutName, techs),
-    ]);
+    await saveBoardSnapshot(currentLayoutName, {
+      patients,
+      nurses,
+      oncomingNurses,
+      techs,
+    });
   }, [patients, nurses, oncomingNurses, techs, isLayoutLocked, currentLayoutName, isInitialized]);
 
   const handleDropOnNurseSlot = useCallback((targetNurseId: string, _slotIndex: number) => {
@@ -1313,9 +1317,28 @@ export default function UnitViewClient({
 
 
   useEffect(() => {
-    if (isInitialized && !isLayoutLocked) {
-      handleAutoSave();
+    setIsInitialized(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isInitialized || isLayoutLocked) {
+      return;
     }
+    if (skipFirstAutoSaveRef.current) {
+      skipFirstAutoSaveRef.current = false;
+      return;
+    }
+    if (autoSaveTimerRef.current) {
+      clearTimeout(autoSaveTimerRef.current);
+    }
+    autoSaveTimerRef.current = setTimeout(() => {
+      void handleAutoSave();
+    }, 150);
+    return () => {
+      if (autoSaveTimerRef.current) {
+        clearTimeout(autoSaveTimerRef.current);
+      }
+    };
   }, [patients, nurses, oncomingNurses, techs, isInitialized, isLayoutLocked, handleAutoSave]);
 
   useEffect(() => {

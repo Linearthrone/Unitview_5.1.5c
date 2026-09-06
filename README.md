@@ -15,7 +15,7 @@ UnitView is a comprehensive patient management dashboard designed for healthcare
 - 👥 **Staff Management** - Track nurses, charge nurses, and support staff
 - 🏥 **Patient Management** - Comprehensive patient information and assignments
 - 📊 **Unit Dashboard** - Visual unit layout with drag-and-drop assignments
-- 💾 **Local Database** - SQLite for fast, reliable data storage
+- 💾 **Encrypted local vault** - AES-256-GCM `phi.vault.json` on the workstation (not SQLite)
 - 🖥️ **Desktop Application** - Native Windows application with offline capability
 - 🎨 **Modern UI** - Clean, responsive interface built with Tailwind CSS
 
@@ -42,7 +42,11 @@ UnitView is a comprehensive patient management dashboard designed for healthcare
    ```
 4. **Run the application:**
    ```bash
-   npm start
+   npm run electron
+   ```
+   For development (renderer + main watch):
+   ```bash
+   npm run dev
    ```
 
 ### Default Login Credentials
@@ -63,7 +67,9 @@ UnitView is a comprehensive patient management dashboard designed for healthcare
 
 - **[Quick Start Guide](QUICK_START.md)** - Get up and running in 5 minutes
 - **[Build Instructions](BUILD_INSTRUCTIONS.md)** - Complete build guide
+- **[Release Notes](VERSION_5.0.1_RELEASE_NOTES.md)** - Historical v5.0.1 notes
 - **[Changelog](CHANGELOG.md)** - Complete version history
+- **[Agent roster (TINA / PM-01)](Agents/README.md)** - SoulCore.AI seats imported for this repo
 
 ---
 
@@ -97,10 +103,10 @@ UnitView is a comprehensive patient management dashboard designed for healthcare
 - Assignment history tracking
 
 ### Data Management
-- Local SQLite database
-- Automatic data persistence
-- Backup and restore capabilities
-- Data integrity checks
+- Encrypted whole-document vault (`%APPDATA%\unitview-windows\phi.vault.json`)
+- Automatic data persistence via main-process IPC
+- Backup and restore (File → Export / Import)
+- Fail-closed load: a vault that will not decrypt is left untouched
 
 ---
 
@@ -116,8 +122,8 @@ UnitView is a comprehensive patient management dashboard designed for healthcare
 ### Backend
 - **Electron** - Desktop framework
 - **Node.js** - Runtime
-- **SQLite** - Database
-- **better-sqlite3** - Database driver
+- **AES-256-GCM vault** - Encrypted workstation store (`src/ipc/secure-vault.ts`)
+- **electron-store** - Non-PHI Epic public settings only
 
 ### Build Tools
 - **TypeScript Compiler** - Type checking
@@ -198,7 +204,7 @@ npm run build:main
 npm run dist:win
 ```
 
-Output: `release/UnitView Setup 5.2.0-c.exe`
+Output: `release/UnitView Setup 5.2.0-c.exe` (exact filename follows `package.json` version)
 
 ---
 
@@ -219,10 +225,10 @@ cd ..
 npm run build
 ```
 
-### Database Issues
-Delete database file to reset:
+### Vault Issues
+If the encrypted store will not open, UnitView returns to the login screen and **does not** overwrite the file. To reset a workstation (destroys local unit data):
 ```
-%APPDATA%\unitview\unitview.db
+%APPDATA%\unitview-windows\phi.vault.json
 ```
 
 ### Console Errors
@@ -263,7 +269,7 @@ See [docs/HIPAA_AND_EPIC_FHIR.md](docs/HIPAA_AND_EPIC_FHIR.md) for Epic SMART Ba
 
 ### Best Practices
 - Change default passwords immediately
-- Regular database backups
+- Regular vault / export backups
 - Keep application updated
 - Restrict physical access to workstations
 
@@ -279,7 +285,7 @@ MIT License - See LICENSE file for details
 
 **Developed by:** Linearthrone  
 **Version:** 5.2.0-c  
-**Release Date:** November 4, 2024
+**Release Date:** November 4, 2024 (5.0.1 line); current package is 5.2.0-c
 
 ---
 
@@ -312,6 +318,9 @@ See [CHANGELOG.md](CHANGELOG.md) for the full list. Highlights:
 - Patient 1013/sitter flags, transport workflow, HD/PD indicators
 - Print layout designer v2 with landscape preview
 - Oncoming shift and Spectralink improvements
+- Live store is the encrypted vault (not SQLite); decrypt failure returns to login without writing defaults
+
+### Historical — v5.0.1
 
 ### Critical Fixes
 ✅ Resolved blank white screen issue  
@@ -338,12 +347,12 @@ See [CHANGELOG.md](CHANGELOG.md) for the full list. Highlights:
 
 ## ✅ Production Ready
 
-UnitView v5.2.0-c is the current candidate build with the unit operations UI overhaul and expanded clinical workflow features.
+UnitView v5.2.0-c is the current package with the unit operations UI overhaul, Epic FHIR/HIPAA work, and PROP-1 vault persistence honesty.
 
 **Enjoy using UnitView!** 🏥
 
 ---
 
-**Last Updated:** November 4, 2024  
+**Last Updated:** 2026-09-06  
 **Version:** 5.2.0-c  
-**Status:** Stable Production Release ✅
+**Status:** Active development (UI overhaul + PROP-1 persistence honesty)

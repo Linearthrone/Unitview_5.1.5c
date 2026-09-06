@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { randomBytes } from 'crypto';
 import { decryptUtf8, encryptUtf8, type EncryptedPayload } from '../security/crypto-core';
+import { writeFileAtomicRestricted } from './atomic-write';
 
 const VAULT_FILE = 'phi.vault.json';
 const MASTER_KEY_FILE = 'master.key';
@@ -45,9 +46,13 @@ function loadOrCreateMasterKey(): Buffer {
   return key;
 }
 
+export function vaultExists(): boolean {
+  return fs.existsSync(userDataPath(VAULT_FILE));
+}
+
 export function saveVault(plaintext: string): void {
   const payload = encryptUtf8(plaintext, loadOrCreateMasterKey());
-  writeRestricted(userDataPath(VAULT_FILE), JSON.stringify(payload));
+  writeFileAtomicRestricted(userDataPath(VAULT_FILE), JSON.stringify(payload));
 }
 
 export function loadVault(): string | null {

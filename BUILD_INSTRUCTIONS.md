@@ -146,7 +146,7 @@ npm run dev:main
 After building, run the compiled application:
 
 ```bash
-npm start
+npm run electron
 ```
 
 Or directly:
@@ -253,7 +253,7 @@ npm install electron --save-dev
 #### Database Errors
 ```bash
 # Solution: Reset database
-# Delete: %APPDATA%\unitview\unitview.db
+# Delete: %APPDATA%\unitview-windows\phi.vault.json
 # Restart application
 ```
 
@@ -324,10 +324,10 @@ Enable debug logging:
 ```bash
 # Windows
 set DEBUG=*
-npm start
+npm run electron
 
 # Or in package.json
-"start": "cross-env DEBUG=* electron dist/main.js"
+"electron": "cross-env DEBUG=* electron dist/main.js"
 ```
 
 ---
@@ -339,7 +339,7 @@ npm start
 ```bash
 npm run build:main      # Build main process
 npm run dev:main        # Run main in dev mode
-npm start               # Run built application
+npm run electron        # Run built application
 ```
 
 ### Renderer Scripts

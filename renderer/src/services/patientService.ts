@@ -55,11 +55,11 @@ function applyAdmitFormToPatient(patient: Patient, formData: AdmitPatientFormVal
 
 export async function getPatients(layoutName: LayoutName): Promise<Patient[]> {
   if (!layoutName) return [];
-  
+
   try {
     const db = await getDb();
     const patients = db.getPatients(layoutName);
-    
+
     if (patients.length === 0) {
       // Seed the default layout if empty
       if (layoutName === 'North-South View') {
@@ -68,7 +68,7 @@ export async function getPatients(layoutName: LayoutName): Promise<Patient[]> {
       }
       return [];
     }
-    
+
     return patients.map(normalizePatientRecord);
   } catch (error) {
     console.error(`Error fetching patient layout ${layoutName}:`, error);
@@ -82,12 +82,9 @@ export async function getPatients(layoutName: LayoutName): Promise<Patient[]> {
 export async function savePatients(layoutName: LayoutName, patients: Patient[]): Promise<void> {
   if (!layoutName || !patients) return;
 
-  try {
-    const db = await getDb();
-    db.savePatients(layoutName, patients);
-  } catch (error) {
-    console.error(`Error saving patient layout ${layoutName}:`, error);
-  }
+  const db = await getDb();
+  db.savePatients(layoutName, patients);
+  await db.flushPendingWrites();
 }
 
 // Seed the default North-South View layout

@@ -76,7 +76,12 @@ declare global {
       getAppVersion: () => Promise<string>;
       getUserDataPath: () => Promise<string>;
       saveSecureStore: (plaintext: string) => Promise<{ success: boolean; error?: string }>;
-      loadSecureStore: () => Promise<{ success: boolean; data?: string | null; error?: string }>;
+      loadSecureStore: () => Promise<{
+        success: boolean;
+        data?: string | null;
+        exists?: boolean;
+        error?: string;
+      }>;
       getHipaaStatus: () => Promise<{
         encryptionAtRest: boolean;
         osKeychain: boolean;

@@ -29,7 +29,7 @@ export async function getNurses(layoutName: LayoutName): Promise<Nurse[]> {
     return validNurses;
   } catch (error) {
     console.error('Error getting nurses:', error);
-    return [];
+    throw error;
   }
 }
 
@@ -50,7 +50,7 @@ export async function getOncomingNurses(layoutName: LayoutName): Promise<Nurse[]
     });
   } catch (error) {
     console.error('Error getting oncoming nurses:', error);
-    return [];
+    throw error;
   }
 }
 
@@ -65,7 +65,7 @@ export async function getTechs(layoutName: LayoutName): Promise<PatientCareTech[
     return techs;
   } catch (error) {
     console.error('Error getting techs:', error);
-    return [];
+    throw error;
   }
 }
 
@@ -73,6 +73,7 @@ export async function saveNurses(layoutName: LayoutName, nurses: Nurse[]): Promi
   try {
     const db = await getDb();
     db.saveNurses(layoutName, nurses);
+    await db.flushPendingWrites();
     console.log(`Saved ${nurses.length} nurses for layout "${layoutName}"`);
   } catch (error) {
     console.error('Error saving nurses:', error);
@@ -84,6 +85,7 @@ export async function saveOncomingNurses(layoutName: LayoutName, nurses: Nurse[]
   try {
     const db = await getDb();
     db.saveOncomingNurses(layoutName, nurses);
+    await db.flushPendingWrites();
   } catch (error) {
     console.error('Error saving oncoming nurses:', error);
     throw error;
@@ -94,6 +96,7 @@ export async function saveTechs(layoutName: LayoutName, techs: PatientCareTech[]
   try {
     const db = await getDb();
     db.saveTechs(layoutName, techs);
+    await db.flushPendingWrites();
     console.log(`Saved ${techs.length} techs for layout "${layoutName}"`);
   } catch (error) {
     console.error('Error saving techs:', error);

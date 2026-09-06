@@ -42,22 +42,14 @@ const PRINTABLE_INFO_FIELDS: PrintableInfoField[] = [
 ];
 
 export async function getUserPreferences(): Promise<UserPreferences> {
-  try {
-    const db = await getDb();
-    const lastSelectedLayout = (db.getUserPreference('lastSelectedLayout') || 'North-South View') as LayoutName;
-    const isLayoutLocked = db.getUserPreference('isLayoutLocked') === 'true';
+  const db = await getDb();
+  const lastSelectedLayout = (db.getUserPreference('lastSelectedLayout') || 'North-South View') as LayoutName;
+  const isLayoutLocked = db.getUserPreference('isLayoutLocked') === 'true';
 
-    return {
-      lastSelectedLayout,
-      isLayoutLocked,
-    };
-  } catch (error) {
-    console.error('Error fetching user preferences:', error);
-    return {
-      lastSelectedLayout: 'North-South View',
-      isLayoutLocked: false,
-    };
-  }
+  return {
+    lastSelectedLayout,
+    isLayoutLocked,
+  };
 }
 
 export async function saveUserPreferences(preferences: UserPreferences): Promise<void> {
@@ -71,21 +63,8 @@ export async function saveUserPreferences(preferences: UserPreferences): Promise
 }
 
 export async function getAvailableLayouts(): Promise<LayoutName[]> {
-  try {
-    const db = await getDb();
-    const layouts = db.getAvailableLayouts();
-    
-    // Always include the default layout if it doesn't exist
-    if (!layouts.includes('North-South View')) {
-      await createLayout('North-South View');
-      return ['North-South View', ...layouts];
-    }
-    
-    return layouts;
-  } catch (error) {
-    console.error('Error fetching available layouts:', error);
-    return ['North-South View'];
-  }
+  const db = await getDb();
+  return db.getAvailableLayouts();
 }
 
 export async function createLayout(layoutName: LayoutName): Promise<void> {
