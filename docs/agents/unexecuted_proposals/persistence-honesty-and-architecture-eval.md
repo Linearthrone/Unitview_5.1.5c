@@ -1,10 +1,10 @@
 ---
 type: proposal
-status: accepted
+status: merged
 tt_id: TT-01
 prop_id: PROP-1-persistence-honesty
 created: 2026-09-05
-updated: 2026-09-05
+updated: 2026-09-06
 title: Persistence honesty — fail-closed vault writes before any SQLite rewrite
 need: Stop silent empty-unit / lost-update / README-SQLite contradiction without a mid-station storage rewrite
 sent_at: 2026-09-05
