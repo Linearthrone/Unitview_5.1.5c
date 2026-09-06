@@ -1,6 +1,6 @@
-# UnitView v5.0.1 - Patient Management Dashboard
+# UnitView v5.1.5-c - Patient Management Dashboard
 
-![Version](https://img.shields.io/badge/version-5.0.1-blue.svg)
+![Version](https://img.shields.io/badge/version-5.1.5--c-blue.svg)
 ![Status](https://img.shields.io/badge/status-stable-green.svg)
 ![Platform](https://img.shields.io/badge/platform-Windows-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
@@ -15,7 +15,7 @@ UnitView is a comprehensive patient management dashboard designed for healthcare
 - 👥 **Staff Management** - Track nurses, charge nurses, and support staff
 - 🏥 **Patient Management** - Comprehensive patient information and assignments
 - 📊 **Unit Dashboard** - Visual unit layout with drag-and-drop assignments
-- 💾 **Local Database** - SQLite for fast, reliable data storage
+- 💾 **Encrypted local vault** - AES-256-GCM `phi.vault.json` on the workstation (not SQLite)
 - 🖥️ **Desktop Application** - Native Windows application with offline capability
 - 🎨 **Modern UI** - Clean, responsive interface built with Tailwind CSS
 
@@ -42,7 +42,11 @@ UnitView is a comprehensive patient management dashboard designed for healthcare
    ```
 4. **Run the application:**
    ```bash
-   npm start
+   npm run electron
+   ```
+   For development (renderer + main watch):
+   ```bash
+   npm run dev
    ```
 
 ### Default Login Credentials
@@ -63,8 +67,9 @@ UnitView is a comprehensive patient management dashboard designed for healthcare
 
 - **[Quick Start Guide](QUICK_START.md)** - Get up and running in 5 minutes
 - **[Build Instructions](BUILD_INSTRUCTIONS.md)** - Complete build guide
-- **[Release Notes](VERSION_5.0.1_RELEASE_NOTES.md)** - What's new in v5.0.1
+- **[Release Notes](VERSION_5.0.1_RELEASE_NOTES.md)** - Historical v5.0.1 notes (current package version is 5.1.5-c)
 - **[Changelog](CHANGELOG.md)** - Complete version history
+- **[Agent roster (TINA / PM-01)](Agents/README.md)** - SoulCore.AI seats imported for this repo
 
 ---
 
@@ -98,10 +103,10 @@ UnitView is a comprehensive patient management dashboard designed for healthcare
 - Assignment history tracking
 
 ### Data Management
-- Local SQLite database
-- Automatic data persistence
-- Backup and restore capabilities
-- Data integrity checks
+- Encrypted whole-document vault (`%APPDATA%\unitview-windows\phi.vault.json`)
+- Automatic data persistence via main-process IPC
+- Backup and restore (File → Export / Import)
+- Fail-closed load: a vault that will not decrypt is left untouched
 
 ---
 
@@ -117,8 +122,8 @@ UnitView is a comprehensive patient management dashboard designed for healthcare
 ### Backend
 - **Electron** - Desktop framework
 - **Node.js** - Runtime
-- **SQLite** - Database
-- **better-sqlite3** - Database driver
+- **AES-256-GCM vault** - Encrypted workstation store (`src/ipc/secure-vault.ts`)
+- **electron-store** - Non-PHI Epic public settings only
 
 ### Build Tools
 - **TypeScript Compiler** - Type checking
@@ -199,7 +204,7 @@ npm run build:main
 npm run dist:win
 ```
 
-Output: `release/UnitView Setup 5.0.1.exe`
+Output: `release/UnitView Setup 5.1.5-c.exe` (exact filename follows `package.json` version)
 
 ---
 
@@ -220,10 +225,10 @@ cd ..
 npm run build
 ```
 
-### Database Issues
-Delete database file to reset:
+### Vault Issues
+If the encrypted store will not open, UnitView returns to the login screen and **does not** overwrite the file. To reset a workstation (destroys local unit data):
 ```
-%APPDATA%\unitview\unitview.db
+%APPDATA%\unitview-windows\phi.vault.json
 ```
 
 ### Console Errors
@@ -264,7 +269,7 @@ See [docs/HIPAA_AND_EPIC_FHIR.md](docs/HIPAA_AND_EPIC_FHIR.md) for Epic SMART Ba
 
 ### Best Practices
 - Change default passwords immediately
-- Regular database backups
+- Regular vault / export backups
 - Keep application updated
 - Restrict physical access to workstations
 
@@ -279,8 +284,8 @@ MIT License - See LICENSE file for details
 ## 👥 Credits
 
 **Developed by:** Linearthrone  
-**Version:** 5.0.1  
-**Release Date:** November 4, 2024
+**Version:** 5.1.5-c  
+**Release Date:** November 4, 2024 (5.0.1 line); current package is 5.1.5-c
 
 ---
 
@@ -305,7 +310,11 @@ This is a private project. For feature requests or bug reports, please contact t
 
 ---
 
-## 🎉 What's New in v5.0.1
+## 🎉 What's New in v5.1.5-c
+
+Live store is the encrypted vault (not SQLite). Decrypt failure returns to the login screen without writing defaults.
+
+### Historical — v5.0.1
 
 ### Critical Fixes
 ✅ Resolved blank white screen issue  
@@ -332,12 +341,12 @@ This is a private project. For feature requests or bug reports, please contact t
 
 ## ✅ Production Ready
 
-UnitView v5.0.1 is stable and ready for production use. All critical issues have been resolved, and the application has been thoroughly tested.
+UnitView 5.1.5-c is the current package. Historical 5.0.1 notes remain below for the React-import fix line.
 
 **Enjoy using UnitView!** 🏥
 
 ---
 
-**Last Updated:** November 4, 2024  
-**Version:** 5.0.1  
-**Status:** Stable Production Release ✅
+**Last Updated:** 2026-09-05  
+**Version:** 5.1.5-c  
+**Status:** Active development (PROP-1 persistence honesty)

@@ -9,39 +9,24 @@ import { authService } from './authService';
 
 export async function getPatients(layoutName: LayoutName): Promise<Patient[]> {
   if (!layoutName) return [];
-  
-  try {
-    const db = await getDb();
-    const patients = db.getPatients(layoutName);
-    
-    if (patients.length === 0) {
-      // Seed the default layout if empty
-      if (layoutName === 'North-South View') {
-        console.log(`No data for layout '${layoutName}' in database. Seeding initial layout.`);
-        return await seedNorthSouthLayout();
-      }
-      return [];
-    }
-    
-    return patients;
-  } catch (error) {
-    console.error(`Error fetching patient layout ${layoutName}:`, error);
-    if (layoutName === 'North-South View') {
-      return await seedNorthSouthLayout();
-    }
-    return [];
+
+  const db = await getDb();
+  const patients = db.getPatients(layoutName);
+
+  if (patients.length === 0 && layoutName === 'North-South View') {
+    console.log(`No data for layout '${layoutName}' in database. Seeding initial layout.`);
+    return await seedNorthSouthLayout();
   }
+
+  return patients;
 }
 
 export async function savePatients(layoutName: LayoutName, patients: Patient[]): Promise<void> {
   if (!layoutName || !patients) return;
 
-  try {
-    const db = await getDb();
-    db.savePatients(layoutName, patients);
-  } catch (error) {
-    console.error(`Error saving patient layout ${layoutName}:`, error);
-  }
+  const db = await getDb();
+  db.savePatients(layoutName, patients);
+  await db.flushPendingWrites();
 }
 
 // Seed the default North-South View layout

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import AuthContainer from './components/auth-container';
-import { initializeDatabase } from './lib/database-simple';
+import { initializeDatabase, StoreUnavailableError } from './lib/database-simple';
 import { determineDataSource } from './lib/data-source';
 import { UndoRedoProvider } from './hooks/use-undo-redo';
 import { Toaster } from './components/ui/toaster';
@@ -8,6 +8,7 @@ import { Toaster } from './components/ui/toaster';
 function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [storeUnavailable, setStoreUnavailable] = useState(false);
 
   useEffect(() => {
     const initializeApp = async () => {
@@ -15,11 +16,14 @@ function App() {
         const selectedDataSource = determineDataSource();
         console.log('Setup data source:', selectedDataSource);
 
-        // Initialize the database
         await initializeDatabase();
       } catch (err) {
         console.error('Failed to initialize app:', err);
-        setError(err instanceof Error ? err.message : 'Failed to initialize application');
+        if (err instanceof StoreUnavailableError) {
+          setStoreUnavailable(true);
+        } else {
+          setError(err instanceof Error ? err.message : 'Failed to initialize application');
+        }
       } finally {
         setIsLoading(false);
       }
@@ -64,7 +68,7 @@ function App() {
 
   return (
     <UndoRedoProvider initialState={{}}>
-      <AuthContainer />
+      <AuthContainer storeUnavailable={storeUnavailable} />
       <Toaster />
     </UndoRedoProvider>
   );

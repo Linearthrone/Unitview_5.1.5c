@@ -13,6 +13,7 @@ interface LoginScreenProps {
   /** Facility branding — placeholder until configured per site. */
   facilityName?: string;
   logoDataUrl?: string;
+  storeNotice?: string | null;
 }
 
 export default function LoginScreen({
@@ -21,6 +22,7 @@ export default function LoginScreen({
   error = null,
   facilityName = 'Your Facility Name',
   logoDataUrl,
+  storeNotice = null,
 }: LoginScreenProps) {
   const [employeeNumber, setEmployeeNumber] = useState('');
   const [password, setPassword] = useState('');
@@ -58,6 +60,12 @@ export default function LoginScreen({
           </div>
           <p className="text-muted-foreground">Hospital Patient Management System</p>
         </div>
+
+        {storeNotice && (
+          <Alert className="mb-4 border-amber-500/50 text-amber-100 [&>svg]:text-amber-200">
+            <AlertDescription>{storeNotice}</AlertDescription>
+          </Alert>
+        )}
 
         <Card className="shadow-xl border-border bg-card">
           <CardHeader className="text-center">

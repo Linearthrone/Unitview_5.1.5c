@@ -209,7 +209,7 @@ class UnitViewApp {
                 type: 'info',
                 title: 'About UnitView',
                 message: 'UnitView Patient Management Dashboard',
-                detail: 'Version 1.0.0\n\nA comprehensive patient management system for hospital charge nurses.\n\nBuilt with Electron, React, and SQLite.',
+                detail: 'Version 5.1.5-c\n\nA patient-management dashboard for hospital charge nurses.\n\nBuilt with Electron and React. Unit data is stored in an AES-256-GCM encrypted vault (phi.vault.json) in the workstation user-data folder. Epic FHIR remains sandbox fixtures unless configured.',
                 buttons: ['OK'],
               });
             },

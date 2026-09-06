@@ -129,3 +129,6 @@ dist
 # Electron
 out/
 .fake
+
+# Agent temp scripts (PM-01 Work Standards §7)
+tmpcode/

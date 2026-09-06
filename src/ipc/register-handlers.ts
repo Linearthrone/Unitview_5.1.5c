@@ -16,6 +16,7 @@ import {
   readAuditLines,
   saveEpicSecrets,
   saveVault,
+  vaultExists,
   vaultUsesOsKeychain,
 } from './secure-vault';
 
@@ -49,10 +50,15 @@ export function registerIpcHandlers(): void {
   });
 
   ipcMain.handle('secure-store-load', async () => {
+    const exists = vaultExists();
     try {
-      return { success: true, data: loadVault() };
+      return { success: true, data: loadVault(), exists };
     } catch (error) {
-      return { success: false, error: error instanceof Error ? error.message : 'Load failed' };
+      return {
+        success: false,
+        exists,
+        error: error instanceof Error ? error.message : 'Load failed',
+      };
     }
   });
 

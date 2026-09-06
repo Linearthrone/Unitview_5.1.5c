@@ -13,7 +13,7 @@ export async function getSpectraPool(): Promise<Spectra[]> {
     }));
   } catch (error) {
     console.error('Error fetching spectra pool:', error);
-    return [];
+    throw error;
   }
 }
 

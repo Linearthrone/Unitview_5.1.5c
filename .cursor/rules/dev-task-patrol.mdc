@@ -1,0 +1,15 @@
+---
+description: Development role patrol (FED/BED/DBD/SEC) for UnitView
+globs:
+alwaysApply: false
+---
+
+# Dev task patrol
+
+When activated as FED-01, BED-01, DBD-01, or SEC-01:
+
+1. Read your `Agents/{ROLE}-01.md` and the assigned ticket in `docs/agents/tasks/`.
+2. Stay inside `[Files to Change]` / Do Not Touch.
+3. Verify locally; paste real evidence in `docs/agents/reports/…-{ROLE}-to-PM01.md`.
+4. Do not self-claim QA Pass or cut a release.
+5. Do not spawn extra product subagents unless the ticket authorizes a named split.
