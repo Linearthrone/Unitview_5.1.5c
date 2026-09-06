@@ -6,6 +6,8 @@ import { migratePatientCareFlags, applySitterRequirements } from '../lib/patient
 import { mockPatientData } from '../lib/mock-patients';
 import { NUM_COLS_GRID, NUM_ROWS_GRID } from '../lib/grid-utils';
 import type { Nurse, PatientCareTech } from '../types/nurse';
+import { recordAudit } from '../lib/audit-client';
+import { authService } from './authService';
 
 function normalizePatientRecord(patient: Patient): Patient {
   return migratePatientCareFlags({
@@ -146,6 +148,13 @@ async function seedNorthSouthLayout(): Promise<Patient[]> {
 }
 
 export async function admitPatient(formData: AdmitPatientFormValues, patients: Patient[]): Promise<Patient[]> {
+  await recordAudit({
+    action: 'PATIENT_ADMIT',
+    actorEmployeeNumber: authService.getCurrentUser()?.employeeNumber,
+    resourceType: 'Room',
+    resourceId: String(formData.bedNumber),
+    success: true,
+  });
   return patients.map((p) => {
     if (p.bedNumber !== formData.bedNumber) return p;
     return {
@@ -171,6 +180,16 @@ export async function updatePatient(
 }
 
 export async function dischargePatient(patientToDischarge: Patient, patients: Patient[]): Promise<Patient[]> {
+  await recordAudit({
+    action: 'PATIENT_DISCHARGE',
+    actorEmployeeNumber: authService.getCurrentUser()?.employeeNumber,
+    resourceType: 'Room',
+    resourceId:
+      patientToDischarge.fhirPatientId ||
+      patientToDischarge.epicPatientId ||
+      String(patientToDischarge.bedNumber),
+    success: true,
+  });
   return patients.map((p) => {
     if (p.id !== patientToDischarge.id) return p;
     return {
@@ -213,6 +232,11 @@ export async function completeTransport(patientId: string, patients: Patient[]):
     epicPatientId: undefined,
     epicEncounterId: undefined,
     lastEpicSyncAt: undefined,
+    fhirPatientId: undefined,
+    fhirEncounterId: undefined,
+    mrn: undefined,
+    fhirStale: undefined,
+    lastFhirSyncAt: undefined,
     awaitingTransport: false,
     isBlocked: patientToVacate.isBlocked,
   };

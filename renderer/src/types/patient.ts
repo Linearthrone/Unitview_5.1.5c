@@ -55,6 +55,11 @@ export interface Patient {
   lastEpicSyncAt?: string;
   gridRow: number; // 1-indexed
   gridColumn: number; // 1-indexed
+  fhirPatientId?: string;
+  fhirEncounterId?: string;
+  mrn?: string;
+  fhirStale?: boolean;
+  lastFhirSyncAt?: string;
 }
 
 export interface UserPreferences {

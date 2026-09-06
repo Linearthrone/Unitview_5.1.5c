@@ -52,6 +52,8 @@ import * as epicService from '../services/epicService';
 import * as nurseService from '../services/nurseService';
 import * as spectraService from '../services/spectraService';
 import * as assignmentService from '../services/assignmentService';
+import { syncEpicCensus } from '../services/fhirCensusService';
+import { getConfiguredDataSource } from '../lib/data-source';
 import * as printLayoutService from '../services/printLayoutService';
 import { getDb } from '../lib/database-simple';
 import { openPrintWindowWithElectronFallback } from '../lib/print-utils';
@@ -151,6 +153,7 @@ export default function UnitViewClient({
   const [isCreateUnitDialogOpen, setIsCreateUnitDialogOpen] = useState(false);
   const [isShiftMakerOpen, setIsShiftMakerOpen] = useState(false);
   const [isOncomingShiftSetup, setIsOncomingShiftSetup] = useState(false);
+  const [isSyncingEpic, setIsSyncingEpic] = useState(false);
   const [quickNotePatient, setQuickNotePatient] = useState<Patient | null>(null);
   const [isSpectraMobileOpen, setIsSpectraMobileOpen] = useState(false);
   const [isSpectraPanelExpanded, setIsSpectraPanelExpanded] = useState(false);
@@ -1044,6 +1047,27 @@ export default function UnitViewClient({
     }
   };
 
+  const handleSyncEpicCensus = async () => {
+    setIsSyncingEpic(true);
+    try {
+      const result = await syncEpicCensus(patients, currentUser?.employeeNumber);
+      setPatients(result.rooms);
+      await patientService.savePatients(currentLayoutName, result.rooms);
+      toast({
+        title: result.source === 'epic' ? 'Epic census updated' : 'Sandbox census loaded',
+        description: `${result.matched} rooms matched, ${result.filledVacant} vacant rooms filled.`,
+      });
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Epic sync failed',
+        description: error instanceof Error ? error.message : 'Could not load Epic FHIR data.',
+      });
+    } finally {
+      setIsSyncingEpic(false);
+    }
+  };
+
   const handleInsertMockData = async () => {
     const { updatedPatients, insertedCount } = await patientService.insertMockPatients(patients);
     if (insertedCount > 0) {
@@ -1559,6 +1583,12 @@ export default function UnitViewClient({
         onCreateUnit={roleCaps.isAdmin ? () => setIsCreateUnitDialogOpen(true) : undefined}
         onInsertMockData={roleCaps.isAdmin ? handleInsertMockData : undefined}
         onSaveLayout={roleCaps.isAdmin ? handleOpenSaveDialog : undefined}
+        onSyncEpicCensus={
+          !roleCaps.isReadOnly && (roleCaps.isAdmin || getConfiguredDataSource() === 'epic_fhir')
+            ? () => void handleSyncEpicCensus()
+            : undefined
+        }
+        isSyncingEpic={isSyncingEpic}
         zoomControls={gridZoomControls}
         onLeaveUnit={onBackToDashboard}
       />

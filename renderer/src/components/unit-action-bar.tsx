@@ -12,6 +12,7 @@ import {
   Building2,
   PlusSquare,
   Save,
+  RefreshCw,
   ZoomIn,
   ZoomOut,
 } from 'lucide-react';
@@ -39,6 +40,8 @@ interface UnitActionBarProps {
   onCreateUnit?: () => void;
   onInsertMockData?: () => void;
   onSaveLayout?: () => void;
+  onSyncEpicCensus?: () => void;
+  isSyncingEpic?: boolean;
   zoomControls: GridZoomControls | null;
   onLeaveUnit?: () => void;
 }
@@ -54,6 +57,8 @@ const UnitActionBar: React.FC<UnitActionBarProps> = ({
   onCreateUnit,
   onInsertMockData,
   onSaveLayout,
+  onSyncEpicCensus,
+  isSyncingEpic = false,
   zoomControls,
   onLeaveUnit,
 }) => {
@@ -64,6 +69,18 @@ const UnitActionBar: React.FC<UnitActionBarProps> = ({
       <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-border/60 bg-card/95 backdrop-blur-sm shadow-[0_-2px_10px_rgba(0,0,0,0.08)] print-hide">
         <div className="px-3 sm:px-5 py-2 flex flex-wrap items-center gap-2">
           <div className="flex flex-wrap items-center gap-2 flex-1 min-w-0">
+            {onSyncEpicCensus && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onSyncEpicCensus}
+                disabled={isSyncingEpic}
+                title="Sync in-progress encounters from Epic FHIR"
+              >
+                <RefreshCw className={`h-4 w-4 mr-1.5 ${isSyncingEpic ? 'animate-spin' : ''}`} />
+                {isSyncingEpic ? 'Syncing Epic…' : 'Sync Epic census'}
+              </Button>
+            )}
             {canEdit && (
               <>
                 <Button variant="default" size="sm" onClick={onAdmitPatient} title="Admit / transfer in">

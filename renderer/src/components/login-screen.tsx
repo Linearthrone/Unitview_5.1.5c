@@ -101,6 +101,10 @@ export default function LoginScreen({
                 </Alert>
               )}
 
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                This system contains protected health information. Access is limited to authorized
+                workforce members, is logged, and idle sessions end after 15 minutes.
+              </p>
               <Button
                 type="submit"
                 className="w-full h-11"
