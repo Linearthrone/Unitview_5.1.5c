@@ -66,6 +66,8 @@ export default function AdmitPatientDialog({
       orientationStatus: 'x4',
       ldas: '',
       notes: '',
+      pendingProcedures: '',
+      allergies: '',
       isFallRisk: false,
       isSeizureRisk: false,
       isAspirationRisk: false,
@@ -327,6 +329,14 @@ export default function AdmitPatientDialog({
                             <FormLabel>LDAs</FormLabel>
                             <FormControl><Input placeholder="PICC, Foley..." {...field} /></FormControl>
                             <FormDescription>Lines, Drains, Airways (comma-separated).</FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )} />
+                       <FormField control={form.control} name="allergies" render={({ field }) => (
+                          <FormItem className="md:col-span-2">
+                            <FormLabel>Allergies</FormLabel>
+                            <FormControl><Input placeholder="Penicillin, Latex, Shellfish..." {...field} /></FormControl>
+                            <FormDescription>Comma-separated. Synced from Epic when available.</FormDescription>
                             <FormMessage />
                           </FormItem>
                         )} />

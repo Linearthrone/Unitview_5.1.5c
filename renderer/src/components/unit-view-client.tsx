@@ -48,6 +48,7 @@ import type { User } from '../types/auth';
 // Services
 import * as layoutService from '../services/layoutService';
 import * as patientService from '../services/patientService';
+import * as epicService from '../services/epicService';
 import * as nurseService from '../services/nurseService';
 import * as spectraService from '../services/spectraService';
 import * as assignmentService from '../services/assignmentService';
@@ -165,6 +166,7 @@ export default function UnitViewClient({
   const [facilityProfile, setFacilityProfile] = useState<FacilityProfile>(defaultFacilityProfile);
   const [gridZoomControls, setGridZoomControls] = useState<GridZoomControls | null>(null);
   const [patientsPerNurse, setPatientsPerNurse] = useState(4);
+  const [isEpicSyncing, setIsEpicSyncing] = useState(false);
 
   useEffect(() => {
     void getFacilityProfile()
@@ -661,17 +663,20 @@ export default function UnitViewClient({
   };
 
   const handleDischargeRequest = (patient: Patient) => {
-    if (patient.name === 'Vacant') return;
+    if (patient.name === 'Vacant' || patient.awaitingTransport) return;
+    setSelectedPatient(null);
     setPatientToDischarge(patient);
   };
   
   const handleConfirmDischarge = async () => {
-    if (!patientToDischarge) return;
-    const updatedPatients = await patientService.dischargePatient(patientToDischarge, patients);
+    const target = patientToDischarge;
+    if (!target) return;
+    const updatedPatients = await patientService.dischargePatient(target, patients);
     setPatients(updatedPatients);
+    await patientService.savePatients(currentLayoutName, updatedPatients);
     toast({
       title: "Patient Discharged",
-      description: `${patientToDischarge.name} is discharged and awaiting transport in ${patientToDischarge.roomDesignation}.`,
+      description: `${target.name} is discharged and awaiting transport in ${target.roomDesignation}.`,
     });
     setPatientToDischarge(null);
   };
@@ -679,6 +684,7 @@ export default function UnitViewClient({
   const handleCompleteTransport = async (patient: Patient) => {
     const updatedPatients = await patientService.completeTransport(patient.id, patients);
     setPatients(updatedPatients);
+    await patientService.savePatients(currentLayoutName, updatedPatients);
     if (selectedPatient?.id === patient.id) {
       setSelectedPatient(null);
     }
@@ -687,6 +693,47 @@ export default function UnitViewClient({
       description: `${patient.roomDesignation} is now vacant.`,
     });
   };
+
+  const handleRefreshFromEpic = useCallback(
+    async (patient: Patient) => {
+      if (patient.isBlocked) return;
+      setIsEpicSyncing(true);
+      try {
+        const result = await epicService.syncBedFromEpic(patient.roomDesignation, patient.bedNumber);
+        if (result.ok === false) {
+          toast({
+            variant: 'destructive',
+            title: 'Epic sync failed',
+            description: result.error,
+          });
+          return;
+        }
+        const { patch, source, message } = result;
+        const merged = epicService.applyEpicPatchToPatient(patient, patch);
+        const finalized = patientService.finalizePatientAfterSave(merged, nurses);
+        const updatedPatients = patients.map((p) => (p.id === patient.id ? finalized : p));
+        setPatients(updatedPatients);
+        setSelectedPatient(finalized);
+        await patientService.savePatients(currentLayoutName, updatedPatients);
+        toast({
+          title: source === 'stub' ? 'Epic stub sync complete' : 'Epic sync complete',
+          description:
+            message ??
+            `Updated ${finalized.roomDesignation} from Epic (${finalized.name}). Staff assignments unchanged.`,
+        });
+      } catch (error) {
+        console.error(error);
+        toast({
+          variant: 'destructive',
+          title: 'Epic sync error',
+          description: error instanceof Error ? error.message : 'Unexpected error during Epic sync.',
+        });
+      } finally {
+        setIsEpicSyncing(false);
+      }
+    },
+    [currentLayoutName, nurses, patients, toast],
+  );
 
   const handleToggleBlockRoom = (patientId: string) => {
     setPatients(prev => prev.map(p =>
@@ -1375,9 +1422,6 @@ export default function UnitViewClient({
         nameAlertGroups={roleCaps.canSeePatientIdentifiers ? nameAlertGroups : []}
         onAcknowledgeNameAlerts={handleAcknowledgeNameAlerts}
         canEdit={!roleCaps.isReadOnly}
-        currentLayoutName={currentLayoutName}
-        onSelectLayout={handleSelectLayout}
-        availableLayouts={availableLayouts}
         onPrint={(type) => void handlePrint(type)}
         onConfigureAssignmentPrint={() => setIsPrintLayoutDialogOpen(true)}
       />
@@ -1547,6 +1591,8 @@ export default function UnitViewClient({
           setSelectedPatient(null);
           handleOpenUpdateDialog(patient);
         }}
+        onRefreshFromEpic={roleCaps.isReadOnly ? undefined : handleRefreshFromEpic}
+        isEpicSyncing={isEpicSyncing}
         canSeePatientIdentifiers={roleCaps.canSeePatientIdentifiers}
         isReadOnly={roleCaps.isReadOnly}
       />

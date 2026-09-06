@@ -21,20 +21,18 @@ interface DischargeConfirmationDialogProps {
 }
 
 export default function DischargeConfirmationDialog({ open, onOpenChange, onConfirm, patient }: DischargeConfirmationDialogProps) {
-  if (!patient) return null;
-
   const handleConfirm = () => {
+    if (!patient) return;
     onConfirm();
-    onOpenChange(false);
   };
 
   return (
-    <AlertDialog open={open} onOpenChange={onOpenChange}>
+    <AlertDialog open={open && Boolean(patient)} onOpenChange={onOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>Are you sure you want to discharge this patient?</AlertDialogTitle>
           <AlertDialogDescription>
-            This will mark <span className="font-bold">{patient.name}</span> as discharged in {patient.roomDesignation}. The room stays occupied until transport is complete.
+            This will mark <span className="font-bold">{patient?.name}</span> as discharged in {patient?.roomDesignation}. The room stays occupied until transport is complete.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

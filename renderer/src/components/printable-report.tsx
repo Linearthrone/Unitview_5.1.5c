@@ -148,6 +148,12 @@ const PrintableReport: React.FC<PrintableReportProps> = ({
                     {(Array.isArray(patient.ldas) ? patient.ldas.join(', ') : '') || 'None'}
                   </div>
                 )}
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <strong>Allergies:</strong>{' '}
+                  {Array.isArray(patient.allergies) && patient.allergies.length > 0
+                    ? patient.allergies.join(', ')
+                    : 'No known allergies recorded'}
+                </div>
               </div>
 
               {charge.showNotes && (patient.notes || patient.pendingProcedures) && (

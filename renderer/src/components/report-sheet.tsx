@@ -37,6 +37,7 @@ import {
   ShieldAlert,
   Scale,
   Eye,
+  RefreshCw,
   type LucideIcon,
   Wrench,
 } from 'lucide-react';
@@ -61,6 +62,8 @@ interface ReportSheetProps {
   onOpenChange: (open: boolean) => void;
   onDischarge: (patient: Patient) => void;
   onEditPatient: (patient: Patient) => void;
+  onRefreshFromEpic?: (patient: Patient) => void | Promise<void>;
+  isEpicSyncing?: boolean;
   canSeePatientIdentifiers?: boolean;
   isReadOnly?: boolean;
 }
@@ -79,6 +82,8 @@ const ReportSheet: React.FC<ReportSheetProps> = ({
   onOpenChange,
   onDischarge,
   onEditPatient,
+  onRefreshFromEpic,
+  isEpicSyncing = false,
   canSeePatientIdentifiers = true,
   isReadOnly = false,
 }) => {
@@ -201,6 +206,23 @@ const ReportSheet: React.FC<ReportSheetProps> = ({
                 <section>
                   <h3 className="font-semibold text-lg mb-3 text-primary">Clinical Status</h3>
                   <div className="space-y-2 text-sm">
+                    <div className="flex items-start gap-3">
+                      <ShieldAlert className="h-4 w-4 text-muted-foreground mt-1 flex-shrink-0" />
+                      <div>
+                        <span className="font-medium">Allergies:</span>{' '}
+                        {canSeePatientIdentifiers ? (
+                          patient.allergies && patient.allergies.length > 0 ? (
+                            <span className="text-destructive font-medium">
+                              {patient.allergies.join(', ')}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground">No known allergies recorded.</span>
+                          )
+                        ) : (
+                          <span className="text-muted-foreground">Hidden in display mode.</span>
+                        )}
+                      </div>
+                    </div>
                     <div className="flex items-center gap-3"><Utensils className="h-4 w-4 text-muted-foreground" /> <span>Diet: {patient.diet}</span></div>
                     <div className="flex items-center gap-3"><MobilityIcon className="h-4 w-4 text-muted-foreground" /> <span>Mobility: {patient.mobility}</span></div>
                     <div className="flex items-center gap-3"><Info className="h-4 w-4 text-muted-foreground" /> <span>Alert & Oriented: {patient.orientationStatus.toUpperCase()}</span></div>
@@ -278,9 +300,28 @@ const ReportSheet: React.FC<ReportSheetProps> = ({
             </div>
         )}
         
-        <div className="p-4 border-t mt-auto bg-card">
+        <div className="p-4 border-t mt-auto bg-card space-y-2">
+          {canSeePatientIdentifiers && patient.lastEpicSyncAt && !isVacant && (
+            <p className="text-xs text-muted-foreground text-center">
+              Last Epic sync:{' '}
+              {new Date(patient.lastEpicSyncAt).toLocaleString()}
+              {patient.epicPatientId ? ` · ${patient.epicPatientId}` : ''}
+            </p>
+          )}
           {!isReadOnly && (
-          <div className="flex gap-2">
+          <div className="flex flex-col gap-2">
+            {onRefreshFromEpic && !isBlocked && (
+              <Button
+                variant="outline"
+                className="w-full"
+                disabled={isEpicSyncing}
+                onClick={() => void onRefreshFromEpic(patient)}
+              >
+                <RefreshCw className={cn('mr-2 h-4 w-4', isEpicSyncing && 'animate-spin')} />
+                {isEpicSyncing ? 'Refreshing from Epic…' : 'Refresh from Epic'}
+              </Button>
+            )}
+            <div className="flex gap-2">
             <Button
               className="flex-1 bg-sky-500 hover:bg-sky-400 text-white"
               onClick={() => onEditPatient(patient)}
@@ -298,6 +339,7 @@ const ReportSheet: React.FC<ReportSheetProps> = ({
               <UserMinus className="mr-2 h-4 w-4" />
               Discharge / Transfer-Out Patient
             </Button>
+            </div>
           </div>
           )}
         </div>

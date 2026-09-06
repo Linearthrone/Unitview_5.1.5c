@@ -28,12 +28,8 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import type { LayoutName } from '@/types/patient';
-import { Separator } from './ui/separator';
 import { cn } from '@/lib/utils';
 import type { NameAlertGroup } from '@/lib/name-alerts';
 
@@ -61,9 +57,6 @@ interface AppHeaderProps {
   onAcknowledgeNameAlerts?: () => void;
   /** When false, admit/staff/oncoming and admin tools are hidden. */
   canEdit?: boolean;
-  currentLayoutName: LayoutName;
-  onSelectLayout?: (layoutName: LayoutName) => void;
-  availableLayouts?: LayoutName[];
   onPrint: (reportType: 'charge' | 'assignments') => void;
   onConfigureAssignmentPrint?: () => void;
 }
@@ -86,15 +79,6 @@ const CompactStat: React.FC<{
   </div>
 );
 
-const getFriendlyLayoutName = (layoutName: LayoutName): string => {
-  switch (layoutName) {
-    case 'North-South View':
-      return 'North/South View';
-    default:
-      return layoutName;
-  }
-};
-
 const AppHeader: React.FC<AppHeaderProps> = ({
   title,
   unitName,
@@ -110,9 +94,6 @@ const AppHeader: React.FC<AppHeaderProps> = ({
   nameAlertGroups,
   onAcknowledgeNameAlerts,
   canEdit = true,
-  currentLayoutName,
-  onSelectLayout,
-  availableLayouts,
   onPrint,
   onConfigureAssignmentPrint,
 }) => {
@@ -170,31 +151,6 @@ const AppHeader: React.FC<AppHeaderProps> = ({
             {/* Time, navigation, and census */}
             <div className="flex flex-col items-end gap-2 ml-auto shrink-0">
               <div className="flex items-center gap-2 flex-wrap justify-end">
-                {availableLayouts && onSelectLayout && (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="outline" size="sm" className="shrink-0">
-                        <LayoutGrid className="mr-2 h-4 w-4" />
-                        <span className="max-w-[10rem] truncate">
-                          {getFriendlyLayoutName(currentLayoutName)}
-                        </span>
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuLabel>Select unit layout</DropdownMenuLabel>
-                      <DropdownMenuSeparator />
-                      {availableLayouts.map((layoutName) => (
-                        <DropdownMenuItem
-                          key={layoutName}
-                          onClick={() => onSelectLayout(layoutName)}
-                          disabled={layoutName === currentLayoutName}
-                        >
-                          {getFriendlyLayoutName(layoutName)}
-                        </DropdownMenuItem>
-                      ))}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                )}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="outline" size="sm" className="shrink-0">

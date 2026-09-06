@@ -13,6 +13,7 @@ function normalizePatientRecord(patient: Patient): Patient {
     admitDate: toPatientDate(patient.admitDate),
     dischargeDate: toPatientDate(patient.dischargeDate),
     ldas: Array.isArray(patient.ldas) ? patient.ldas : [],
+    allergies: Array.isArray(patient.allergies) ? patient.allergies : [],
     awaitingTransport: Boolean(patient.awaitingTransport),
   });
 }
@@ -29,6 +30,9 @@ function applyAdmitFormToPatient(patient: Patient, formData: AdmitPatientFormVal
     admitDate: formData.admitDate,
     dischargeDate: formData.dischargeDate,
     ldas: formData.ldas ? formData.ldas.split(',').map((s) => s.trim()).filter(Boolean) : [],
+    allergies: formData.allergies
+      ? formData.allergies.split(',').map((s) => s.trim()).filter(Boolean)
+      : [],
     diet: formData.diet,
     mobility: formData.mobility,
     codeStatus: formData.codeStatus,
@@ -205,6 +209,10 @@ export async function completeTransport(patientId: string, patients: Patient[]):
     orientationStatus: 'N/A',
     notes: '',
     pendingProcedures: '',
+    allergies: [],
+    epicPatientId: undefined,
+    epicEncounterId: undefined,
+    lastEpicSyncAt: undefined,
     awaitingTransport: false,
     isBlocked: patientToVacate.isBlocked,
   };

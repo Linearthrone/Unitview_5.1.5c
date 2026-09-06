@@ -45,6 +45,14 @@ export interface Patient {
   pendingProcedures?: string;
   /** Discharged clinically but room not yet vacated — awaiting transport. */
   awaitingTransport?: boolean;
+  /** Known allergies (from form or Epic AllergyIntolerance). */
+  allergies?: string[];
+  /** Epic FHIR Patient id when synced from EHR. */
+  epicPatientId?: string;
+  /** Epic FHIR Encounter id for the active inpatient stay. */
+  epicEncounterId?: string;
+  /** ISO timestamp of last successful Epic sync. */
+  lastEpicSyncAt?: string;
   gridRow: number; // 1-indexed
   gridColumn: number; // 1-indexed
 }
