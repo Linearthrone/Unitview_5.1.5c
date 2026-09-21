@@ -90,8 +90,8 @@ Seats: STRAT, CONTRA, SYS, RISK, USER (+ light pass on floorplan authoring). No 
 
 | Topic | Resolution |
 | --- | --- |
-| A vs B | **A ships in PROP-3.** B parked as a later optional view mode by facility type/size. |
-| Floorplan authoring | Out of PROP-3. Follow-on: admin draw-and-place; hallway-enough; no blueprints. |
+| A vs B | **A ships in PROP-3.** Progressive view later (corridor templates/paint; glance-only). |
+| Floorplan authoring | Out of PROP-3. Progressive: admin templates/paint; hallway-enough; no blueprints. |
 | Themes | Light + clinical-dark only. |
 | Type | Arial 18px. |
 
