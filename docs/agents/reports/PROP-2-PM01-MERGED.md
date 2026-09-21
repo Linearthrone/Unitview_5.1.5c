@@ -2,7 +2,7 @@
 
 **Status:** MERGED  
 **PR:** https://github.com/Linearthrone/Unitview_5.1.5c/pull/4  
-**Merge:** `eddbbf9` on `master` (2026-09-21, Kurt / Linearthrone)
+**Merge:** `eddbbf9` on `master` (2026-09-21, LinearThrone / Linearthrone)
 
 ## Shipped
 
