@@ -1,13 +1,14 @@
 ---
 type: proposal
-status: unexecuted
+status: sent-to-pm
 tt_id: TT-01
+prop_id: PROP-3-clinical-command-surface
 created: 2026-09-21
 updated: 2026-09-21
 title: Clinical command surface
 need: Make UnitView look like the future of healthcare — professional, engaging, and calm — without turning the unit board into a consumer app or a new spreadsheet.
-sent_at:
-pm_intake:
+sent_at: 2026-09-21
+pm_intake: docs/agents/tasks/PROP-3-TT01-to-PM01.md
 ---
 
 # Clinical command surface
@@ -40,7 +41,7 @@ Success is both of these, and the first one kills the work if it fails:
   - Header census is a wrap of equal bordered chips. Wallpaper snapshot already uses the failure mode (gradients, hairline borders, tiny type), not the target.
 - Playwright smoke (`renderer/smoke/qa-smoke.spec.ts`) keys off login labels, unit select, Print → Charge report, the oncoming-shift control, and `[data-patient-id]` drag. There is no screenshot gate.
 - PROP-1 (persist honesty) and PROP-2 (in-memory transitions) are merged. Do not couple this to storage.
-- Next free proposal number is **3**. It is **not reserved** until this proposal is sent to PM.
+- Create Unit already authors the spatial map (rows/cols + card placement). That authoring stays for PROP-3.
 
 ## 3.1 Visual mockups (exploratory)
 
@@ -49,150 +50,118 @@ Concept art only — not shipped UI. Files under `docs/agents/unexecuted_proposa
 | File | What it shows |
 | --- | --- |
 | `mockup-01-today-spreadsheet-board.png` | Contrast: today’s equal chips + icon-row cards |
-| `mockup-02b-option-a-same-map-workstation.png` | **A recommended:** same map (rooms + nurse cards together), new chrome |
-| `mockup-05-option-a-light.png` | **A** light mode of the same idea |
+| `mockup-02b-option-a-same-map-workstation.png` | **A (this PROP):** same map (rooms + nurse cards together), new chrome |
+| `mockup-05-option-a-light.png` | **A** light mode |
 | `mockup-03-option-a-wall.png` | **A** wall: no patient names; admit/EDD and safety marks kept |
 | `mockup-02-option-a-workstation.png` | Draft — drifted to a nurse sidebar; superseded by `02b` |
-| `mockup-04-option-b-new-layout.png` | **B:** nurse columns + abstract floorplan (higher risk) |
+| `mockup-04-option-b-new-layout.png` | **B (later PROP):** nurse columns + abstract floorplan |
 
 ## 4. Clarifying Q&A (answered)
 
-| # | Question | Answer (Kurt, 2026-09-21) |
+| # | Question | Answer |
 | --- | --- | --- |
-| 1 | Board structure — keep today’s room map vs invent a new layout | Was **A** (2026-09-21). Kurt later preferred **B** visually but asked how facilities author a floorplan — **reopened**; see §9.5. Send-to-PM held. |
-| 2 | What the wall may show | Hide **patient identifiers only** (name, MRN, and anything that identifies the person). Keep the rest for quick reference before entering the room (safety marks, occupancy, admit/EDD dates, and other non-identifier clinical cues already on the card). |
+| 1 | Board structure | **Ship Option A now** (same map, new look). Option B later as an optional alternate unit view selectable by facility type/size (product label TBD: e.g. “classic style” / “traditional view”). Kurt, 2026-09-21. |
+| 2 | Wall content | Hide **patient identifiers only**; keep clinical quick-reference (including admit/EDD). |
 | 3 | Typeface | **Keep** Arial at 18px. |
-| 4 | Idle lock on WALLDISPLAY | **No idle lock at all** for wall sessions. Nurse workstations still lock. |
+| 4 | Wall idle lock | **No idle lock** for WALLDISPLAY. Nurse workstations still lock. |
+| 5 | Floorplan authoring for B | Not in PROP-3. When B ships, prefer reuse of Create Unit placements (B-auth-1); templates optional later. CAD / underlay out of this program. |
 
 ## 5. Avenues Explored
 
-Seats: STRAT, CONTRA, SYS, RISK, USER. All five ran. No seat edited the repo.
+Seats: STRAT, CONTRA, SYS, RISK, USER (+ light pass on floorplan authoring). No seat edited product code.
 
-### Seat summaries
+**STRAT.** Ship skin + same-grid expression first. New layout is a second program.
 
-**STRAT.** The board is already the product. April 2026 locked the layout. What looks dated is density and chrome, not missing features. Ship a skin, then restyle how the same grid reads, and only then consider a new shell.
+**CONTRA.** Kill glass/motion/icon-only safety. Do not add a third token system.
 
-**CONTRA.** “Future of healthcare” skins (glass, blur, motion, hidden density, icon-only meaning) fail charge nurses. Safety coding is already fragile. Kill a redesign whose acceptance test is a prettier screenshot. Do not add a third token system. Do not fade alerts further.
+**SYS.** Unify `themes.css` into `globals.css` first. Card skin on the same map is the win. Do not split `unit-view-client.tsx`. Print stays white.
 
-**SYS.** A token-only pass will not modernize the board, and a new grid metaphor is a different program (persisted `gridRow` / `gridColumn`, shift-maker, wallpaper, zoom). Prerequisite is one token source and removal of `themes.css` overrides. Card skin on the same map is the visual win. Print must not inherit screen dark tokens. Do not split `unit-view-client.tsx`.
+**RISK.** Wall: hide identifiers only; no idle lock; no CDNs; 18px floor.
 
-**RISK.** Identifiers are a role flag, not a theme. WALLDISPLAY still shows admit and expected-discharge dates, and print trees can stay mounted with names. Freeze a wall allow-list before restyling the wall. No font CDNs, no telemetry, no patient photos, no pulsing alerts. Body type stays at least 18px. Honor `prefers-reduced-motion`.
+**USER.** Same map, two distances; labeled safety marks; stop fading assigned rooms.
 
-**USER.** Two distances, one map. At about 3 meters: shape of the unit. At arm’s length: who is in the room and what is unsafe. Hover does not exist on a wall. Preserve the grid, room number as the largest text, drag, and print. Simplify borders, the icon row, the fade on assigned rooms, and the theme toy. Facility logo is the brand.
+### Conflicts resolved for PROP-3
 
-### Conflicts
+| Topic | Resolution |
+| --- | --- |
+| A vs B | **A ships in PROP-3.** B parked as a later optional view mode by facility type/size. |
+| Floorplan authoring | Out of PROP-3. Documented for the follow-on PROP (reuse Create Unit). |
+| Themes | Light + clinical-dark only. |
+| Type | Arial 18px. |
 
-| Topic | Disagreement | Resolution in §6 |
-| --- | --- | --- |
-| How “full” is full | Kurt’s words and USER want a redesign of the experience. CONTRA and STRAT say a new information architecture will fail day-one recognition and the April keep-list. | **Locked by Kurt:** Option A — same map, new look. Avenue B parked. |
-| Arial | STRAT and CONTRA treat 18px Arial as a locked checklist vote. USER says the vote was for large readable type, not that face. | **Locked by Kurt:** keep Arial at 18px. |
-| Themes | Checklist both keeps five themes and retires them. SYS says settings already collapsed to light and clinical-dark. | Ship light + clinical-dark only. Leave stored blue/green/purple values readable and unused. |
-| Wall dates / PHI | RISK wanted admit/EDD off the wall. Kurt wants quick reference before entering the room. | **Locked by Kurt:** hide patient identifiers only; keep clinical quick-reference fields including admit/EDD. |
-| Wall idle lock | RISK flagged idle lock as a product/security decision. | **Locked by Kurt:** WALLDISPLAY does not idle-lock. Nurse workstations still lock. |
+### Avenue A — Same map, new look (**this PROP**)
 
-### Avenue A — Token unification only
+Tokens + card/header expression + wall privacy/chrome. Same Create Unit grid and drag targets.
 
-One HSL token set, light and clinical-dark. Delete `themes.css` utility overrides and the global `!important` transition. Map stored `global_theme` onto light versus `.dark` without a vault redesign.
+### Avenue B — Alternate view (parked follow-on)
 
-- Changes look on login, dashboard, and shells that already use semantic classes.
-- Does **not** fix the spreadsheet feeling on patient cards or the header chip ribbon.
-- Low behavior risk. Right as slice 1, wrong as the whole answer.
+Nurse columns + abstract floorplan overview. Offer later as an optional mode (label TBD: “classic style” / “traditional view”) depending on facility type and size. Authoring: reuse Create Unit cell placements (B-auth-1); do not invent CAD in the same wave as A.
 
-### Avenue B — New board metaphor
+### Avenue C — Staged program name
 
-Sidebar shell, floorplan or nurse-column layout, wall as its own product. Reopens April decisions, touches persisted coordinates, shift-maker, wallpaper, and drag. High chance of PHI regressions on WALLDISPLAY. Day-one recognition fails.
-
-Parked. Only if Kurt explicitly reopens information architecture after Avenue C slice 2 still feels old.
-
-### Avenue C — Clinical command surface (recommended)
-
-Same map and same jobs. Three slices. The experience is redesigned; the structure is not.
-
-1. **Foundation.** One token source. Kill the global transition. Lock print to white ~10pt so dark tokens cannot leak onto paper. AA contrast for body and muted text in both modes. Smoke + a printed charge sheet as the gate.
-2. **Expression, same grid.** Restyle patient, nurse, charge, clerk, and tech cards without moving drag nodes or renaming controls the smoke test uses. Room number stays the largest text. Replace the icon footer with a few labeled safety marks (shape + text). Group header census into census, safety, and devices instead of one equal chip ribbon. Stop fading assigned rooms; let unassigned occupied rooms be the loud state. Workstation bar stays short: Admit, Staff, Oncoming, Print, Leave. Wall chrome becomes unit name, clock, and a short census, with the wall rules from §6.
-3. **Only if slice 2 still feels dated.** Facility-home shell and a designed wall composition behind a flag. Still not a new assignment grid.
+C1 foundation + C2 expression = PROP-3. C3 facility-home polish only if C2 still feels dated. B is **not** C3 — B is a separate later PROP.
 
 ## 6. Recommended Route
 
-**Avenue C.** Define “future of healthcare” as a calm clinical command surface: dark or light, high contrast, facility-branded, quiet when the unit is covered, loud only when a room is unassigned or unsafe. Not glass, not wellness illustration, not a marketing gradient, not a new spreadsheet.
+**Ship Option A as PROP-3.** Calm clinical command surface on the existing room map.
 
 **Locked product decisions** (Kurt, 2026-09-21):
 
-- **Board structure:** Was locked to Option A. **Reopened** after Kurt preferred the Option B mockup and asked how facilities author a floorplan (§9.5). Send-to-PM held until authoring is chosen.
-- **Type:** Keep Arial at 18px. Room numbers on the wall may be larger, not smaller.
-- **Wall PHI:** Hide patient identifiers only (name, MRN, and other person-identifying fields). Keep clinical quick-reference fields for glance before entering the room, including occupancy, safety marks, and admit / expected-discharge dates. Name-alert *strings* that contain patient names stay off the wall; a non-identifying alert count/state may remain if SEC confirms it does not leak a name.
-- **Wall idle lock:** WALLDISPLAY sessions do **not** idle-lock. Shared nurse workstations still idle-lock. SEC must still clear on-screen PHI on explicit logout / switch-user, and print/export stay off the wall role.
+- **Board (PROP-3):** Option A — same map, new look. Keep the cell map, drag-and-drop, context menus, Spectra, both print targets. Do not change stored `gridRow` / `gridColumn` semantics.
+- **Follow-on (not PROP-3):** Option B as optional alternate view by facility type/size; product label TBD (“classic style” vs “traditional view”). Floorplan authoring = Create Unit reuse unless a later TT pass chooses otherwise.
+- **Type:** Arial at 18px. Wall room numbers may be larger.
+- **Wall PHI:** Hide patient identifiers only. Keep clinical quick-reference including admit/EDD. Name-alert *strings* with patient names stay off the wall.
+- **Wall idle lock:** WALLDISPLAY does not idle-lock. Workstations still lock. Clear PHI on explicit logout / switch-user. Print/export off wall role.
 
-**Visual defaults for execution:**
+**Visual defaults:**
 
-- Light + clinical-dark only. No blue/green/purple product themes.
-- Assigned rooms stay full contrast with a small settled mark. Do not use opacity to mean “done.”
-- Safety states use distinct shape plus a short text label. Contact, airborne, and droplet stay different from each other and from a generic caution color. Do not fold clinical hues into `--primary`.
-- Do not mount identifier-bearing print DOM, native `title` tooltips with names, or copyable name chrome for WALLDISPLAY.
-- No new remote assets (font CDNs, icon CDNs, illustration hosts, telemetry). No patient photos, ambient video, pulsing or breathing alerts, sounds, or gamified motion. Honor `prefers-reduced-motion`. No looping motion on safety icons.
-- Do not add remember-me, recent-patient lists, or PHI in `localStorage` beyond what already exists.
-- Audit log stays admin-visible. Do not put names, MRNs, or clinical notes into new tooltips, toasts, or error text.
+- Light + clinical-dark only.
+- Assigned rooms full contrast + settled mark (no opacity-as-done).
+- Safety: shape + short text; contact / airborne / droplet distinct; clinical hues not folded into `--primary`.
+- No glass, blur, gradient washes, remote assets, patient photos, pulsing alerts. Honor `prefers-reduced-motion`.
+- Audit stays admin-visible; no PHI in new toasts/tooltips.
 
-**First shippable slice** is foundation (C1) plus the card and header expression (C2) on the workstation. Wall restyle can proceed after SEC tickets the identifier hide + no-idle-lock behavior. Slice 3 does not start unless Kurt says slice 2 still looks dated.
+**First ship:** C1 foundation + C2 workstation expression. Wall chrome after SEC privacy + no-idle-lock.
 
 ## 7. Alternatives (parked)
 
-- **Avenue B** — new board metaphor. Revisit only after slice 2, and only with an explicit decision to reopen the April keep-list and persisted grid coordinates.
-- **Consumer-health visual language** — gradients, illustration, glass, display type, motion. Rejected by CONTRA, RISK, and USER. It fights glare, colorblind glance, print, and the wall.
-- **Big-bang restyle of every dialog, shift-maker, wallpaper, and print preset in one ticket.** Shift-maker and wallpaper are outlier skins; print presets stay frozen unless a later ticket restyles `print-styles.ts` while keeping white / 10pt / `.print-hide`. Sequence them after the board, not inside it.
+- **Option B alternate view** — later PROP; facility type/size opt-in; label TBD.
+- **Consumer-health visual language** — rejected.
+- **CAD / underlay floorplan authoring** — separate PROP if ever needed; not B-auth default.
+- **Big-bang dialog / shift-maker / wallpaper / print restyle** — after the board, not inside PROP-3.
 
 ## 8. Risks & Kill Criteria
 
-**Dissent kept visible.** CONTRA would stop at a disciplined token system if Kurt cannot name a workflow the current board cannot do. USER and the intake want the card and header language changed, not only the tokens. This proposal sides with USER on expression and with CONTRA on structure, safety, and motion. If Kurt’s acceptance test is only “the screenshot no longer looks like 2018,” kill the program and do not ship.
-
-Kill or stop the slice when any of these is true:
+Kill or stop a slice when:
 
 - Isolation subtype, fall risk, DNR, restraints, or name alerts become icon-only, color-only, or tooltip-only.
-- Body or muted text drops below WCAG AA (4.5:1) in light or dark, or body size drops below 18px.
-- Patient cards, census, or the name-alert banner use glass, blur, translucency, or gradient washes.
-- Motion is added on room cards, or the global `!important` transition is kept.
-- Padding, radius, or shadow reduces how many rooms fit versus today, or the full unit stops being the primary view.
-- Census chips are collapsed by default.
-- A third token system is added instead of retiring `themes.css` overrides.
-- The wave rewrites persistence, bumps React or Tailwind majors, or splits `unit-view-client.tsx`.
-- WALLDISPLAY shows a patient name, MRN, or other person-identifying field, or mounts identifier-bearing print DOM / name tooltips.
-- Smoke can no longer sign in, enter a unit, open the charge report, or drag `[data-patient-id]`.
-
-**Must-mitigate before the wall slice, not before the token slice:** hide patient identifiers only (keep clinical quick-reference), disable idle lock for WALLDISPLAY only, print DOM not mounted for that role when it would leak names, and safety marks that survive grayscale.
+- Body/muted text below WCAG AA or body size below 18px.
+- Glass, blur, translucency, or gradient washes on cards/census/name-alert banner.
+- Motion on room cards, or the global `!important` transition kept.
+- Density drops so the full unit is no longer the primary view; census collapsed by default.
+- Third token system; vault rewrite; React/Tailwind major bump; split of `unit-view-client.tsx`.
+- WALLDISPLAY shows person-identifying fields or mounts name-bearing print DOM / tooltips.
+- Smoke cannot sign in, enter a unit, open charge report, or drag `[data-patient-id]`.
 
 ## 9. Open Questions for User / PM
 
-### 9.1–9.4
+None blocking PROP-3.
 
-1. **Board:** Was **A**. Kurt later liked **B** mockup — **reopened** pending floorplan authoring (§9.5).
-2. **Wall content:** hide patient identifiers only; keep clinical quick-reference (including admit/EDD). **Locked.**
-3. **Type:** keep Arial at 18px. **Locked.**
-4. **Wall idle lock:** none. Nurse workstations still lock. **Locked.**
+Deferred to the Option B follow-on PROP:
 
-### 9.5 Floorplan authoring (blocks Option B and send-to-PM)
-
-Today the facility already “builds the map” in **Create Unit**: set rows/cols, place Room / Nurse / PCT / Clerk cards on cells. Empty cells stand in for hallways. That is not CAD.
-
-If Option B’s right-hand floorplan ships, authoring avenues:
-
-| ID | Avenue | Who / how | Stored | Effort vs A skin | Kill risk |
-| --- | --- | --- | --- | --- | --- |
-| **B-auth-1** | Same Create Unit grid; floorplan is a **render** of existing placements | Admin (unchanged). Runtime draws abstract corridor from cells. | Unchanged `gridRow`/`gridColumn` | Small | Low eng; medium if Kurt expects organic shapes |
-| **B-auth-2** | Corridor **templates** + optional paint-hallway (still cell-based) | Admin picks L / U / ring template, then places rooms | + template id or corridor mask | Medium | Medium |
-| **B-auth-3** | Soft pinboard (free-ish room positions) | Admin drags markers on a canvas | Continuous x/y; dual model | Large | High |
-| **B-auth-4** | Local underlay image + pin rooms (no cloud) | Admin imports JPEG/PNG into vault, pins rooms | Image blob + pins | Large | High (ops + SEC) |
-
-**TT recommendation while B is attractive:** Prefer **B-auth-1** (reuse Create Unit). Do not gate the redesign on CAD. Hybrid sequence: ship Option A first; later PROP can add a floorplan overview mode that renders B-auth-1 (optional B-auth-2). Hold send-to-PM until Kurt answers §9.5 questions.
-
-**Still need from Kurt:**
-
-1. For a B-style board, is the floorplan **glance-only** (assignments stay on nurse columns / today’s drag), or must nurses **drag on the map**?
-2. Is “looks like our hallway enough to orient” enough, or do you need **facility drawings / true footprint**?
+1. Product label: “classic style” vs “traditional view” (or other).
+2. Floorplan glance-only vs drag-on-map.
+3. Whether corridor templates (B-auth-2) are needed beyond Create Unit reuse.
 
 ## 10. Suggested PM Handoff
 
-- **Do not send yet.** Board structure is reopened (§9.5).
-- When send resumes: `prop_id` **PROP-3-clinical-command-surface** unless another proposal takes 3 first.
-- If Kurt returns to **A**: splits in prior §10 (3.1 tokens → 3.2 same-grid expression → 3.3 SEC wall → 3.4 wall chrome → 3.5 QA).
-- If Kurt locks **B** with **B-auth-1**: add a FED ticket for floorplan *render* of existing placements; do not invent CAD in the same wave.
-- If Kurt wants **B-auth-3/4**: that is a separate PROP, not a skin ticket.
+- `prop_id`: **PROP-3-clinical-command-surface**
+- Intake: `docs/agents/tasks/PROP-3-TT01-to-PM01.md`
+- Suggested splits (hints; TINA may re-divide):
+  - `PROP-3.1` — **FED-01** — One token source; retire `themes.css` overrides + global transition; print white / ~10pt / `.print-hide`; Arial 18px. No vault redesign.
+  - `PROP-3.2` — **FED-01** — Same-grid workstation expression: cards, grouped census, no assigned fade, labeled safety marks. Preserve smoke selectors and drag nodes. No `gridRow`/`gridColumn` semantic change.
+  - `PROP-3.3` — **SEC-01** — WALLDISPLAY: hide identifiers only; keep clinical quick-ref; disable idle lock for wall only; no name leak via print DOM/tooltips.
+  - `PROP-3.4` — **FED-01** — Wall chrome after 3.3.
+  - `PROP-3.5` — **QA-01** — Smoke + contrast/safety-glance; wall identifiers off; wall does not idle-lock.
+- **Do not** ticket Option B / floorplan alternate view under PROP-3. Park as a future PROP after A ships.
+- What PM should decide first: accept Avenue A route and ticket 3.1 → 3.2; fan 3.3 when capacity allows.

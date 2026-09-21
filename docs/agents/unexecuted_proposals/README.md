@@ -10,4 +10,4 @@ See `docs/agents/PROP_NUMBERING.md`.
 | --- | --- | --- |
 | `persistence-honesty-and-architecture-eval.md` | merged (PROP-1) | Fail-closed vault writes |
 | `in-memory-unit-transitions.md` | merged (PROP-2) | No hard reload between units |
-| `clinical-command-surface.md` | unexecuted | Clinical visual redesign; not sent to PM |
+| `clinical-command-surface.md` | **sent-to-pm** (PROP-3) | Same-map clinical UI redesign; B later as opt-in view |
