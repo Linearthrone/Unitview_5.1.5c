@@ -59,7 +59,7 @@ Concept art only — not shipped UI. Files under `docs/agents/unexecuted_proposa
 
 | # | Question | Answer (Kurt, 2026-09-21) |
 | --- | --- | --- |
-| 1 | Board structure — keep today’s room map vs invent a new layout | **Still open.** Restated in plain language in §9.1. |
+| 1 | Board structure — keep today’s room map vs invent a new layout | **A — Same map, new look.** Rooms stay in saved grid positions; drag-and-drop stays; redesign cards, colors, chrome, and header. Do not replace the board structure. |
 | 2 | What the wall may show | Hide **patient identifiers only** (name, MRN, and anything that identifies the person). Keep the rest for quick reference before entering the room (safety marks, occupancy, admit/EDD dates, and other non-identifier clinical cues already on the card). |
 | 3 | Typeface | **Keep** Arial at 18px. |
 | 4 | Idle lock on WALLDISPLAY | **No idle lock at all** for wall sessions. Nurse workstations still lock. |
@@ -84,7 +84,7 @@ Seats: STRAT, CONTRA, SYS, RISK, USER. All five ran. No seat edited the repo.
 
 | Topic | Disagreement | Resolution in §6 |
 | --- | --- | --- |
-| How “full” is full | Kurt’s words and USER want a redesign of the experience. CONTRA and STRAT say a new information architecture will fail day-one recognition and the April keep-list. | Redesign chrome, type, card language, census grouping, and wall versus workstation chrome. Do **not** replace the 17×10 map. |
+| How “full” is full | Kurt’s words and USER want a redesign of the experience. CONTRA and STRAT say a new information architecture will fail day-one recognition and the April keep-list. | **Locked by Kurt:** Option A — same map, new look. Avenue B parked. |
 | Arial | STRAT and CONTRA treat 18px Arial as a locked checklist vote. USER says the vote was for large readable type, not that face. | **Locked by Kurt:** keep Arial at 18px. |
 | Themes | Checklist both keeps five themes and retires them. SYS says settings already collapsed to light and clinical-dark. | Ship light + clinical-dark only. Leave stored blue/green/purple values readable and unused. |
 | Wall dates / PHI | RISK wanted admit/EDD off the wall. Kurt wants quick reference before entering the room. | **Locked by Kurt:** hide patient identifiers only; keep clinical quick-reference fields including admit/EDD. |
@@ -118,13 +118,13 @@ Same map and same jobs. Three slices. The experience is redesigned; the structur
 
 **Locked product decisions** (Kurt, 2026-09-21):
 
+- **Board structure:** **Option A — same map, new look.** Keep the 17×10 cell map, drag-and-drop, context menus, Spectra, and both print targets. Do not replace with a new layout (Avenue B parked).
 - **Type:** Keep Arial at 18px. Room numbers on the wall may be larger, not smaller.
 - **Wall PHI:** Hide patient identifiers only (name, MRN, and other person-identifying fields). Keep clinical quick-reference fields for glance before entering the room, including occupancy, safety marks, and admit / expected-discharge dates. Name-alert *strings* that contain patient names stay off the wall; a non-identifying alert count/state may remain if SEC confirms it does not leak a name.
 - **Wall idle lock:** WALLDISPLAY sessions do **not** idle-lock. Shared nurse workstations still idle-lock. SEC must still clear on-screen PHI on explicit logout / switch-user, and print/export stay off the wall role.
 
-**Still recommended (pending §9.1 on board structure):**
+**Visual defaults for execution:**
 
-- Keep the 17×10 cell map, drag-and-drop, context menus, Spectra, and both print targets — **unless Kurt chooses a new layout in §9.1**.
 - Light + clinical-dark only. No blue/green/purple product themes.
 - Assigned rooms stay full contrast with a small settled mark. Do not use opacity to mean “done.”
 - Safety states use distinct shape plus a short text label. Contact, airborne, and droplet stay different from each other and from a generic caution color. Do not fold clinical hues into `--primary`.
@@ -162,34 +162,22 @@ Kill or stop the slice when any of these is true:
 
 ## 9. Open Questions for User / PM
 
-### 9.1 Still open — what I was asking in plain English
+### 9.1–9.4 Answered (Kurt, 2026-09-21)
 
-Today the unit is a **fixed room map**: each room sits in a saved row/column on a grid (about 17 columns by 10 rows). Nurses drag those room tiles onto staff cards. Those positions are stored with the unit layout.
+1. **Board:** **A — same map, new look.** Avenue B parked.
+2. **Wall content:** hide patient identifiers only; keep clinical quick-reference (including admit/EDD).
+3. **Type:** keep Arial at 18px.
+4. **Wall idle lock:** none. Nurse workstations still lock.
 
-I was **not** asking “do you want a prettier skin?” I was asking which of these two jobs you want:
-
-| Option | Meaning | What changes |
-| --- | --- | --- |
-| **A — Same map, new look** (recommended) | Rooms stay where they are. Drag-and-drop stays. We redesign how cards, colors, type (still Arial 18px), and the header *look*. | Appearance and clarity. Charge nurses still recognize the board on day one. |
-| **B — New layout** | Replace the room map with something else (for example a floorplan drawing, a nurse-column list, or a different board structure). | Stored room positions, drag targets, shift-maker, wallpaper, and muscle memory all change. Bigger program; higher risk. |
-
-Which do you want for this redesign: **A** or **B**?
-
-### 9.2–9.4 Answered
-
-- **Wall content:** hide patient identifiers only; keep clinical quick-reference (including admit/EDD).
-- **Type:** keep Arial at 18px.
-- **Wall idle lock:** none. Nurse workstations still lock.
-
-PM may ticket wall privacy + no-idle-lock and workstation skin work once §9.1 is answered. Do not ticket a new grid unless Kurt picks **B**.
+No blocking product questions remain for Avenue C. Ready to park or send to PM-01 on request.
 
 ## 10. Suggested PM Handoff
 
 - `prop_id`: not assigned. On send, use **PROP-3** (`PROP-3-clinical-command-surface`) unless a later proposal takes 3 first. See `docs/agents/PROP_NUMBERING.md`.
 - Suggested splits (hints only; TINA may re-divide):
   - `PROP-3.1` — **FED-01** — One token source: map `global_theme` to light versus `.dark`, stop applying `themes.css` overrides and the global transition, keep print CSS white / ~10pt / `.print-hide`, keep Arial 18px. Do not redesign the vault.
-  - `PROP-3.2` — **FED-01** — Workstation expression on the same grid (only if Kurt picks §9.1 **A**): patient and staff cards, grouped census header, no assigned-room fade, labeled safety marks (shape + text). Preserve smoke selectors and drag nodes.
+  - `PROP-3.2` — **FED-01** — Workstation expression on the **same** grid: patient and staff cards, grouped census header, no assigned-room fade, labeled safety marks (shape + text). Preserve smoke selectors and drag nodes. Do not change stored `gridRow` / `gridColumn`.
   - `PROP-3.3` — **SEC-01** — WALLDISPLAY: hide patient identifiers only; keep clinical quick-reference; disable idle lock for wall sessions only; ensure print DOM / name tooltips do not leak identifiers.
   - `PROP-3.4` — **FED-01** — Wall chrome (unit, clock, short census, larger room numbers) after `PROP-3.3`.
   - `PROP-3.5` — **QA-01** — Smoke plus contrast and safety-glance check (workstation and print; wall if 3.4 shipped). Confirm wall shows no patient identifiers and does not idle-lock. No screenshot-only pass.
-- What PM should decide first: Kurt’s answer to §9.1 (**A** or **B**). Do not open Avenue B in the same wave unless he picks **B**.
+- What PM should decide first: accept Avenue C with Kurt’s four locks, then ticket `PROP-3.1` → `3.2` in parallel with `3.3` as capacity allows. Do **not** open Avenue B.
