@@ -54,19 +54,23 @@ Concept art only — not shipped UI. Files under `docs/agents/unexecuted_proposa
 | `mockup-05-option-a-light.png` | **A** light mode |
 | `mockup-03-option-a-wall.png` | **A** wall: no patient names; admit/EDD and safety marks kept |
 | `mockup-02-option-a-workstation.png` | Draft — drifted to a nurse sidebar; superseded by `02b` |
-| `mockup-04-option-b-new-layout.png` | **B (later PROP):** nurse columns + abstract floorplan |
+| `mockup-04-option-b-new-layout.png` | **Progressive view (later):** nurse columns + abstract floorplan |
+| `explain-a-vs-progressive-layouts.png` | How A assignment grid vs Progressive map organize the same unit |
 
 ## 4. Clarifying Q&A (answered)
 
 | # | Question | Answer |
 | --- | --- | --- |
-| 1 | Board structure | **Ship Option A now** (same map, new look). Option B later as an optional alternate unit view selectable by facility type/size (product label TBD: e.g. “classic style” / “traditional view”). Kurt, 2026-09-21. |
+| 1 | Board structure | **Ship Option A now** (same map, new look). Progressive view later as optional alternate by facility type/size. |
 | 2 | Wall content | Hide **patient identifiers only**; keep clinical quick-reference (including admit/EDD). |
 | 3 | Typeface | **Keep** Arial at 18px. |
 | 4 | Wall idle lock | **No idle lock** for WALLDISPLAY. Nurse workstations still lock. |
-| 5 | Floorplan authoring for B | **Admin-only at facility setup** (nurses do not author). Admin draws the unit layout and places rooms initially. **Hallway-enough orientation** — no precise scale, blueprints, or facility drawings. Not in PROP-3. |
-| 6 | Why B later | Kurt likes B’s **map + card** look for marketing and wall-map aesthetics. Ships as optional alternate view after A; label TBD. |
-| 7 | Floorplan fidelity | **Locked:** looks-like-our-hallway is enough. Not-to-scale abstract map. No CAD, DXF, Revit, or imported blueprints. |
+| 5 | Floorplan authoring | **Admin-only at facility setup.** Corridor **templates / paint**, then place rooms. Hallway-enough, not-to-scale. No blueprints. Nurses do not author. |
+| 6 | Why Progressive later | Marketing eye-catch and wall-map aesthetics. |
+| 7 | Floorplan fidelity | Hallway-enough; no precise scale or blueprints. |
+| 8 | Product name for B | **Progressive view** (locked). |
+| 9 | Nurse use of Progressive map | **Glance-only.** Once rooms are set up, nurses only need to see the map — no drag on the Progressive map. |
+| 10 | One layout or two? | **Open — see §9.6.** Kurt unsure; TT recommends shared rooms/assignments with two *presentations*, not two clinical units. |
 
 ## 5. Avenues Explored
 
@@ -91,21 +95,50 @@ Seats: STRAT, CONTRA, SYS, RISK, USER (+ light pass on floorplan authoring). No 
 | Themes | Light + clinical-dark only. |
 | Type | Arial 18px. |
 
-### Avenue A — Same map, new look (**this PROP**)
+### Avenue A — How the board is organized (**this PROP**)
 
-Tokens + card/header expression + wall privacy/chrome. Same Create Unit grid and drag targets.
+Option A does **not** invent a new room model. It keeps today’s Create Unit + live board:
 
-### Avenue B — Alternate view (parked follow-on PROP)
+1. Admin sets `layoutRows` × `layoutCols` and places cards of kind `Room`, `Staff Nurse`, `Patient Care Tech`, `Unit Clerk` on cells (`LayoutCardPlacement`: row/column).
+2. Those become live `gridRow` / `gridColumn` on patients and staff.
+3. Charge nurses **drag room tiles onto nurse cards on that same grid** to assign. Empty cells approximate hallway only loosely.
 
-Nurse columns + abstract floorplan / map + card style. Kurt wants this for **marketing eye-catch** and **wall-map aesthetics**, offered later by facility type/size (label TBD: “classic style” / “traditional view”).
+So A is an **assignment instrument**: rooms and staff share one rectangular cell map. PROP-3 only changes how that map *looks*.
 
-**Authoring (locked intent):**
+### Avenue B — Progressive view (parked follow-on PROP)
 
-- **Who:** Facility admin during setup — **not** charge nurses on shift.
-- **What:** Admin **draws the unit layout** and **places rooms** initially. Nurses only use the live board afterward.
-- **Authoring avenues when that PROP opens:** Prefer constrained **draw / corridor-paint / templates** that produce an abstract hallway shape, then place rooms — **not to scale**. B-auth-1 (render Create Unit grid) and B-auth-2 (corridor templates / paint) are the primary candidates. **B-auth-4 (blueprint/underlay image) is out** — Kurt locked hallway-enough, no precise scale or blueprints. Cloud CAD stays out.
+**Name:** Progressive view.  
+Map + card / nurse columns + abstract hallway. Marketing and wall aesthetics. Optional by facility type/size.
 
-PROP-3 must not implement B. Document only.
+**Authoring (locked):**
+
+- **Who:** Facility admin at setup — not nurses.
+- **How:** Corridor **templates / paint**, then place rooms. Hallway-enough, not-to-scale. No blueprints.
+- **Nurse use:** Map is **glance-only** after setup. No drag on the Progressive map.
+
+PROP-3 must not implement Progressive view. Document only.
+
+### How A and Progressive relate (for Kurt’s open question)
+
+They *feel* like two layouts because they *are* two jobs:
+
+| | Option A (PROP-3) | Progressive view (later) |
+| --- | --- | --- |
+| Job | Assign patients to nurses by dragging on a grid | Orient on a hallway map (wall / marketing / glance) |
+| What’s on the spatial surface | Rooms **and** staff cards | Rooms on a painted hallway; staff live in **columns**, not on the map |
+| Who edits space | Admin in Create Unit (rooms + staff cards) | Admin with corridor templates/paint + room pins |
+| Nurse interaction | Drag on the grid | Look only |
+
+**TT recommendation (not locked):** one unit, **one clinical truth** (rooms, census, assignments, safety flags), **two presentations**:
+
+- **A placement:** grid cells for the assignment board (today’s model, restyled in PROP-3).
+- **Progressive placement:** corridor mask + room pins for the map (new, admin-only).
+
+Do **not** maintain two separate patient lists. Do **not** require nurses to keep two boards in sync. Admin may set Progressive geometry once per unit; assignments still happen on A (or on Progressive nurse columns reading the same assignment data).
+
+**Alternative Kurt could still choose:** fully separate layouts (heavier). Only pick that if Progressive cannot be driven from shared room IDs.
+
+Diagram: `mockups/clinical-command-surface/explain-a-vs-progressive-layouts.png`.
 
 ### Avenue C — Staged program name
 
@@ -118,7 +151,7 @@ C1 foundation + C2 expression = PROP-3. C3 facility-home polish only if C2 still
 **Locked product decisions** (Kurt, 2026-09-21):
 
 - **Board (PROP-3):** Option A — same map, new look. Keep the cell map, drag-and-drop, context menus, Spectra, both print targets. Do not change stored `gridRow` / `gridColumn` semantics.
-- **Follow-on (not PROP-3):** Option B as optional alternate view by facility type/size for marketing and wall aesthetics; product label TBD. **Admin draws layout + places rooms at setup; nurses do not author.** Floorplan is **hallway-enough, not-to-scale** — no blueprints. Tool shape (templates vs paint vs enhanced Create Unit) is a later TT/PM pass.
+- **Follow-on (not PROP-3):** **Progressive view** — optional by facility type/size; marketing + wall aesthetics. Admin: corridor templates/paint + place rooms. Nurses: glance-only map. Hallway-enough, no blueprints. Layout relationship to A: see §9.6 (recommended shared clinical truth, two presentations).
 - **Type:** Arial at 18px. Wall room numbers may be larger.
 - **Wall PHI:** Hide patient identifiers only. Keep clinical quick-reference including admit/EDD. Name-alert *strings* with patient names stay off the wall.
 - **Wall idle lock:** WALLDISPLAY does not idle-lock. Workstations still lock. Clear PHI on explicit logout / switch-user. Print/export off wall role.
@@ -135,9 +168,9 @@ C1 foundation + C2 expression = PROP-3. C3 facility-home polish only if C2 still
 
 ## 7. Alternatives (parked)
 
-- **Option B alternate view** — later PROP; admin draw-and-place at setup; marketing + wall aesthetics; facility type/size opt-in; label TBD.
-- **Consumer-health visual language** — rejected for PROP-3 execution (B wall may be more expressive later without glass/PHI risk).
-- **Cloud CAD / blueprint / true-scale floorplan authoring** — out. Hallway-enough abstract map only for B.
+- **Option B / Progressive view** — later PROP; corridor templates/paint; glance-only for nurses; label **Progressive view**.
+- **Consumer-health visual language** — rejected for PROP-3 execution (Progressive wall may be more expressive later without glass/PHI risk).
+- **Cloud CAD / blueprint / true-scale floorplan authoring** — out. Hallway-enough abstract map only.
 - **Big-bang dialog / shift-maker / wallpaper / print restyle** — after the board, not inside PROP-3.
 
 ## 8. Risks & Kill Criteria
@@ -157,14 +190,24 @@ Kill or stop a slice when:
 
 None blocking PROP-3.
 
-Deferred to the Option B follow-on PROP:
+### 9.5 Progressive view — locked for follow-on
 
-1. Product label: “classic style” vs “traditional view” (or other).
-2. Admin draw tool shape among hallway-enough options: enhanced Create Unit grid vs corridor templates / paint (no blueprints).
-3. Floorplan on the live board: glance-only vs drag-on-map for nurses (authoring remains admin-only either way).
-4. Whether wall/marketing B mode can share the same placements as the A command surface for one facility.
+| Item | Lock |
+| --- | --- |
+| Name | **Progressive view** |
+| Authoring | Admin corridor **templates / paint** + place rooms |
+| Fidelity | Hallway-enough, not-to-scale; no blueprints |
+| Nurses | **Glance-only** map after setup |
 
-**Locked for that follow-on:** abstract hallway orientation is enough; no precise scale or blueprints.
+### 9.6 Still open — one layout or two?
+
+Kurt: unsure whether A and Progressive need two layouts for the same unit; unclear how A organizes rooms.
+
+**How A organizes rooms (today / PROP-3):** one rectangular cell grid. Admin places room cards and staff cards on cells in Create Unit. Nurses assign by dragging room tiles onto nurse cards on that same grid. PROP-3 restyles this; it does not change the placement model.
+
+**TT recommendation:** shared clinical data (rooms + assignments); **A grid placements** for the assignment board; **Progressive corridor + room pins** for the glance map. Two presentations, not two units.
+
+**Need from Kurt:** accept that recommendation, or insist on fully separate layouts?
 
 ## 10. Suggested PM Handoff
 
@@ -176,5 +219,5 @@ Deferred to the Option B follow-on PROP:
   - `PROP-3.3` — **SEC-01** — WALLDISPLAY: hide identifiers only; keep clinical quick-ref; disable idle lock for wall only; no name leak via print DOM/tooltips.
   - `PROP-3.4` — **FED-01** — Wall chrome after 3.3.
   - `PROP-3.5` — **QA-01** — Smoke + contrast/safety-glance; wall identifiers off; wall does not idle-lock.
-- **Do not** ticket Option B / floorplan alternate view under PROP-3. Park as a future PROP after A ships.
+- **Do not** ticket Progressive view under PROP-3. Park as a future PROP after A ships.
 - What PM should decide first: accept Avenue A route and ticket 3.1 → 3.2; fan 3.3 when capacity allows.
