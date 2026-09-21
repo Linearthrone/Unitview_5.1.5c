@@ -17,6 +17,7 @@ UnitView is a comprehensive patient management dashboard designed for healthcare
 - 📊 **Unit Dashboard** - Visual unit layout with drag-and-drop assignments
 - 💾 **Encrypted local vault** - AES-256-GCM `phi.vault.json` on the workstation (not SQLite)
 - 🖥️ **Desktop Application** - Native Windows application with offline capability
+- 🗺️ **Live desktop map** - Pin the active unit map to the Windows wallpaper (PHI redacted by default)
 - 🎨 **Modern UI** - Clean, responsive interface built with Tailwind CSS
 
 ---

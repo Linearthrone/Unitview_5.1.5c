@@ -2,10 +2,15 @@ import { app, BrowserWindow, Menu, shell, ipcMain, dialog, session } from 'elect
 import * as path from 'path';
 import * as fs from 'fs';
 import { registerIpcHandlers } from './ipc/register-handlers';
+import { LiveMapWallpaperService } from './wallpaper/live-map-wallpaper';
+import type { WallpaperMapSnapshot, WallpaperStartOptions } from './wallpaper/types';
+import { createAuditRecord } from './security/audit';
+import { appendAuditLine } from './ipc/secure-vault';
 
 class UnitViewApp {
   private mainWindow: BrowserWindow | null = null;
   private isDev = process.env.NODE_ENV === 'development';
+  private wallpaperService: LiveMapWallpaperService | null = null;
 
   constructor() {
     this.initializeApp();
@@ -43,11 +48,46 @@ class UnitViewApp {
       }
     });
 
+    app.on('before-quit', () => {
+      void this.wallpaperService?.stop(true);
+      this.wallpaperService?.dispose();
+    });
+
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) {
         this.createMainWindow();
       }
     });
+  }
+
+  private getWallpaperService(): LiveMapWallpaperService {
+    if (!this.wallpaperService) {
+      this.wallpaperService = new LiveMapWallpaperService({
+        isDev: this.isDev,
+        getMainWindow: () => this.mainWindow,
+      });
+    }
+    return this.wallpaperService;
+  }
+
+  private writeWallpaperAudit(
+    action: 'DESKTOP_WALLPAPER_START' | 'DESKTOP_WALLPAPER_STOP',
+    success: boolean,
+    detail?: string,
+    actorEmployeeNumber?: string
+  ): void {
+    try {
+      const record = createAuditRecord({
+        action,
+        success,
+        actorEmployeeNumber,
+        resourceType: 'DesktopWallpaper',
+        detail,
+      });
+      appendAuditLine(JSON.stringify(record));
+    } catch {
+      // Audit must not block wallpaper control
+    }
   }
 
   private createMainWindow(): void {
@@ -190,6 +230,13 @@ class UnitViewApp {
           { label: 'Zoom Out', accelerator: 'CmdOrCtrl+-', role: 'zoomOut' },
           { type: 'separator' },
           { label: 'Toggle Fullscreen', accelerator: 'F11', role: 'togglefullscreen' },
+          { type: 'separator' },
+          {
+            label: 'Pin Unit Map to Desktop Background',
+            click: () => {
+              this.mainWindow?.webContents.send('menu-wallpaper-toggle');
+            },
+          },
         ],
       },
       {
@@ -297,6 +344,65 @@ class UnitViewApp {
     // Get user data path
     ipcMain.handle('get-user-data-path', () => {
       return app.getPath('userData');
+    });
+
+    ipcMain.handle('wallpaper-start', async (_event, options?: WallpaperStartOptions) => {
+      try {
+        const status = await this.getWallpaperService().start(options ?? {});
+        this.writeWallpaperAudit(
+          'DESKTOP_WALLPAPER_START',
+          true,
+          `intervalMs=${status.intervalMs};redactPhi=${status.redactPhi};unit=${options?.unitName ?? 'unknown'}`,
+          options?.actorEmployeeNumber
+        );
+        return { success: true, status };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Wallpaper start failed';
+        this.writeWallpaperAudit(
+          'DESKTOP_WALLPAPER_START',
+          false,
+          message,
+          options?.actorEmployeeNumber
+        );
+        return { success: false, error: message, status: this.getWallpaperService().getStatus() };
+      }
+    });
+
+    ipcMain.handle(
+      'wallpaper-stop',
+      async (_event, payload?: { actorEmployeeNumber?: string; restorePrevious?: boolean }) => {
+        try {
+          const status = await this.getWallpaperService().stop(payload?.restorePrevious !== false);
+          this.writeWallpaperAudit(
+            'DESKTOP_WALLPAPER_STOP',
+            true,
+            'stopped',
+            payload?.actorEmployeeNumber
+          );
+          return { success: true, status };
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'Wallpaper stop failed';
+          this.writeWallpaperAudit(
+            'DESKTOP_WALLPAPER_STOP',
+            false,
+            message,
+            payload?.actorEmployeeNumber
+          );
+          return { success: false, error: message, status: this.getWallpaperService().getStatus() };
+        }
+      }
+    );
+
+    ipcMain.handle('wallpaper-status', async () => {
+      return this.getWallpaperService().getStatus();
+    });
+
+    ipcMain.handle('wallpaper-push-snapshot', async (_event, snapshot: WallpaperMapSnapshot) => {
+      if (!snapshot || typeof snapshot !== 'object') {
+        return { success: false, error: 'Invalid snapshot' };
+      }
+      this.getWallpaperService().pushSnapshot(snapshot);
+      return { success: true };
     });
 
     registerIpcHandlers();

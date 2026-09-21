@@ -70,6 +70,7 @@ import { snapshotPriorShiftStaff } from '../lib/patient-staff-assignments';
 import { defaultFacilityProfile, getFacilityProfile } from '../services/facilityService';
 import type { FacilityProfile } from '../types/facility';
 import { findCompactEmptySlot, getAvailableSpectra } from '../services/nurseHelpers';
+import { buildWallpaperSnapshot } from '../lib/wallpaper-snapshot';
 
 
 interface DraggingPatientInfo {
@@ -173,6 +174,8 @@ export default function UnitViewClient({
   const [gridZoomControls, setGridZoomControls] = useState<GridZoomControls | null>(null);
   const [patientsPerNurse, setPatientsPerNurse] = useState(4);
   const [isEpicSyncing, setIsEpicSyncing] = useState(false);
+  const [wallpaperActive, setWallpaperActive] = useState(false);
+  const [wallpaperRedactPhi, setWallpaperRedactPhi] = useState(true);
 
   useEffect(() => {
     void getFacilityProfile()
@@ -297,6 +300,98 @@ export default function UnitViewClient({
     void handlePrint('charge');
   }, [handlePrint]);
 
+  const pushWallpaperSnapshot = useCallback(async () => {
+    if (!window.electronAPI?.wallpaperPushSnapshot || !wallpaperActive) {
+      return;
+    }
+    const snapshot = buildWallpaperSnapshot({
+      unitName: getFriendlyLayoutName(currentLayoutName),
+      patients,
+      nurses,
+      techs,
+      redactPhi: wallpaperRedactPhi || !roleCaps.canSeePatientIdentifiers,
+    });
+    await window.electronAPI.wallpaperPushSnapshot(snapshot);
+  }, [
+    wallpaperActive,
+    currentLayoutName,
+    patients,
+    nurses,
+    techs,
+    wallpaperRedactPhi,
+    roleCaps.canSeePatientIdentifiers,
+  ]);
+
+  const handleToggleWallpaper = useCallback(async () => {
+    if (!window.electronAPI?.wallpaperStart || !window.electronAPI?.wallpaperStop) {
+      toast({
+        variant: 'destructive',
+        title: 'Desktop map unavailable',
+        description: 'Live desktop wallpaper requires the UnitView desktop app.',
+      });
+      return;
+    }
+
+    const actor = currentUser?.employeeNumber;
+
+    if (wallpaperActive) {
+      const result = await window.electronAPI.wallpaperStop({
+        actorEmployeeNumber: actor,
+        restorePrevious: true,
+      });
+      setWallpaperActive(false);
+      toast({
+        title: 'Desktop map stopped',
+        description: result.success
+          ? 'Previous Windows wallpaper restored when available.'
+          : result.error ?? 'Stop reported an error.',
+      });
+      return;
+    }
+
+    const confirmed = window.confirm(
+      [
+        'Pin this unit map to the Windows desktop background?',
+        '',
+        'A live feed refreshes about every 10 seconds.',
+        'Patient names are hidden by default (WALLDISPLAY-style).',
+        'Anyone who can see this workstation desktop may view room status.',
+        '',
+        'OK to start, Cancel to abort.',
+      ].join('\n')
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    const result = await window.electronAPI.wallpaperStart({
+      intervalMs: 10_000,
+      redactPhi: true,
+      actorEmployeeNumber: actor,
+      unitName: getFriendlyLayoutName(currentLayoutName),
+    });
+
+    if (!result.success) {
+      toast({
+        variant: 'destructive',
+        title: 'Could not start desktop map',
+        description: result.error ?? 'Unknown error',
+      });
+      return;
+    }
+
+    setWallpaperRedactPhi(true);
+    setWallpaperActive(true);
+
+    const platformNote = result.status?.platformSupported
+      ? 'Windows desktop background will update on a live interval.'
+      : 'Capture runs here; wallpaper apply requires Windows.';
+    toast({
+      title: 'Desktop map live',
+      description: platformNote,
+    });
+  }, [wallpaperActive, currentUser?.employeeNumber, currentLayoutName, toast]);
+
   // Electron API integration
   useEffect(() => {
     if (window.electronAPI) {
@@ -320,6 +415,9 @@ export default function UnitViewClient({
           case 'print-report':
             handlePrintReport();
             break;
+          case 'wallpaper-toggle':
+            void handleToggleWallpaper();
+            break;
         }
       };
 
@@ -329,7 +427,30 @@ export default function UnitViewClient({
         unsubscribe();
       };
     }
-  }, [handleExportData, handleImportData, handlePrintReport]);
+  }, [handleExportData, handleImportData, handlePrintReport, handleToggleWallpaper]);
+
+  useEffect(() => {
+    if (!wallpaperActive) {
+      return;
+    }
+    void pushWallpaperSnapshot();
+  }, [wallpaperActive, pushWallpaperSnapshot]);
+
+  useEffect(() => {
+    if (!window.electronAPI?.wallpaperStatus) {
+      return;
+    }
+    let cancelled = false;
+    void window.electronAPI.wallpaperStatus().then((status) => {
+      if (!cancelled) {
+        setWallpaperActive(Boolean(status.active));
+        setWallpaperRedactPhi(status.redactPhi !== false);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const getChargeNurseName = () => {
     return nurses.find(n => n.role === 'Charge Nurse')?.name || 'Unassigned';
@@ -1614,6 +1735,10 @@ export default function UnitViewClient({
         isSyncingEpic={isSyncingEpic}
         zoomControls={gridZoomControls}
         onLeaveUnit={onBackToDashboard}
+        wallpaperActive={wallpaperActive}
+        onToggleWallpaper={
+          window.electronAPI?.wallpaperStart ? () => void handleToggleWallpaper() : undefined
+        }
       />
       <PrintableReport
         patients={patients}

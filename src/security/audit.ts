@@ -17,6 +17,8 @@ export const AUDIT_ACTIONS = [
   'FHIR_SYNC',
   'FHIR_SYNC_FAILURE',
   'CONFIG_CHANGE',
+  'DESKTOP_WALLPAPER_START',
+  'DESKTOP_WALLPAPER_STOP',
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

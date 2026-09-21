@@ -36,6 +36,7 @@ Live calls use HTTPS only. The private key never leaves the Electron main proces
 | --- | --- |
 | Unique user identification | Employee-number login, roles, wall-display PHI hiding |
 | Emergency access / least privilege | Role capabilities already hide identifiers from WALLDISPLAY |
+| Desktop wallpaper map | Optional live unit-map wallpaper defaults to redacted identifiers; start/stop is audited |
 | Automatic logoff | 15-minute idle timeout with a 2-minute warning |
 | Encryption at rest | AES-256-GCM vault in the user-data directory; OS keychain wraps the master key when available |
 | Encryption in transit | FHIR and token URLs must be HTTPS |
