@@ -24,7 +24,7 @@ LinearThrone directed: thinktank first; **he approves**; then TINA evaluates as 
 
 ## One-paragraph recommended route
 
-Ship **Option A** now: same Create Unit room map and drag-and-drop, new clinical command-surface look (unify tokens, restyle cards/header, labeled safety marks, stop fading assigned rooms, wall hides patient identifiers only and does not idle-lock). Keep Arial 18px. Do **not** replace the board with a floorplan layout in this PROP. **Option B** (nurse columns + abstract floorplan) is a **later optional view** selectable by facility type/size — product label TBD (“classic style” / “traditional view”); authoring should reuse Create Unit placements, not CAD.
+Ship **Option A** now: same Create Unit room map and drag-and-drop, new clinical command-surface look (unify tokens, restyle cards/header, labeled safety marks, stop fading assigned rooms, wall hides patient identifiers only and does not idle-lock). Keep Arial 18px. Do **not** replace the board with a floorplan layout in this PROP. **Option B** (map + card / nurse columns + floorplan) is a **later optional view** for marketing and wall aesthetics, selectable by facility type/size — product label TBD. **Facility admin draws the layout and places rooms at setup; nurses do not author.** Authoring tool details are out of PROP-3.
 
 ## Seat dissent
 
@@ -42,7 +42,7 @@ CONTRA would stop at tokens-only if the acceptance test is a prettier screenshot
 
 ## Open questions still needing LinearThrone / PM
 
-None blocking PROP-3. Deferred to the Option B follow-on: view label, glance-only vs drag-on-map, corridor templates.
+None blocking PROP-3. Deferred to the Option B follow-on: view label; admin draw-and-place tool shape; nurse glance vs drag on the map; whether one facility shares A+B placements.
 
 ## Explicit non-goals for PROP-3
 
