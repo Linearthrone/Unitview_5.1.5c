@@ -30,7 +30,10 @@ npm run build:main
 
 ### Step 4: Run
 ```bash
-npm start
+npm run electron
+
+# Development (renderer + main):
+# npm run dev
 ```
 
 ### Step 5: Login
