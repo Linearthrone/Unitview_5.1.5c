@@ -57,6 +57,7 @@ import { syncEpicCensus } from '../services/fhirCensusService';
 import { getConfiguredDataSource } from '../lib/data-source';
 import * as printLayoutService from '../services/printLayoutService';
 import { getDb } from '../lib/database-simple';
+import { setLastOpenedUnitName } from '../lib/last-unit-storage';
 import { openPrintWindowWithElectronFallback } from '../lib/print-utils';
 import { createDefaultAssignmentPrintLayout, type AssignmentPrintLayoutConfig } from '../types/assignment-print-layout';
 import { syncPatientsAssignedNurseFromNurses, applyDropOnNurseSlot } from '../lib/nurse-assignment-sync';
@@ -127,7 +128,7 @@ export default function UnitViewClient({
   const isEffectivelyLocked = isLayoutLocked || roleCaps.isReadOnly;
   const [currentYear, setCurrentYear] = useState<number | null>(null);
   const [currentLayoutName, setCurrentLayoutName] = useState<LayoutName>(initialLayoutName);
-  const [availableLayouts] = useState<LayoutName[]>(initialAvailableLayouts);
+  const [availableLayouts, setAvailableLayouts] = useState<LayoutName[]>(initialAvailableLayouts);
 
   const [patients, setPatients] = useState<Patient[]>(initialPatients);
   const [nurses, setNurses] = useState<Nurse[]>(initialNurses);
@@ -237,36 +238,6 @@ export default function UnitViewClient({
       cancelled = true;
     };
   }, [currentLayoutName]);
-
-  const handleImportData = useCallback(async () => {
-    if (!window.electronAPI) return;
-    try {
-      const result = await window.electronAPI.importData();
-      if (!result.success || !result.data) {
-        toast({
-          variant: 'destructive',
-          title: 'Import Failed',
-          description: result.error ?? 'Unable to import data.',
-        });
-        return;
-      }
-
-      const database = await getDb();
-      database.importData(result.data as ReturnType<typeof database.exportData>);
-      toast({
-        title: 'Import Complete',
-        description: 'Data imported successfully. Reloading…',
-      });
-      window.location.href = '/';
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unexpected error while importing data.';
-      toast({
-        variant: 'destructive',
-        title: 'Import Failed',
-        description: message,
-      });
-    }
-  }, [toast]);
 
   const handleExportData = useCallback(async () => {
     if (!window.electronAPI) return;
@@ -456,21 +427,30 @@ export default function UnitViewClient({
     return nurses.find(n => n.role === 'Charge Nurse')?.name || 'Unassigned';
   }
 
-  const _loadLayoutData = useCallback(async (layoutName: LayoutName) => {
+  const loadBoardForLayout = useCallback(async (layoutName: LayoutName) => {
       setIsInitialized(false);
       try {
-        const [patientData, nurseData, techData] = await Promise.all([
+        const [patientData, nurseData, techData, oncomingData, spectra, layouts] = await Promise.all([
             patientService.getPatients(layoutName),
             nurseService.getNurses(layoutName),
             nurseService.getTechs(layoutName),
+            nurseService.getOncomingNurses(layoutName),
+            spectraService.getSpectraPool(),
+            layoutService.getAvailableLayouts(),
         ]);
 
+        skipFirstAutoSaveRef.current = true;
         setPatients(patientData);
         setNurses(nurseData);
         setTechs(techData);
-
+        setOncomingNurses(oncomingData);
+        setSpectraPool(spectra);
+        setAvailableLayouts(layouts);
         setCurrentLayoutName(layoutName);
-        skipFirstAutoSaveRef.current = true;
+        if (currentUser) {
+          setLastOpenedUnitName(currentUser.id, layoutName);
+        }
+        await layoutService.setUserPreference('lastSelectedLayout', layoutName);
         setIsInitialized(true);
       } catch (error) {
         console.error(`Failed to load data for layout "${layoutName}":`, error);
@@ -481,7 +461,84 @@ export default function UnitViewClient({
         });
         setIsInitialized(false);
       }
-  }, [toast]);
+  }, [toast, currentUser]);
+
+  const handleImportData = useCallback(async () => {
+    if (!window.electronAPI) return;
+    try {
+      const result = await window.electronAPI.importData();
+      if (!result.success || !result.data) {
+        toast({
+          variant: 'destructive',
+          title: 'Import Failed',
+          description: result.error ?? 'Unable to import data.',
+        });
+        return;
+      }
+
+      const database = await getDb();
+      database.importData(result.data as ReturnType<typeof database.exportData>);
+      await database.flushPendingWrites();
+      const layouts = await layoutService.getAvailableLayouts();
+      const nextLayout = layouts.includes(currentLayoutName)
+        ? currentLayoutName
+        : layouts[0];
+      if (!nextLayout) {
+        toast({
+          title: 'Import Complete',
+          description: 'Data imported. No units remain in the store.',
+        });
+        onBackToDashboard?.();
+        return;
+      }
+      await loadBoardForLayout(nextLayout);
+      toast({
+        title: 'Import Complete',
+        description: 'Data imported successfully.',
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unexpected error while importing data.';
+      toast({
+        variant: 'destructive',
+        title: 'Import Failed',
+        description: message,
+      });
+    }
+  }, [toast, currentLayoutName, loadBoardForLayout, onBackToDashboard]);
+
+  useEffect(() => {
+    if (!window.electronAPI) {
+      return;
+    }
+    const handleMenuAction = (action: string) => {
+      switch (action) {
+        case 'new-layout':
+          setIsCreateUnitDialogOpen(true);
+          break;
+        case 'open-layout':
+          break;
+        case 'save-layout':
+          setIsSaveDialogOpen(true);
+          break;
+        case 'import-data':
+          void handleImportData();
+          break;
+        case 'export-data':
+          void handleExportData();
+          break;
+        case 'print-report':
+          handlePrintReport();
+          break;
+        default:
+          break;
+      }
+    };
+
+    const unsubscribe = window.electronAPI.onMenuAction(handleMenuAction);
+    return () => {
+      unsubscribe();
+    };
+  }, [handleExportData, handleImportData, handlePrintReport]);
 
   // Set current year on mount
   useEffect(() => {
@@ -489,8 +546,7 @@ export default function UnitViewClient({
   }, []);
 
   const handleSelectLayout = async (newLayoutName: LayoutName) => {
-    await layoutService.setUserPreference('lastSelectedLayout', newLayoutName);
-    window.location.href = '/'; // Reload to get server-rendered props for new layout
+    await loadBoardForLayout(newLayoutName);
   };
 
   const toggleLayoutLock = () => {
@@ -513,14 +569,11 @@ export default function UnitViewClient({
   
   const handleSaveNewLayout = async (newLayoutName: string) => {
     await layoutService.saveNewLayout(newLayoutName, patients, nurses, techs);
-    await layoutService.setUserPreference('lastSelectedLayout', newLayoutName);
-    
+    await loadBoardForLayout(newLayoutName);
     toast({
       title: "Layout Saved",
-      description: `Layout "${newLayoutName}" has been successfully saved. Reloading...`,
+      description: `Layout "${newLayoutName}" has been successfully saved.`,
     });
-    // Hard reload to get new server props
-    window.location.href = '/';
   };
 
   const handleSaveCurrentLayout = async () => {
@@ -1155,11 +1208,11 @@ export default function UnitViewClient({
   const handleCreateUnit = async (data: CreateUnitPayload) => {
     try {
         await layoutService.createFullUnitFromPayload(data);
+        await loadBoardForLayout(data.designation);
         toast({
             title: "Unit Created",
-            description: `Unit "${data.designation}" has been created. Reloading...`,
+            description: `Unit "${data.designation}" has been created.`,
         });
-        window.location.href = '/';
     } catch (error) {
         console.error("Failed to create new unit:", error);
         const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
