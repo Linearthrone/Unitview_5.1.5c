@@ -24,7 +24,7 @@ Success is both of these, and the first one kills the work if it fails:
 
 1. **Safety glance.** Isolation subtype, fall risk, DNR, restraints, and name alerts are readable with no hover, on the workstation and in black-and-white print. Color is never the only channel.
 2. **Calm command surface.** Occupied-and-assigned rooms are quiet and full contrast. Unassigned or unsafe rooms are the only cells that speak. Facility branding leads; UnitView is the tool name, not a stethoscope hero.
-3. **Same job.** The 17×10 map, stable room positions, drag-and-drop, census contents, admit/discharge dialogs, Spectra, and both print targets stay. WALLDISPLAY still hides identifiers.
+3. **Same job.** The 17×10 map, stable room positions, drag-and-drop, census contents, admit/discharge dialogs, Spectra, and both print targets stay. WALLDISPLAY hides patient identifiers only (not clinical quick-reference fields).
 4. **No storage program.** No vault rewrite, no SQLite, no React/Vite/Tailwind major upgrade, no split of `unit-view-client.tsx` in this wave.
 
 ## 3. Context & Constraints
@@ -44,7 +44,12 @@ Success is both of these, and the first one kills the work if it fails:
 
 ## 4. Clarifying Q&A (answered)
 
-Kurt did not answer follow-ups before this pass. The thinktank ran on the stated need plus the checklist and the current renderer. Open decisions are in §9. Recommended defaults are in §6 so PM is not blocked if Kurt accepts the route as written.
+| # | Question | Answer (Kurt, 2026-09-21) |
+| --- | --- | --- |
+| 1 | Board structure — keep today’s room map vs invent a new layout | **Still open.** Restated in plain language in §9.1. |
+| 2 | What the wall may show | Hide **patient identifiers only** (name, MRN, and anything that identifies the person). Keep the rest for quick reference before entering the room (safety marks, occupancy, admit/EDD dates, and other non-identifier clinical cues already on the card). |
+| 3 | Typeface | **Keep** Arial at 18px. |
+| 4 | Idle lock on WALLDISPLAY | **No idle lock at all** for wall sessions. Nurse workstations still lock. |
 
 ## 5. Avenues Explored
 
@@ -67,9 +72,10 @@ Seats: STRAT, CONTRA, SYS, RISK, USER. All five ran. No seat edited the repo.
 | Topic | Disagreement | Resolution in §6 |
 | --- | --- | --- |
 | How “full” is full | Kurt’s words and USER want a redesign of the experience. CONTRA and STRAT say a new information architecture will fail day-one recognition and the April keep-list. | Redesign chrome, type, card language, census grouping, and wall versus workstation chrome. Do **not** replace the 17×10 map. |
-| Arial | STRAT and CONTRA treat 18px Arial as a locked checklist vote. USER says the vote was for large readable type, not that face. | Keep the 18px floor. A bundled sans is allowed only if contrast holds. Do not block slice 1 on the face. |
+| Arial | STRAT and CONTRA treat 18px Arial as a locked checklist vote. USER says the vote was for large readable type, not that face. | **Locked by Kurt:** keep Arial at 18px. |
 | Themes | Checklist both keeps five themes and retires them. SYS says settings already collapsed to light and clinical-dark. | Ship light + clinical-dark only. Leave stored blue/green/purple values readable and unused. |
-| Wall dates | RISK wants admit/EDD off the wall. USER wants occupancy and safety, not a second header. | Recommended default: hide dates and names on the wall. Kurt can override in §9 before the wall slice. |
+| Wall dates / PHI | RISK wanted admit/EDD off the wall. Kurt wants quick reference before entering the room. | **Locked by Kurt:** hide patient identifiers only; keep clinical quick-reference fields including admit/EDD. |
+| Wall idle lock | RISK flagged idle lock as a product/security decision. | **Locked by Kurt:** WALLDISPLAY does not idle-lock. Nurse workstations still lock. |
 
 ### Avenue A — Token unification only
 
@@ -90,26 +96,31 @@ Parked. Only if Kurt explicitly reopens information architecture after Avenue C 
 Same map and same jobs. Three slices. The experience is redesigned; the structure is not.
 
 1. **Foundation.** One token source. Kill the global transition. Lock print to white ~10pt so dark tokens cannot leak onto paper. AA contrast for body and muted text in both modes. Smoke + a printed charge sheet as the gate.
-2. **Expression, same grid.** Restyle patient, nurse, charge, clerk, and tech cards without moving drag nodes or renaming controls the smoke test uses. Room number stays the largest text. Replace the icon footer with a few labeled safety marks (shape + text). Group header census into census, safety, and devices instead of one equal chip ribbon. Stop fading assigned rooms; let unassigned occupied rooms be the loud state. Workstation bar stays short: Admit, Staff, Oncoming, Print, Leave. Wall chrome becomes unit name, clock, and a short census, with the allow-list from §6.
+2. **Expression, same grid.** Restyle patient, nurse, charge, clerk, and tech cards without moving drag nodes or renaming controls the smoke test uses. Room number stays the largest text. Replace the icon footer with a few labeled safety marks (shape + text). Group header census into census, safety, and devices instead of one equal chip ribbon. Stop fading assigned rooms; let unassigned occupied rooms be the loud state. Workstation bar stays short: Admit, Staff, Oncoming, Print, Leave. Wall chrome becomes unit name, clock, and a short census, with the wall rules from §6.
 3. **Only if slice 2 still feels dated.** Facility-home shell and a designed wall composition behind a flag. Still not a new assignment grid.
 
 ## 6. Recommended Route
 
 **Avenue C.** Define “future of healthcare” as a calm clinical command surface: dark or light, high contrast, facility-branded, quiet when the unit is covered, loud only when a room is unassigned or unsafe. Not glass, not wellness illustration, not a marketing gradient, not a new spreadsheet.
 
-**Recommended defaults** (Kurt can override §9 before PM tickets the matching slice):
+**Locked product decisions** (Kurt, 2026-09-21):
 
-- Keep the 17×10 cell map, drag-and-drop, context menus, Spectra, and both print targets.
+- **Type:** Keep Arial at 18px. Room numbers on the wall may be larger, not smaller.
+- **Wall PHI:** Hide patient identifiers only (name, MRN, and other person-identifying fields). Keep clinical quick-reference fields for glance before entering the room, including occupancy, safety marks, and admit / expected-discharge dates. Name-alert *strings* that contain patient names stay off the wall; a non-identifying alert count/state may remain if SEC confirms it does not leak a name.
+- **Wall idle lock:** WALLDISPLAY sessions do **not** idle-lock. Shared nurse workstations still idle-lock. SEC must still clear on-screen PHI on explicit logout / switch-user, and print/export stay off the wall role.
+
+**Still recommended (pending §9.1 on board structure):**
+
+- Keep the 17×10 cell map, drag-and-drop, context menus, Spectra, and both print targets — **unless Kurt chooses a new layout in §9.1**.
 - Light + clinical-dark only. No blue/green/purple product themes.
-- Body text at least 18px. Room numbers on the wall larger, not smaller. Typeface may change only to a font bundled in the app.
 - Assigned rooms stay full contrast with a small settled mark. Do not use opacity to mean “done.”
 - Safety states use distinct shape plus a short text label. Contact, airborne, and droplet stay different from each other and from a generic caution color. Do not fold clinical hues into `--primary`.
-- **Wall allow-list:** room, occupancy (occupied / vacant / blocked), unassigned, and the safety marks. No name, MRN, gender, age, allergy, complaint, notes, staff names, name-alert strings, Epic ids, or admit/EDD dates. Do not mount identifier-bearing print DOM, native `title` tooltips, or copyable chrome for WALLDISPLAY. Print and export stay off that role.
+- Do not mount identifier-bearing print DOM, native `title` tooltips with names, or copyable name chrome for WALLDISPLAY.
 - No new remote assets (font CDNs, icon CDNs, illustration hosts, telemetry). No patient photos, ambient video, pulsing or breathing alerts, sounds, or gamified motion. Honor `prefers-reduced-motion`. No looping motion on safety icons.
-- Shared workstations keep idle lock. Do not add remember-me, recent-patient lists, or PHI in `localStorage` beyond what already exists. Lock and switch-user must clear on-screen PHI, including off-screen print DOM.
+- Do not add remember-me, recent-patient lists, or PHI in `localStorage` beyond what already exists.
 - Audit log stays admin-visible. Do not put names, MRNs, or clinical notes into new tooltips, toasts, or error text.
 
-**First shippable slice** is foundation (C1) plus the card and header expression (C2) on the workstation. Wall restyle (part of C2) waits on Kurt confirming the allow-list. Slice 3 does not start unless he says slice 2 still looks dated.
+**First shippable slice** is foundation (C1) plus the card and header expression (C2) on the workstation. Wall restyle can proceed after SEC tickets the identifier hide + no-idle-lock behavior. Slice 3 does not start unless Kurt says slice 2 still looks dated.
 
 ## 7. Alternatives (parked)
 
@@ -131,27 +142,41 @@ Kill or stop the slice when any of these is true:
 - Census chips are collapsed by default.
 - A third token system is added instead of retiring `themes.css` overrides.
 - The wave rewrites persistence, bumps React or Tailwind majors, or splits `unit-view-client.tsx`.
-- WALLDISPLAY or print shows identifiers outside the allow-list.
+- WALLDISPLAY shows a patient name, MRN, or other person-identifying field, or mounts identifier-bearing print DOM / name tooltips.
 - Smoke can no longer sign in, enter a unit, open the charge report, or drag `[data-patient-id]`.
 
-**Must-mitigate before the wall slice, not before the token slice:** the allow-list above, print DOM not mounted for WALLDISPLAY, and safety marks that survive grayscale.
+**Must-mitigate before the wall slice, not before the token slice:** hide patient identifiers only (keep clinical quick-reference), disable idle lock for WALLDISPLAY only, print DOM not mounted for that role when it would leak names, and safety marks that survive grayscale.
 
 ## 9. Open Questions for User / PM
 
-1. **Board metaphor.** Accept the recommendation (same 17×10 map, new card and chrome language), or reopen a new layout knowing it changes stored positions?
-2. **Wall allow-list.** Accept “no identifiers at all,” including admit and expected-discharge dates, or keep dates on the wall?
-3. **Typeface.** Keep Arial at 18px, or allow one bundled sans if the 18px floor and AA contrast hold?
-4. **Idle lock on the wall.** Should a WALLDISPLAY session stay up without the 15-minute idle logout while nurse workstations still lock? (Risk flagged this; it is a product/security decision, not a skin decision.)
+### 9.1 Still open — what I was asking in plain English
 
-PM should not ticket slice 3, a new grid, or a wall restyle until 1 and 2 are answered. Slices for tokens and workstation card skin can proceed on the defaults in §6.
+Today the unit is a **fixed room map**: each room sits in a saved row/column on a grid (about 17 columns by 10 rows). Nurses drag those room tiles onto staff cards. Those positions are stored with the unit layout.
+
+I was **not** asking “do you want a prettier skin?” I was asking which of these two jobs you want:
+
+| Option | Meaning | What changes |
+| --- | --- | --- |
+| **A — Same map, new look** (recommended) | Rooms stay where they are. Drag-and-drop stays. We redesign how cards, colors, type (still Arial 18px), and the header *look*. | Appearance and clarity. Charge nurses still recognize the board on day one. |
+| **B — New layout** | Replace the room map with something else (for example a floorplan drawing, a nurse-column list, or a different board structure). | Stored room positions, drag targets, shift-maker, wallpaper, and muscle memory all change. Bigger program; higher risk. |
+
+Which do you want for this redesign: **A** or **B**?
+
+### 9.2–9.4 Answered
+
+- **Wall content:** hide patient identifiers only; keep clinical quick-reference (including admit/EDD).
+- **Type:** keep Arial at 18px.
+- **Wall idle lock:** none. Nurse workstations still lock.
+
+PM may ticket wall privacy + no-idle-lock and workstation skin work once §9.1 is answered. Do not ticket a new grid unless Kurt picks **B**.
 
 ## 10. Suggested PM Handoff
 
 - `prop_id`: not assigned. On send, use **PROP-3** (`PROP-3-clinical-command-surface`) unless a later proposal takes 3 first. See `docs/agents/PROP_NUMBERING.md`.
 - Suggested splits (hints only; TINA may re-divide):
-  - `PROP-3.1` — **FED-01** — One token source: map `global_theme` to light versus `.dark`, stop applying `themes.css` overrides and the global transition, keep print CSS white / ~10pt / `.print-hide`. Do not redesign the vault.
-  - `PROP-3.2` — **FED-01** — Workstation expression on the same grid: patient and staff cards, grouped census header, no assigned-room fade, labeled safety marks (shape + text). Preserve smoke selectors and drag nodes.
-  - `PROP-3.3` — **SEC-01** — WALLDISPLAY privacy pass against the allow-list (including unmounted print DOM and tooltips) before any wall restyle.
-  - `PROP-3.4` — **FED-01** — Wall chrome (unit, clock, short census, larger room numbers) using the SEC allow-list. Only after `PROP-3.3` and Kurt’s answer to §9.2.
-  - `PROP-3.5` — **QA-01** — Smoke plus a contrast and safety-glance check (workstation and print; wall if 3.4 shipped). No screenshot-only pass.
-- What PM should decide first: accept Avenue C and the §6 defaults, and whether Kurt must answer §9.2 and §9.4 before any wall ticket. Do not open Avenue B in the same wave.
+  - `PROP-3.1` — **FED-01** — One token source: map `global_theme` to light versus `.dark`, stop applying `themes.css` overrides and the global transition, keep print CSS white / ~10pt / `.print-hide`, keep Arial 18px. Do not redesign the vault.
+  - `PROP-3.2` — **FED-01** — Workstation expression on the same grid (only if Kurt picks §9.1 **A**): patient and staff cards, grouped census header, no assigned-room fade, labeled safety marks (shape + text). Preserve smoke selectors and drag nodes.
+  - `PROP-3.3` — **SEC-01** — WALLDISPLAY: hide patient identifiers only; keep clinical quick-reference; disable idle lock for wall sessions only; ensure print DOM / name tooltips do not leak identifiers.
+  - `PROP-3.4` — **FED-01** — Wall chrome (unit, clock, short census, larger room numbers) after `PROP-3.3`.
+  - `PROP-3.5` — **QA-01** — Smoke plus contrast and safety-glance check (workstation and print; wall if 3.4 shipped). Confirm wall shows no patient identifiers and does not idle-lock. No screenshot-only pass.
+- What PM should decide first: Kurt’s answer to §9.1 (**A** or **B**). Do not open Avenue B in the same wave unless he picks **B**.
