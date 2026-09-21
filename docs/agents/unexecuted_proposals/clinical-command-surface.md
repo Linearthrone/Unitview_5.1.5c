@@ -42,6 +42,19 @@ Success is both of these, and the first one kills the work if it fails:
 - PROP-1 (persist honesty) and PROP-2 (in-memory transitions) are merged. Do not couple this to storage.
 - Next free proposal number is **3**. It is **not reserved** until this proposal is sent to PM.
 
+## 3.1 Visual mockups (exploratory)
+
+Concept art only — not shipped UI. Files under `docs/agents/unexecuted_proposals/mockups/clinical-command-surface/`.
+
+| File | What it shows |
+| --- | --- |
+| `mockup-01-today-spreadsheet-board.png` | Contrast: today’s equal chips + icon-row cards |
+| `mockup-02b-option-a-same-map-workstation.png` | **A recommended:** same map (rooms + nurse cards together), new chrome |
+| `mockup-05-option-a-light.png` | **A** light mode of the same idea |
+| `mockup-03-option-a-wall.png` | **A** wall: no patient names; admit/EDD and safety marks kept |
+| `mockup-02-option-a-workstation.png` | Draft — drifted to a nurse sidebar; superseded by `02b` |
+| `mockup-04-option-b-new-layout.png` | **B:** nurse columns + abstract floorplan (higher risk) |
+
 ## 4. Clarifying Q&A (answered)
 
 | # | Question | Answer (Kurt, 2026-09-21) |
