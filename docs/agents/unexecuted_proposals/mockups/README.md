@@ -44,15 +44,20 @@ Folder: `print/`
 
 | ID | File | What to judge |
 | --- | --- | --- |
-| PRINT1 | `review-print1-assignment-sheet.png` | Nurse-centric assignment PDF |
-| PRINT2 | `review-print2-room-roster.png` | Room-sorted roster PDF |
-| S4 | `review-s4-print-preview.png` | Preview dialog (also under A review) |
+| PRINT1 | `review-print1-assignment-sheet.png` | Nurse-centric assignment PDF (secondary) |
+| PRINT2 | `review-print2-room-roster.png` | Earlier room roster (superseded by PRINT2b) |
+| PRINT2b ★ | `review-print2b-roster-portrait.png` | Locked roster — portrait |
+| PRINT2b ★ | `review-print2b-roster-landscape.png` | Locked roster — landscape |
+| S5 | `review-s5-print2-orientation-preview.png` | Portrait/Landscape preview toggle |
+| S4 | `review-s4-print-preview.png` | Earlier preview chrome |
+
+Spec: `print/PRINT2-SPEC.md` — unit title big/bold; date + day/night; charge + Spectra; clerk smaller; Nurse/PCT Spectra columns; isolation as Contact/Airborne/Droplet; portrait + landscape.
 
 ## Review checklist
 
 - [x] Liked: P1 P3 P5 A1 A2
 - [ ] Oncoming setup (S1 vs S2)
-- [ ] Print sheets PRINT1 / PRINT2
+- [x] Print roster direction: PRINT2b (isolation subtypes, nurse/PCT Spectra, bold unit header, day/night, charge+clerk, portrait+landscape)
 - [ ] A board still recognizable as today’s assignment grid
 - [ ] Progressive wall marketing-grade without consumer wellness look
 - [ ] Safety marks readable without hover
