@@ -59,7 +59,7 @@ Concept art only — not shipped UI. Files under `docs/agents/unexecuted_proposa
 
 | # | Question | Answer (Kurt, 2026-09-21) |
 | --- | --- | --- |
-| 1 | Board structure — keep today’s room map vs invent a new layout | **A — Same map, new look.** Rooms stay in saved grid positions; drag-and-drop stays; redesign cards, colors, chrome, and header. Do not replace the board structure. |
+| 1 | Board structure — keep today’s room map vs invent a new layout | Was **A** (2026-09-21). Kurt later preferred **B** visually but asked how facilities author a floorplan — **reopened**; see §9.5. Send-to-PM held. |
 | 2 | What the wall may show | Hide **patient identifiers only** (name, MRN, and anything that identifies the person). Keep the rest for quick reference before entering the room (safety marks, occupancy, admit/EDD dates, and other non-identifier clinical cues already on the card). |
 | 3 | Typeface | **Keep** Arial at 18px. |
 | 4 | Idle lock on WALLDISPLAY | **No idle lock at all** for wall sessions. Nurse workstations still lock. |
@@ -118,7 +118,7 @@ Same map and same jobs. Three slices. The experience is redesigned; the structur
 
 **Locked product decisions** (Kurt, 2026-09-21):
 
-- **Board structure:** **Option A — same map, new look.** Keep the 17×10 cell map, drag-and-drop, context menus, Spectra, and both print targets. Do not replace with a new layout (Avenue B parked).
+- **Board structure:** Was locked to Option A. **Reopened** after Kurt preferred the Option B mockup and asked how facilities author a floorplan (§9.5). Send-to-PM held until authoring is chosen.
 - **Type:** Keep Arial at 18px. Room numbers on the wall may be larger, not smaller.
 - **Wall PHI:** Hide patient identifiers only (name, MRN, and other person-identifying fields). Keep clinical quick-reference fields for glance before entering the room, including occupancy, safety marks, and admit / expected-discharge dates. Name-alert *strings* that contain patient names stay off the wall; a non-identifying alert count/state may remain if SEC confirms it does not leak a name.
 - **Wall idle lock:** WALLDISPLAY sessions do **not** idle-lock. Shared nurse workstations still idle-lock. SEC must still clear on-screen PHI on explicit logout / switch-user, and print/export stay off the wall role.
@@ -162,22 +162,37 @@ Kill or stop the slice when any of these is true:
 
 ## 9. Open Questions for User / PM
 
-### 9.1–9.4 Answered (Kurt, 2026-09-21)
+### 9.1–9.4
 
-1. **Board:** **A — same map, new look.** Avenue B parked.
-2. **Wall content:** hide patient identifiers only; keep clinical quick-reference (including admit/EDD).
-3. **Type:** keep Arial at 18px.
-4. **Wall idle lock:** none. Nurse workstations still lock.
+1. **Board:** Was **A**. Kurt later liked **B** mockup — **reopened** pending floorplan authoring (§9.5).
+2. **Wall content:** hide patient identifiers only; keep clinical quick-reference (including admit/EDD). **Locked.**
+3. **Type:** keep Arial at 18px. **Locked.**
+4. **Wall idle lock:** none. Nurse workstations still lock. **Locked.**
 
-No blocking product questions remain for Avenue C. Ready to park or send to PM-01 on request.
+### 9.5 Floorplan authoring (blocks Option B and send-to-PM)
+
+Today the facility already “builds the map” in **Create Unit**: set rows/cols, place Room / Nurse / PCT / Clerk cards on cells. Empty cells stand in for hallways. That is not CAD.
+
+If Option B’s right-hand floorplan ships, authoring avenues:
+
+| ID | Avenue | Who / how | Stored | Effort vs A skin | Kill risk |
+| --- | --- | --- | --- | --- | --- |
+| **B-auth-1** | Same Create Unit grid; floorplan is a **render** of existing placements | Admin (unchanged). Runtime draws abstract corridor from cells. | Unchanged `gridRow`/`gridColumn` | Small | Low eng; medium if Kurt expects organic shapes |
+| **B-auth-2** | Corridor **templates** + optional paint-hallway (still cell-based) | Admin picks L / U / ring template, then places rooms | + template id or corridor mask | Medium | Medium |
+| **B-auth-3** | Soft pinboard (free-ish room positions) | Admin drags markers on a canvas | Continuous x/y; dual model | Large | High |
+| **B-auth-4** | Local underlay image + pin rooms (no cloud) | Admin imports JPEG/PNG into vault, pins rooms | Image blob + pins | Large | High (ops + SEC) |
+
+**TT recommendation while B is attractive:** Prefer **B-auth-1** (reuse Create Unit). Do not gate the redesign on CAD. Hybrid sequence: ship Option A first; later PROP can add a floorplan overview mode that renders B-auth-1 (optional B-auth-2). Hold send-to-PM until Kurt answers §9.5 questions.
+
+**Still need from Kurt:**
+
+1. For a B-style board, is the floorplan **glance-only** (assignments stay on nurse columns / today’s drag), or must nurses **drag on the map**?
+2. Is “looks like our hallway enough to orient” enough, or do you need **facility drawings / true footprint**?
 
 ## 10. Suggested PM Handoff
 
-- `prop_id`: not assigned. On send, use **PROP-3** (`PROP-3-clinical-command-surface`) unless a later proposal takes 3 first. See `docs/agents/PROP_NUMBERING.md`.
-- Suggested splits (hints only; TINA may re-divide):
-  - `PROP-3.1` — **FED-01** — One token source: map `global_theme` to light versus `.dark`, stop applying `themes.css` overrides and the global transition, keep print CSS white / ~10pt / `.print-hide`, keep Arial 18px. Do not redesign the vault.
-  - `PROP-3.2` — **FED-01** — Workstation expression on the **same** grid: patient and staff cards, grouped census header, no assigned-room fade, labeled safety marks (shape + text). Preserve smoke selectors and drag nodes. Do not change stored `gridRow` / `gridColumn`.
-  - `PROP-3.3` — **SEC-01** — WALLDISPLAY: hide patient identifiers only; keep clinical quick-reference; disable idle lock for wall sessions only; ensure print DOM / name tooltips do not leak identifiers.
-  - `PROP-3.4` — **FED-01** — Wall chrome (unit, clock, short census, larger room numbers) after `PROP-3.3`.
-  - `PROP-3.5` — **QA-01** — Smoke plus contrast and safety-glance check (workstation and print; wall if 3.4 shipped). Confirm wall shows no patient identifiers and does not idle-lock. No screenshot-only pass.
-- What PM should decide first: accept Avenue C with Kurt’s four locks, then ticket `PROP-3.1` → `3.2` in parallel with `3.3` as capacity allows. Do **not** open Avenue B.
+- **Do not send yet.** Board structure is reopened (§9.5).
+- When send resumes: `prop_id` **PROP-3-clinical-command-surface** unless another proposal takes 3 first.
+- If Kurt returns to **A**: splits in prior §10 (3.1 tokens → 3.2 same-grid expression → 3.3 SEC wall → 3.4 wall chrome → 3.5 QA).
+- If Kurt locks **B** with **B-auth-1**: add a FED ticket for floorplan *render* of existing placements; do not invent CAD in the same wave.
+- If Kurt wants **B-auth-3/4**: that is a separate PROP, not a skin ticket.
