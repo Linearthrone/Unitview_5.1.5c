@@ -32,7 +32,7 @@
     "src/types/**/*"
   ],
   "exclude": [
-    "src/lib/vault-init.test.ts"
+    "src/**/*.test.ts"
   ],
   "references": [{ "path": "./tsconfig.node.json" }]
 }
