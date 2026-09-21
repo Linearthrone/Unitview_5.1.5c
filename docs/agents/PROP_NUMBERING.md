@@ -1,7 +1,7 @@
 ---
 type: config
 id: PROP-NUMBERING
-updated: 2026-09-06
+updated: 2026-09-21
 owner: PM-01 / TT-01
 project: UnitView
 ---
@@ -36,7 +36,8 @@ Imported from SoulCore.AI. Stops TT intake IDs from colliding with PM `TASK-###`
 | prop_id | Subject | Status | Splits |
 | --- | --- | --- | --- |
 | PROP-1-persistence-honesty | Fail-closed vault writes; docs honesty; no SQLite-now | **merged** — [PR #2](https://github.com/Linearthrone/Unitview_5.1.5c/pull/2) → `master` `11754bf` (2026-09-06) | 1.1–1.7 closed |
+| PROP-2-in-memory-transitions | Kill hard reloads; delete leftover twins; remaining honesty docs | **accepted-pm-ticketed** | 2.1–2.3 |
 
-Next free `N`: **2**.
+Next free `N`: **3**.
 
 Historical UnitView sprint (closed): see `docs/agents/reports/TASK-20260620-004-PM01-SPRINT-COMPLETE.md`.
