@@ -46,19 +46,31 @@ Under `docs/agents/unexecuted_proposals/mockups/`:
 | `review-a4-workstation-light.png` | Assignment grid light |
 | `review-a5-wall.png` | Wall (identifiers off) |
 | `review-a6-room-cards.png` | Room card language |
-| `review-a7-grouped-census.png` | Grouped census header |
+| `review-s4-print-preview.png` | Print preview dialog |
+| `review-s1-oncoming-command.png` | Oncoming shift setup (command surface) |
+| `review-s3-activate-oncoming.png` | Activate oncoming confirmation |
+
+Earlier concepts also in parent `clinical-command-surface/`. Liked north stars: **A1, A2**.
 
 **Progressive (PROP-4) — `progressive-view/`**
 
 | File | Screen |
 | --- | --- |
-| `review-p1-admin-corridor-setup.png` | Admin templates |
+| `review-p1-admin-corridor-setup.png` | Admin templates ★ |
 | `review-p2-admin-place-rooms.png` | Admin place rooms |
-| `review-p3-progressive-workstation.png` | Columns + glance map |
+| `review-p3-progressive-workstation.png` | Columns + glance map ★ |
 | `review-p4-progressive-wall.png` | Wall map |
-| `review-p5-view-mode-picker.png` | A vs Progressive picker |
+| `review-p5-view-mode-picker.png` | A vs Progressive picker ★ |
+| `review-s2-oncoming-progressive.png` | Oncoming draft Progressive |
 | `review-m1-marketing-contrast.png` | Marketing contrast |
 | `explain-a-vs-progressive-layouts.png` | Data model diagram |
+
+**Print — `print/`**
+
+| File | Screen |
+| --- | --- |
+| `review-print1-assignment-sheet.png` | Nurse-centric assignment PDF |
+| `review-print2-room-roster.png` | Room roster PDF |
 
 Concept art only — not shipped UI.
 
