@@ -18,7 +18,9 @@ type AuditAction =
   | 'FHIR_CONNECT_FAILURE'
   | 'FHIR_SYNC'
   | 'FHIR_SYNC_FAILURE'
-  | 'CONFIG_CHANGE';
+  | 'CONFIG_CHANGE'
+  | 'DESKTOP_WALLPAPER_START'
+  | 'DESKTOP_WALLPAPER_STOP';
 
 interface AuditEventInput {
   action: AuditAction;
@@ -67,6 +69,68 @@ interface CensusRecord {
   notes?: string;
 }
 
+interface WallpaperPatientCell {
+  id: string;
+  roomDesignation: string;
+  displayName: string;
+  isVacant: boolean;
+  isBlocked: boolean;
+  gridRow: number;
+  gridColumn: number;
+  isFallRisk: boolean;
+  isIsolation: boolean;
+  isComfortCareDNR: boolean;
+  awaitingTransport: boolean;
+  mobility?: string;
+}
+
+interface WallpaperNurseCell {
+  id: string;
+  name: string;
+  spectra?: string;
+  gridRow: number;
+  gridColumn: number;
+  cardRowSpan: number;
+  filledSlots: number;
+  totalSlots: number;
+}
+
+interface WallpaperTechCell {
+  id: string;
+  name: string;
+  spectra?: string;
+  gridRow: number;
+  gridColumn: number;
+}
+
+interface WallpaperMapSnapshot {
+  unitName: string;
+  updatedAt: number;
+  redactPhi: boolean;
+  cols: number;
+  rows: number;
+  patients: WallpaperPatientCell[];
+  nurses: WallpaperNurseCell[];
+  techs: WallpaperTechCell[];
+}
+
+interface WallpaperStartOptions {
+  intervalMs?: number;
+  redactPhi?: boolean;
+  actorEmployeeNumber?: string;
+  unitName?: string;
+}
+
+interface WallpaperStatus {
+  active: boolean;
+  platformSupported: boolean;
+  intervalMs: number;
+  redactPhi: boolean;
+  lastCaptureAt: number | null;
+  lastError: string | null;
+  imagePath: string | null;
+}
+
 declare global {
   interface Window {
     electronAPI?: {
@@ -107,6 +171,20 @@ declare global {
         fetchedAt?: string;
         error?: string;
       }>;
+      wallpaperStart: (options?: WallpaperStartOptions) => Promise<{
+        success: boolean;
+        status?: WallpaperStatus;
+        error?: string;
+      }>;
+      wallpaperStop: (payload?: {
+        actorEmployeeNumber?: string;
+        restorePrevious?: boolean;
+      }) => Promise<{ success: boolean; status?: WallpaperStatus; error?: string }>;
+      wallpaperStatus: () => Promise<WallpaperStatus>;
+      wallpaperPushSnapshot: (
+        snapshot: WallpaperMapSnapshot
+      ) => Promise<{ success: boolean; error?: string }>;
+      onWallpaperSnapshot: (callback: (snapshot: WallpaperMapSnapshot) => void) => () => void;
       onMenuAction: (callback: (action: string, data?: string) => void) => () => void;
     };
   }

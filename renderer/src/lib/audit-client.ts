@@ -16,7 +16,9 @@ type AuditAction =
   | 'FHIR_CONNECT_FAILURE'
   | 'FHIR_SYNC'
   | 'FHIR_SYNC_FAILURE'
-  | 'CONFIG_CHANGE';
+  | 'CONFIG_CHANGE'
+  | 'DESKTOP_WALLPAPER_START'
+  | 'DESKTOP_WALLPAPER_STOP';
 
 export async function recordAudit(input: {
   action: AuditAction;

@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import type { AuditEventInput } from './security/audit';
 import type { EpicConnectionPublic, FhirAuthMode } from './fhir/epic-config';
+import type { WallpaperMapSnapshot, WallpaperStartOptions, WallpaperStatus } from './wallpaper/types';
 
 export interface EpicConfigSaveInput extends Partial<EpicConnectionPublic> {
   privateKeyPem?: string;
@@ -25,6 +26,34 @@ export const electronAPI = {
     ipcRenderer.invoke('epic-test-connection', actorEmployeeNumber),
   fetchEpicCensus: (actorEmployeeNumber?: string) =>
     ipcRenderer.invoke('epic-fetch-census', actorEmployeeNumber),
+  wallpaperStart: (options?: WallpaperStartOptions) =>
+    ipcRenderer.invoke('wallpaper-start', options) as Promise<{
+      success: boolean;
+      status?: WallpaperStatus;
+      error?: string;
+    }>,
+  wallpaperStop: (payload?: { actorEmployeeNumber?: string; restorePrevious?: boolean }) =>
+    ipcRenderer.invoke('wallpaper-stop', payload) as Promise<{
+      success: boolean;
+      status?: WallpaperStatus;
+      error?: string;
+    }>,
+  wallpaperStatus: () =>
+    ipcRenderer.invoke('wallpaper-status') as Promise<WallpaperStatus>,
+  wallpaperPushSnapshot: (snapshot: WallpaperMapSnapshot) =>
+    ipcRenderer.invoke('wallpaper-push-snapshot', snapshot) as Promise<{
+      success: boolean;
+      error?: string;
+    }>,
+  onWallpaperSnapshot: (callback: (snapshot: WallpaperMapSnapshot) => void) => {
+    const listener = (_event: unknown, snapshot: WallpaperMapSnapshot) => {
+      callback(snapshot);
+    };
+    ipcRenderer.on('wallpaper-snapshot', listener);
+    return () => {
+      ipcRenderer.removeListener('wallpaper-snapshot', listener);
+    };
+  },
   onMenuAction: (callback: (action: string, data?: string) => void) => {
     const onNewLayout = () => callback('new-layout');
     const onOpenLayout = () => callback('open-layout');
@@ -32,6 +61,7 @@ export const electronAPI = {
     const onImportData = (_event: unknown, filePath?: string) => callback('import-data', filePath);
     const onExportData = (_event: unknown, filePath?: string) => callback('export-data', filePath);
     const onPrintReport = () => callback('print-report');
+    const onWallpaperToggle = () => callback('wallpaper-toggle');
 
     ipcRenderer.on('menu-new-layout', onNewLayout);
     ipcRenderer.on('menu-open-layout', onOpenLayout);
@@ -39,6 +69,7 @@ export const electronAPI = {
     ipcRenderer.on('menu-import-data', onImportData);
     ipcRenderer.on('menu-export-data', onExportData);
     ipcRenderer.on('menu-print-report', onPrintReport);
+    ipcRenderer.on('menu-wallpaper-toggle', onWallpaperToggle);
 
     return () => {
       ipcRenderer.removeListener('menu-new-layout', onNewLayout);
@@ -47,6 +78,7 @@ export const electronAPI = {
       ipcRenderer.removeListener('menu-import-data', onImportData);
       ipcRenderer.removeListener('menu-export-data', onExportData);
       ipcRenderer.removeListener('menu-print-report', onPrintReport);
+      ipcRenderer.removeListener('menu-wallpaper-toggle', onWallpaperToggle);
     };
   },
 };

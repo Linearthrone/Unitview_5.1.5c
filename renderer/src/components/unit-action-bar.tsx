@@ -15,6 +15,7 @@ import {
   RefreshCw,
   ZoomIn,
   ZoomOut,
+  Monitor,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -44,6 +45,8 @@ interface UnitActionBarProps {
   isSyncingEpic?: boolean;
   zoomControls: GridZoomControls | null;
   onLeaveUnit?: () => void;
+  wallpaperActive?: boolean;
+  onToggleWallpaper?: () => void;
 }
 
 const UnitActionBar: React.FC<UnitActionBarProps> = ({
@@ -61,6 +64,8 @@ const UnitActionBar: React.FC<UnitActionBarProps> = ({
   isSyncingEpic = false,
   zoomControls,
   onLeaveUnit,
+  wallpaperActive = false,
+  onToggleWallpaper,
 }) => {
   const [isExplanationOpen, setIsExplanationOpen] = useState(false);
 
@@ -112,6 +117,21 @@ const UnitActionBar: React.FC<UnitActionBarProps> = ({
               <HelpCircle className="h-4 w-4 mr-1.5" />
               Icons
             </Button>
+            {onToggleWallpaper && (
+              <Button
+                variant={wallpaperActive ? 'default' : 'outline'}
+                size="sm"
+                onClick={onToggleWallpaper}
+                title={
+                  wallpaperActive
+                    ? 'Stop live unit map on Windows desktop background'
+                    : 'Pin live unit map to Windows desktop background'
+                }
+              >
+                <Monitor className="h-4 w-4 mr-1.5" />
+                {wallpaperActive ? 'Unpin desktop map' : 'Pin to desktop'}
+              </Button>
+            )}
 
             {showAdminTools && (
               <>

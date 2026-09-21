@@ -1,16 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import AuthContainer from './components/auth-container';
+import WallpaperMapView from './components/wallpaper-map-view';
 import { initializeDatabase, StoreUnavailableError } from './lib/database-simple';
 import { determineDataSource } from './lib/data-source';
 import { UndoRedoProvider } from './hooks/use-undo-redo';
 import { Toaster } from './components/ui/toaster';
+import { isWallpaperMode } from './lib/wallpaper-snapshot';
 
 function App() {
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(!isWallpaperMode());
   const [error, setError] = useState<string | null>(null);
   const [storeUnavailable, setStoreUnavailable] = useState(false);
 
   useEffect(() => {
+    if (isWallpaperMode()) {
+      setIsLoading(false);
+      return;
+    }
+
     const initializeApp = async () => {
       try {
         const selectedDataSource = determineDataSource();
@@ -31,6 +38,10 @@ function App() {
 
     initializeApp();
   }, []);
+
+  if (isWallpaperMode()) {
+    return <WallpaperMapView />;
+  }
 
   if (isLoading) {
     return (
@@ -55,7 +66,7 @@ function App() {
           </div>
           <h2 className="text-xl font-semibold text-foreground mb-2">Initialization Error</h2>
           <p className="text-muted-foreground mb-4">{error}</p>
-          <button 
+          <button
             onClick={() => window.location.reload()}
             className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
           >
