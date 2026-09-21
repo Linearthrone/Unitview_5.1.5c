@@ -64,8 +64,9 @@ Concept art only — not shipped UI. Files under `docs/agents/unexecuted_proposa
 | 2 | Wall content | Hide **patient identifiers only**; keep clinical quick-reference (including admit/EDD). |
 | 3 | Typeface | **Keep** Arial at 18px. |
 | 4 | Wall idle lock | **No idle lock** for WALLDISPLAY. Nurse workstations still lock. |
-| 5 | Floorplan authoring for B | **Admin-only at facility setup** (nurses do not author). Admin draws the unit layout and places rooms initially. Prefer richer authoring than today’s grid if needed for B’s map aesthetic. Not in PROP-3. |
+| 5 | Floorplan authoring for B | **Admin-only at facility setup** (nurses do not author). Admin draws the unit layout and places rooms initially. **Hallway-enough orientation** — no precise scale, blueprints, or facility drawings. Not in PROP-3. |
 | 6 | Why B later | Kurt likes B’s **map + card** look for marketing and wall-map aesthetics. Ships as optional alternate view after A; label TBD. |
+| 7 | Floorplan fidelity | **Locked:** looks-like-our-hallway is enough. Not-to-scale abstract map. No CAD, DXF, Revit, or imported blueprints. |
 
 ## 5. Avenues Explored
 
@@ -86,7 +87,7 @@ Seats: STRAT, CONTRA, SYS, RISK, USER (+ light pass on floorplan authoring). No 
 | Topic | Resolution |
 | --- | --- |
 | A vs B | **A ships in PROP-3.** B parked as a later optional view mode by facility type/size. |
-| Floorplan authoring | Out of PROP-3. Documented for the follow-on PROP (reuse Create Unit). |
+| Floorplan authoring | Out of PROP-3. Follow-on: admin draw-and-place; hallway-enough; no blueprints. |
 | Themes | Light + clinical-dark only. |
 | Type | Arial 18px. |
 
@@ -102,7 +103,7 @@ Nurse columns + abstract floorplan / map + card style. Kurt wants this for **mar
 
 - **Who:** Facility admin during setup — **not** charge nurses on shift.
 - **What:** Admin **draws the unit layout** and **places rooms** initially. Nurses only use the live board afterward.
-- **Authoring avenues when that PROP opens:** revisit B-auth-1 (render Create Unit grid) vs B-auth-2 (corridor templates / paint) vs a constrained draw-and-place editor. Cloud CAD / third-party uploads stay out. Local underlay (B-auth-4) only if product still needs true footprint after a draw editor.
+- **Authoring avenues when that PROP opens:** Prefer constrained **draw / corridor-paint / templates** that produce an abstract hallway shape, then place rooms — **not to scale**. B-auth-1 (render Create Unit grid) and B-auth-2 (corridor templates / paint) are the primary candidates. **B-auth-4 (blueprint/underlay image) is out** — Kurt locked hallway-enough, no precise scale or blueprints. Cloud CAD stays out.
 
 PROP-3 must not implement B. Document only.
 
@@ -117,7 +118,7 @@ C1 foundation + C2 expression = PROP-3. C3 facility-home polish only if C2 still
 **Locked product decisions** (Kurt, 2026-09-21):
 
 - **Board (PROP-3):** Option A — same map, new look. Keep the cell map, drag-and-drop, context menus, Spectra, both print targets. Do not change stored `gridRow` / `gridColumn` semantics.
-- **Follow-on (not PROP-3):** Option B as optional alternate view by facility type/size for marketing and wall aesthetics; product label TBD. **Admin draws layout + places rooms at setup; nurses do not author.** Floorplan authoring details are a later TT/PM pass (draw editor vs templates vs Create Unit render).
+- **Follow-on (not PROP-3):** Option B as optional alternate view by facility type/size for marketing and wall aesthetics; product label TBD. **Admin draws layout + places rooms at setup; nurses do not author.** Floorplan is **hallway-enough, not-to-scale** — no blueprints. Tool shape (templates vs paint vs enhanced Create Unit) is a later TT/PM pass.
 - **Type:** Arial at 18px. Wall room numbers may be larger.
 - **Wall PHI:** Hide patient identifiers only. Keep clinical quick-reference including admit/EDD. Name-alert *strings* with patient names stay off the wall.
 - **Wall idle lock:** WALLDISPLAY does not idle-lock. Workstations still lock. Clear PHI on explicit logout / switch-user. Print/export off wall role.
@@ -136,7 +137,7 @@ C1 foundation + C2 expression = PROP-3. C3 facility-home polish only if C2 still
 
 - **Option B alternate view** — later PROP; admin draw-and-place at setup; marketing + wall aesthetics; facility type/size opt-in; label TBD.
 - **Consumer-health visual language** — rejected for PROP-3 execution (B wall may be more expressive later without glass/PHI risk).
-- **Cloud CAD floorplan authoring** — out; local admin draw editor is the B path to explore later.
+- **Cloud CAD / blueprint / true-scale floorplan authoring** — out. Hallway-enough abstract map only for B.
 - **Big-bang dialog / shift-maker / wallpaper / print restyle** — after the board, not inside PROP-3.
 
 ## 8. Risks & Kill Criteria
@@ -159,9 +160,11 @@ None blocking PROP-3.
 Deferred to the Option B follow-on PROP:
 
 1. Product label: “classic style” vs “traditional view” (or other).
-2. Admin draw tool: freehand/corridor-paint on a canvas vs enhanced Create Unit grid — enough to get the B map aesthetic without CAD.
+2. Admin draw tool shape among hallway-enough options: enhanced Create Unit grid vs corridor templates / paint (no blueprints).
 3. Floorplan on the live board: glance-only vs drag-on-map for nurses (authoring remains admin-only either way).
 4. Whether wall/marketing B mode can share the same placements as the A command surface for one facility.
+
+**Locked for that follow-on:** abstract hallway orientation is enough; no precise scale or blueprints.
 
 ## 10. Suggested PM Handoff
 
