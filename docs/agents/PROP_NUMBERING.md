@@ -37,8 +37,9 @@ Imported from SoulCore.AI. Stops TT intake IDs from colliding with PM `TASK-###`
 | --- | --- | --- | --- |
 | PROP-1-persistence-honesty | Fail-closed vault writes; docs honesty; no SQLite-now | **merged** — [PR #2](https://github.com/Linearthrone/Unitview_5.1.5c/pull/2) → `master` `11754bf` (2026-09-06) | 1.1–1.7 closed |
 | PROP-2-in-memory-transitions | Kill hard reloads; delete leftover twins; remaining honesty docs | **merged** — [PR #4](https://github.com/Linearthrone/Unitview_5.1.5c/pull/4) → `master` `eddbbf9` (2026-09-21) | 2.1–2.5 closed |
-| PROP-3-clinical-command-surface | Same-map clinical UI redesign; wall privacy + no idle-lock; B later as opt-in view | **sent-to-pm** — intake `PROP-3-TT01-to-PM01.md` | suggested 3.1–3.5 (hold for approval) |
+| PROP-3-clinical-command-surface | Same-map clinical UI redesign; wall privacy + no idle-lock | **sent-to-pm** — intake `PROP-3-TT01-to-PM01.md` | suggested 3.1–3.5 (hold for approval) |
+| PROP-4-progressive-view | Optional Progressive view (corridor templates/paint; glance map) after PROP-3 | **sent-to-pm** — intake `PROP-4-TT01-to-PM01.md` | suggested 4.1–4.7 (hold for approval; sequence after PROP-3) |
 
-Next free `N`: **4**.
+Next free `N`: **5**.
 
 Historical UnitView sprint (closed): see `docs/agents/reports/TASK-20260620-004-PM01-SPRINT-COMPLETE.md`.

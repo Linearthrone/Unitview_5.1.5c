@@ -44,7 +44,7 @@ CONTRA would stop at tokens-only if the acceptance test is a prettier screenshot
 
 ## Open questions still needing LinearThrone / PM
 
-None blocking PROP-3. Progressive view locks: name, corridor templates/paint, glance-only nurses, hallway-enough. Still open: whether A grid placements and Progressive corridor pins are two presentations of one unit (recommended) or fully separate layouts.
+None blocking PROP-3. Progressive view sent as **PROP-4** (corridor templates/paint; glance-only; shared clinical truth / two presentations).
 
 ## Explicit non-goals for PROP-3
 

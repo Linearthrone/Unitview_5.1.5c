@@ -70,7 +70,7 @@ Concept art only — not shipped UI. Files under `docs/agents/unexecuted_proposa
 | 7 | Floorplan fidelity | Hallway-enough; no precise scale or blueprints. |
 | 8 | Product name for B | **Progressive view** (locked). |
 | 9 | Nurse use of Progressive map | **Glance-only.** Once rooms are set up, nurses only need to see the map — no drag on the Progressive map. |
-| 10 | One layout or two? | **Open — see §9.6.** Kurt unsure; TT recommends shared rooms/assignments with two *presentations*, not two clinical units. |
+| 10 | One layout or two? | **Locked for PROP-4 send:** shared clinical truth; two presentations (A grid + Progressive corridor/pins). |
 
 ## 5. Avenues Explored
 
@@ -199,25 +199,13 @@ None blocking PROP-3.
 | Fidelity | Hallway-enough, not-to-scale; no blueprints |
 | Nurses | **Glance-only** map after setup |
 
-### 9.6 Still open — one layout or two?
+### 9.6 Layout relationship — locked for PROP-4
 
-Kurt: unsure whether A and Progressive need two layouts for the same unit; unclear how A organizes rooms.
-
-**How A organizes rooms (today / PROP-3):** one rectangular cell grid. Admin places room cards and staff cards on cells in Create Unit. Nurses assign by dragging room tiles onto nurse cards on that same grid. PROP-3 restyles this; it does not change the placement model.
-
-**TT recommendation:** shared clinical data (rooms + assignments); **A grid placements** for the assignment board; **Progressive corridor + room pins** for the glance map. Two presentations, not two units.
-
-**Need from Kurt:** accept that recommendation, or insist on fully separate layouts?
+**Shared clinical truth; two presentations.** A keeps grid placements for assignment. Progressive stores corridor + room pins for glance/wall. Not two patient lists. See `PROP-4-progressive-view`.
 
 ## 10. Suggested PM Handoff
 
-- `prop_id`: **PROP-3-clinical-command-surface**
-- Intake: `docs/agents/tasks/PROP-3-TT01-to-PM01.md`
-- Suggested splits (hints; TINA may re-divide):
-  - `PROP-3.1` — **FED-01** — One token source; retire `themes.css` overrides + global transition; print white / ~10pt / `.print-hide`; Arial 18px. No vault redesign.
-  - `PROP-3.2` — **FED-01** — Same-grid workstation expression: cards, grouped census, no assigned fade, labeled safety marks. Preserve smoke selectors and drag nodes. No `gridRow`/`gridColumn` semantic change.
-  - `PROP-3.3` — **SEC-01** — WALLDISPLAY: hide identifiers only; keep clinical quick-ref; disable idle lock for wall only; no name leak via print DOM/tooltips.
-  - `PROP-3.4` — **FED-01** — Wall chrome after 3.3.
-  - `PROP-3.5` — **QA-01** — Smoke + contrast/safety-glance; wall identifiers off; wall does not idle-lock.
-- **Do not** ticket Progressive view under PROP-3. Park as a future PROP after A ships.
-- What PM should decide first: accept Avenue A route and ticket 3.1 → 3.2; fan 3.3 when capacity allows.
+- `prop_id`: **PROP-3-clinical-command-surface** (this file)
+- Progressive follow-on sent separately as **PROP-4-progressive-view**
+- Suggested PROP-3 splits unchanged: 3.1–3.5
+- What PM should decide first: accept PROP-3 and ticket 3.1 → 3.2; hold Progressive until A foundation lands.
