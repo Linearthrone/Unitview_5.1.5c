@@ -77,6 +77,7 @@ Concept art only — not shipped UI. Files under `docs/agents/unexecuted_proposa
 | 8 | Product name for B | **Progressive view** (locked). |
 | 9 | Nurse use of Progressive map | **Glance-only.** Once rooms are set up, nurses only need to see the map — no drag on the Progressive map. |
 | 10 | One layout or two? | **Open — see §9.6.** Kurt unsure; TT recommends shared rooms/assignments with two *presentations*, not two clinical units. |
+| 10 | One layout or two? | **Locked for PROP-4 send:** shared clinical truth; two presentations (A grid + Progressive corridor/pins). |
 
 ## 5. Avenues Explored
 
@@ -113,9 +114,8 @@ Nurse columns + abstract floorplan / map + card style. LinearThrone wants this f
 
 ### Avenue B — Progressive view (parked follow-on PROP)
 
-- **Who:** Facility admin during setup — **not** charge nurses on shift.
-- **What:** Admin **draws the unit layout** and **places rooms** initially. Nurses only use the live board afterward.
-- **Authoring avenues when that PROP opens:** Prefer constrained **draw / corridor-paint / templates** that produce an abstract hallway shape, then place rooms — **not to scale**. B-auth-1 (render Create Unit grid) and B-auth-2 (corridor templates / paint) are the primary candidates. **B-auth-4 (blueprint/underlay image) is out** — LinearThrone locked hallway-enough, no precise scale or blueprints. Cloud CAD stays out.
+**Name:** Progressive view.  
+Map + card / nurse columns + abstract hallway. Marketing and wall aesthetics. Optional by facility type/size.
 
 **Authoring (locked):**
 
@@ -228,3 +228,14 @@ Kurt: unsure whether A and Progressive need two layouts for the same unit; uncle
   - `PROP-3.5` — **QA-01** — Smoke + contrast/safety-glance; wall identifiers off; wall does not idle-lock.
 - **Do not** ticket Progressive view under PROP-3. Park as a future PROP after A ships.
 - What PM should decide first: accept Avenue A route and ticket 3.1 → 3.2; fan 3.3 when capacity allows.
+
+### 9.6 Layout relationship — locked for PROP-4
+
+**Shared clinical truth; two presentations.** A keeps grid placements for assignment. Progressive stores corridor + room pins for glance/wall. Not two patient lists. See `PROP-4-progressive-view`.
+
+## 10. Suggested PM Handoff
+
+- `prop_id`: **PROP-3-clinical-command-surface** (this file)
+- Progressive follow-on sent separately as **PROP-4-progressive-view**
+- Suggested PROP-3 splits unchanged: 3.1–3.5
+- What PM should decide first: accept PROP-3 and ticket 3.1 → 3.2; hold Progressive until A foundation lands.
