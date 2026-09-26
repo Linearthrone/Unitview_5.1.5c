@@ -69,12 +69,14 @@ Earlier concepts also in parent `clinical-command-surface/`. Liked north stars: 
 
 | File | Screen |
 | --- | --- |
-| `review-print1-assignment-sheet.png` | Nurse-centric PDF (secondary) |
-| `review-print2-room-roster.png` | Early roster (superseded) |
+| `review-u1-unit-setup-contacts.png` | Unit setup: persistent charge + front desk ★ |
 | `review-print2b-roster-portrait.png` | Locked roster portrait ★ |
 | `review-print2b-roster-landscape.png` | Locked roster landscape ★ |
-| `review-s5-print2-orientation-preview.png` | Orientation toggle preview |
-| `PRINT2-SPEC.md` | Locked print field list |
+| `review-print3-nurse-blocks-landscape.png` | Nurse blocks landscape ★ |
+| `review-print3-blocks-detail.png` | PCT cards / alerts / call-outs detail |
+| `review-s5-print2-orientation-preview.png` | Roster orientation toggle |
+| `review-s6-print-layout-picker.png` | Roster vs nurse-blocks picker |
+| `PRINT2-SPEC.md` / `PRINT-LAYOUTS-SPEC.md` | Locked print specs |
 
 Concept art only — not shipped UI.
 

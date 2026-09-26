@@ -22,6 +22,7 @@ Folder: `clinical-command-surface/review/`
 | S1 | `review-s1-oncoming-command.png` | Oncoming shift setup (command surface) |
 | S3 | `review-s3-activate-oncoming.png` | Activate oncoming confirmation |
 | S4 | `review-s4-print-preview.png` | On-screen print preview chrome |
+| U1 | `review-u1-unit-setup-contacts.png` | Unit setup: persistent charge + front desk |
 
 ## Progressive view (PROP-4)
 
@@ -40,24 +41,25 @@ Folder: `progressive-view/`
 
 ## Printable shift assignments
 
-Folder: `print/`
+Folder: `print/` — `PRINT-LAYOUTS-SPEC.md` + `PRINT2-SPEC.md`
 
 | ID | File | What to judge |
 | --- | --- | --- |
-| PRINT1 | `review-print1-assignment-sheet.png` | Nurse-centric assignment PDF (secondary) |
-| PRINT2 | `review-print2-room-roster.png` | Earlier room roster (superseded by PRINT2b) |
-| PRINT2b ★ | `review-print2b-roster-portrait.png` | Locked roster — portrait |
-| PRINT2b ★ | `review-print2b-roster-landscape.png` | Locked roster — landscape |
-| S5 | `review-s5-print2-orientation-preview.png` | Portrait/Landscape preview toggle |
-| S4 | `review-s4-print-preview.png` | Earlier preview chrome |
-
-Spec: `print/PRINT2-SPEC.md` — unit title big/bold; date + day/night; charge + Spectra; clerk smaller; Nurse/PCT Spectra columns; isolation as Contact/Airborne/Droplet; portrait + landscape.
+| U1 | `review-u1-unit-setup-contacts.png` | Persistent charge + front desk in unit setup |
+| PRINT2b ★ | `review-print2b-roster-portrait.png` | Room roster — portrait |
+| PRINT2b ★ | `review-print2b-roster-landscape.png` | Room roster — landscape |
+| PRINT3 ★ | `review-print3-nurse-blocks-landscape.png` | Nurse blocks + PCT cards + alerts + call-outs |
+| PRINT3 | `review-print3-blocks-detail.png` | Block / PCT / alerts detail |
+| S5 | `review-s5-print2-orientation-preview.png` | Roster orientation toggle |
+| S6 | `review-s6-print-layout-picker.png` | Roster vs nurse-blocks picker |
+| PRINT1 | `review-print1-assignment-sheet.png` | Older nurse-centric (secondary) |
 
 ## Review checklist
 
 - [x] Liked: P1 P3 P5 A1 A2
 - [ ] Oncoming setup (S1 vs S2)
-- [x] Print roster direction: PRINT2b (isolation subtypes, nurse/PCT Spectra, bold unit header, day/night, charge+clerk, portrait+landscape)
+- [x] PRINT2b + unit-setup persistent contacts
+- [x] PRINT3 nurse-blocks landscape (PCT cards, call-outs, DNR/DNI + name alerts)
 - [ ] A board still recognizable as today’s assignment grid
 - [ ] Progressive wall marketing-grade without consumer wellness look
 - [ ] Safety marks readable without hover

@@ -2,16 +2,27 @@
 
 Liked base: room-sorted roster (PRINT2). Refined sheet for PROP-3/4 print work.
 
-## Locked content (LinearThrone, 2026-09-21)
+## Locked content (LinearThrone)
 
-**Header (top of sheet)**
+### Unit setup (create/edit unit) — persistent contacts
+
+Configured once when creating/editing a unit; print on every sheet; **do not change per shift**:
+
+| Field | On sheet |
+| --- | --- |
+| Charge nurse Spectra and/or phone/ext | Header with charge name |
+| Unit clerk / Front desk number | Header, standard or slightly smaller |
+
+Mockup: `review-u1-unit-setup-contacts.png`
+
+### Header (top of sheet)
 
 1. **Unit designation** — large, bold, dominant (e.g. `MED-SURG 4 WEST`)
 2. **Date** + **Day / Night shift** clearly distinguished
-3. **Charge nurse** + their **Spectralink** (standard prominence under title)
-4. **Unit clerk / front desk** number — standard or slightly smaller so the header still fits
+3. **Charge nurse** + Spectra (+ phone/ext from unit setup)
+4. **Unit clerk / Front desk** — from unit setup; standard or slightly smaller
 
-**Table columns**
+### Table columns
 
 | Column | Notes |
 | --- | --- |
@@ -23,7 +34,7 @@ Liked base: room-sorted roster (PRINT2). Refined sheet for PROP-3/4 print work.
 | PCT Spectra | Spectralink for that PCT |
 | Flags | Safety text; **isolation must name type**: Contact / Airborne / Droplet (not generic “Iso”) |
 
-**Orientation**
+### Orientation
 
 - Must support **portrait and landscape**
 - Same fields; landscape uses width for Spectra + PCT columns without crushing flags
@@ -36,4 +47,4 @@ Liked base: room-sorted roster (PRINT2). Refined sheet for PROP-3/4 print work.
 | `review-print2b-roster-landscape.png` | Landscape |
 | `review-s5-print2-orientation-preview.png` | In-app preview with Portrait/Landscape toggle |
 
-Supersedes `review-print2-room-roster.png` as the direction for the room roster PDF (PRINT1 nurse-centric sheet remains optional secondary).
+Supersedes `review-print2-room-roster.png` as the direction for the room roster PDF (PRINT1 nurse-centric sheet remains optional secondary). See also `PRINT-LAYOUTS-SPEC.md` for PRINT3.
