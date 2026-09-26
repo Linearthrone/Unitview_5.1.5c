@@ -1,6 +1,12 @@
 ---
 type: proposal
-status: sent-to-pm
+status: accepted-pm-ticketed
+pm_tickets:
+  - PROP-3.1-PM01-to-FED01.md
+  - PROP-3.2-PM01-to-FED01.md
+  - PROP-3.3-PM01-to-SEC01.md
+  - PROP-3.4-PM01-to-FED01.md
+  - PROP-3.5-PM01-to-QA01.md
 tt_id: TT-01
 prop_id: PROP-3-clinical-command-surface
 created: 2026-09-21
@@ -15,7 +21,7 @@ pm_intake: docs/agents/tasks/PROP-3-TT01-to-PM01.md
 
 ## 1. Need / Want
 
-Kurt wants a full UI redesign. UnitView should look like the future of healthcare: professional, engaging, and pleasing to look at. It should not feel like dated spreadsheet manipulation.
+LinearThrone wants a full UI redesign. UnitView should look like the future of healthcare: professional, engaging, and pleasing to look at. It should not feel like dated spreadsheet manipulation.
 
 ## 2. Goal & Success Criteria
 
@@ -60,12 +66,12 @@ Concept art only — not shipped UI. Files under `docs/agents/unexecuted_proposa
 
 | # | Question | Answer |
 | --- | --- | --- |
-| 1 | Board structure | **Ship Option A now** (same map, new look). Option B later as an optional alternate unit view selectable by facility type/size (product label TBD: e.g. “classic style” / “traditional view”). Kurt, 2026-09-21. |
+| 1 | Board structure | **Ship Option A now** (same map, new look). Option B later as an optional alternate unit view selectable by facility type/size (product label TBD: e.g. “classic style” / “traditional view”). LinearThrone, 2026-09-21. |
 | 2 | Wall content | Hide **patient identifiers only**; keep clinical quick-reference (including admit/EDD). |
 | 3 | Typeface | **Keep** Arial at 18px. |
 | 4 | Wall idle lock | **No idle lock** for WALLDISPLAY. Nurse workstations still lock. |
 | 5 | Floorplan authoring for B | **Admin-only at facility setup** (nurses do not author). Admin draws the unit layout and places rooms initially. **Hallway-enough orientation** — no precise scale, blueprints, or facility drawings. Not in PROP-3. |
-| 6 | Why B later | Kurt likes B’s **map + card** look for marketing and wall-map aesthetics. Ships as optional alternate view after A; label TBD. |
+| 6 | Why B later | LinearThrone likes B’s **map + card** look for marketing and wall-map aesthetics. Ships as optional alternate view after A; label TBD. |
 | 7 | Floorplan fidelity | **Locked:** looks-like-our-hallway is enough. Not-to-scale abstract map. No CAD, DXF, Revit, or imported blueprints. |
 
 ## 5. Avenues Explored
@@ -97,13 +103,13 @@ Tokens + card/header expression + wall privacy/chrome. Same Create Unit grid and
 
 ### Avenue B — Alternate view (parked follow-on PROP)
 
-Nurse columns + abstract floorplan / map + card style. Kurt wants this for **marketing eye-catch** and **wall-map aesthetics**, offered later by facility type/size (label TBD: “classic style” / “traditional view”).
+Nurse columns + abstract floorplan / map + card style. LinearThrone wants this for **marketing eye-catch** and **wall-map aesthetics**, offered later by facility type/size (label TBD: “classic style” / “traditional view”).
 
 **Authoring (locked intent):**
 
 - **Who:** Facility admin during setup — **not** charge nurses on shift.
 - **What:** Admin **draws the unit layout** and **places rooms** initially. Nurses only use the live board afterward.
-- **Authoring avenues when that PROP opens:** Prefer constrained **draw / corridor-paint / templates** that produce an abstract hallway shape, then place rooms — **not to scale**. B-auth-1 (render Create Unit grid) and B-auth-2 (corridor templates / paint) are the primary candidates. **B-auth-4 (blueprint/underlay image) is out** — Kurt locked hallway-enough, no precise scale or blueprints. Cloud CAD stays out.
+- **Authoring avenues when that PROP opens:** Prefer constrained **draw / corridor-paint / templates** that produce an abstract hallway shape, then place rooms — **not to scale**. B-auth-1 (render Create Unit grid) and B-auth-2 (corridor templates / paint) are the primary candidates. **B-auth-4 (blueprint/underlay image) is out** — LinearThrone locked hallway-enough, no precise scale or blueprints. Cloud CAD stays out.
 
 PROP-3 must not implement B. Document only.
 
@@ -115,7 +121,7 @@ C1 foundation + C2 expression = PROP-3. C3 facility-home polish only if C2 still
 
 **Ship Option A as PROP-3.** Calm clinical command surface on the existing room map.
 
-**Locked product decisions** (Kurt, 2026-09-21):
+**Locked product decisions** (LinearThrone, 2026-09-21):
 
 - **Board (PROP-3):** Option A — same map, new look. Keep the cell map, drag-and-drop, context menus, Spectra, both print targets. Do not change stored `gridRow` / `gridColumn` semantics.
 - **Follow-on (not PROP-3):** Option B as optional alternate view by facility type/size for marketing and wall aesthetics; product label TBD. **Admin draws layout + places rooms at setup; nurses do not author.** Floorplan is **hallway-enough, not-to-scale** — no blueprints. Tool shape (templates vs paint vs enhanced Create Unit) is a later TT/PM pass.
