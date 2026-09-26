@@ -1,6 +1,12 @@
 ---
 type: proposal
-status: sent-to-pm
+status: accepted-pm-ticketed
+pm_tickets:
+  - PROP-3.1-PM01-to-FED01.md
+  - PROP-3.2-PM01-to-FED01.md
+  - PROP-3.3-PM01-to-SEC01.md
+  - PROP-3.4-PM01-to-FED01.md
+  - PROP-3.5-PM01-to-QA01.md
 tt_id: TT-01
 prop_id: PROP-3-clinical-command-surface
 created: 2026-09-21
@@ -15,7 +21,7 @@ pm_intake: docs/agents/tasks/PROP-3-TT01-to-PM01.md
 
 ## 1. Need / Want
 
-Kurt wants a full UI redesign. UnitView should look like the future of healthcare: professional, engaging, and pleasing to look at. It should not feel like dated spreadsheet manipulation.
+LinearThrone wants a full UI redesign. UnitView should look like the future of healthcare: professional, engaging, and pleasing to look at. It should not feel like dated spreadsheet manipulation.
 
 ## 2. Goal & Success Criteria
 
@@ -103,7 +109,7 @@ Option A does **not** invent a new room model. It keeps today’s Create Unit + 
 2. Those become live `gridRow` / `gridColumn` on patients and staff.
 3. Charge nurses **drag room tiles onto nurse cards on that same grid** to assign. Empty cells approximate hallway only loosely.
 
-So A is an **assignment instrument**: rooms and staff share one rectangular cell map. PROP-3 only changes how that map *looks*.
+Nurse columns + abstract floorplan / map + card style. LinearThrone wants this for **marketing eye-catch** and **wall-map aesthetics**, offered later by facility type/size (label TBD: “classic style” / “traditional view”).
 
 ### Avenue B — Progressive view (parked follow-on PROP)
 
@@ -148,7 +154,7 @@ C1 foundation + C2 expression = PROP-3. C3 facility-home polish only if C2 still
 
 **Ship Option A as PROP-3.** Calm clinical command surface on the existing room map.
 
-**Locked product decisions** (Kurt, 2026-09-21):
+**Locked product decisions** (LinearThrone, 2026-09-21):
 
 - **Board (PROP-3):** Option A — same map, new look. Keep the cell map, drag-and-drop, context menus, Spectra, both print targets. Do not change stored `gridRow` / `gridColumn` semantics.
 - **Follow-on (not PROP-3):** **Progressive view** — optional by facility type/size; marketing + wall aesthetics. Admin: corridor templates/paint + place rooms. Nurses: glance-only map. Hallway-enough, no blueprints. Layout relationship to A: see §9.6 (recommended shared clinical truth, two presentations).
