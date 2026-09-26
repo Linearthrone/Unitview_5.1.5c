@@ -27,7 +27,9 @@ LinearThrone directed: thinktank first; LinearThrone approves; then TINA evaluat
 
 ## One-paragraph recommended route
 
-Ship **Option A** now: same Create Unit room map and drag-and-drop, new clinical command-surface look (unify tokens, restyle cards/header, labeled safety marks, stop fading assigned rooms, wall hides patient identifiers only and does not idle-lock). Keep Arial 18px. Do **not** replace the board with a floorplan layout in this PROP. **Option B** (map + card / nurse columns + floorplan) is a **later optional view** for marketing and wall aesthetics, selectable by facility type/size — product label TBD. **Facility admin draws the layout and places rooms at setup; nurses do not author.** Floorplan fidelity locked: **hallway-enough, not-to-scale; no blueprints.** Exact admin tool shape remains out of PROP-3.
+Ship **Option A** now: same Create Unit room map and drag-and-drop, new clinical command-surface look (unify tokens, restyle cards/header, labeled safety marks, stop fading assigned rooms, wall hides patient identifiers only and does not idle-lock). Keep Arial 18px. Do **not** replace the board with a floorplan layout in this PROP.
+
+**Progressive view** (later optional view): marketing + wall aesthetics; facility type/size opt-in. Admin uses corridor **templates/paint** and places rooms. Nurses **glance-only** on the map. Hallway-enough, no blueprints. Layout vs A: recommended shared clinical truth with two presentations (A grid for assignment, Progressive corridor+pins for glance) — Kurt still deciding §9.6.
 
 ## Seat dissent
 
@@ -45,11 +47,11 @@ CONTRA would stop at tokens-only if the acceptance test is a prettier screenshot
 
 ## Open questions still needing LinearThrone / PM
 
-None blocking PROP-3. Deferred to the Option B follow-on: view label; admin hallway-draw tool among non-blueprint options; nurse glance vs drag on the map; whether one facility shares A+B placements. **Fidelity locked:** hallway-enough, not-to-scale, no blueprints.
+None blocking PROP-3. Progressive view sent as **PROP-4** (corridor templates/paint; glance-only; shared clinical truth / two presentations).
 
 ## Explicit non-goals for PROP-3
 
-- Option B / floorplan alternate view
+- Progressive view / floorplan alternate view
 - Vault / SQLite rewrite
 - Splitting `unit-view-client.tsx`
 - React or Tailwind major upgrades
