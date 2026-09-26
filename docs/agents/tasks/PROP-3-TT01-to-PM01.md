@@ -5,9 +5,10 @@ prop_full: PROP-3-clinical-command-surface
 from: TT-01
 to: PM-01
 priority: P0
-status: Intake — waiting LinearThrone approval before TINA tickets
+status: accepted-pm-ticketed
 created: 2026-09-21
 sent_at: 2026-09-21
+accepted_at: 2026-09-21
 mode: idea
 title: Clinical command surface — same map, new look
 proposal: docs/agents/unexecuted_proposals/clinical-command-surface.md
@@ -20,7 +21,9 @@ assignee_role: PM-01 (TINA)
 **Proposal:** `docs/agents/unexecuted_proposals/clinical-command-surface.md`  
 **Mockups:** `docs/agents/unexecuted_proposals/mockups/clinical-command-surface/`
 
-LinearThrone directed: thinktank first; **he approves**; then TINA evaluates as PM and executes at her discretion. **Do not issue PROP-3.M until he approves.**
+LinearThrone directed: thinktank first; LinearThrone approves; then TINA evaluates as PM and executes at her discretion.
+
+**Accepted 2026-09-21.** Lock: `PROP-3.0-PM01-LOCK.md`. Execution tickets 3.1–3.5 issued.
 
 ## One-paragraph recommended route
 
@@ -30,9 +33,9 @@ Ship **Option A** now: same Create Unit room map and drag-and-drop, new clinical
 
 ## Seat dissent
 
-CONTRA would stop at tokens-only if the acceptance test is a prettier screenshot; USER and Kurt require card/header expression. Structure stays A (CONTRA/STRAT/SYS). B is deferred, not rejected forever.
+CONTRA would stop at tokens-only if the acceptance test is a prettier screenshot; USER and LinearThrone require card/header expression. Structure stays A (CONTRA/STRAT/SYS). B is deferred, not rejected forever.
 
-## Suggested next tickets (not binding; hold for approval)
+## Splits (TINA)
 
 | Split | Role | One-line |
 | --- | --- | --- |
